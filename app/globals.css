@@ -156,7 +156,6 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    outline: 1px red solid !important;
   }
   body {
     @apply bg-background text-foreground;
