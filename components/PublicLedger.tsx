@@ -441,12 +441,12 @@ export default function PublicLedger({
   return (
     <section
       id="ledger-section"
-      className="py-12 sm:py-16 bg-muted/30 border-y border-border/60"
+      className="py-8 sm:py-12 bg-muted/30 border-y border-border/60"
     >
       <div className="max-w-5xl mx-auto px-4 sm:px-6">
         {/* Nagłówek sekcji */}
-        <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-10">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest bg-amber-500/15 text-amber-900 dark:text-amber-200 border border-amber-500/30 mb-3">
+        <div className="text-center max-w-2xl mx-auto mb-6 sm:mb-8">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest bg-amber-500/15 text-amber-900 dark:text-amber-200 border border-amber-500/30 mb-2.5">
             <span>📜</span>
             <span>{tLedger.eyebrow}</span>
           </div>
@@ -458,7 +458,7 @@ export default function PublicLedger({
           </p>
 
           {/* Badge Transparentności AI + Przycisk Własnego Testu dla Jury */}
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          <div className="mt-3 sm:mt-4 flex flex-wrap items-center justify-center gap-2">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-xs font-semibold">
               <ShieldCheck className="size-4" />
               <span>
@@ -524,7 +524,7 @@ export default function PublicLedger({
                         : "hover:bg-muted/40"
                     }`}
                   >
-                    <td className="py-4 px-5 font-bold text-foreground">
+                    <td className="py-3.5 px-5 font-bold text-foreground">
                       <div className="flex items-center gap-2">
                         {isLive && (
                           <span className="size-2 rounded-full bg-emerald-500 animate-ping" />
@@ -532,18 +532,18 @@ export default function PublicLedger({
                         <span>{patron}</span>
                       </div>
                     </td>
-                    <td className="py-4 px-5 text-muted-foreground">
+                    <td className="py-3.5 px-5 text-muted-foreground">
                       {purpose}
                     </td>
-                    <td className="py-4 px-5 font-black text-emerald-800 dark:text-emerald-300">
+                    <td className="py-3.5 px-5 font-black text-emerald-800 dark:text-emerald-300">
                       {amount}
                     </td>
-                    <td className="py-4 px-5">
+                    <td className="py-3.5 px-5">
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-700/10 text-emerald-800 dark:text-emerald-300 border border-emerald-700/25">
                         {tLedger.verified}
                       </span>
                     </td>
-                    <td className="py-4 px-5 text-right">
+                    <td className="py-3.5 px-5 text-right">
                       <div className="inline-flex items-center gap-2">
                         {/* Przycisk Audytu Faktury AI */}
                         <button
@@ -599,7 +599,7 @@ export default function PublicLedger({
         </div>
 
         {/* Karty Mobile */}
-        <div className="sm:hidden space-y-3">
+        <div className="sm:hidden space-y-2.5">
           {allEntries.map((entry, idx) => {
             const [patron, purpose, amount, certId] = entry;
             const isLive = idx < extraEntries.length;
@@ -607,7 +607,7 @@ export default function PublicLedger({
             return (
               <div
                 key={`${certId}-${idx}`}
-                className={`p-4 rounded-2xl border border-border shadow-sm space-y-2.5 ${
+                className={`p-3.5 sm:p-4 rounded-2xl border border-border shadow-sm space-y-2 ${
                   isLive ? "bg-emerald-500/10 border-emerald-500/40" : "bg-card"
                 }`}
               >

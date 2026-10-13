@@ -194,7 +194,7 @@ export default function Page() {
       <main className="min-h-screen bg-slate-50 text-neutral-900 transition-colors duration-200 dark:bg-neutral-950 dark:text-neutral-100">
         {/* HEADER / NAWIGACJA */}
         <header className="sticky top-0 z-30 border-b border-neutral-200 bg-slate-50/95 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/95">
-          <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3.5 sm:py-4">
             <a href="#top" className="flex items-center gap-3 font-semibold">
               <span className="grid size-9 place-items-center rounded-xl bg-lime-400 text-neutral-950 shadow-sm">
                 <WalletCards className="size-5" />
@@ -260,45 +260,45 @@ export default function Page() {
           </div>
         </header>
 
-        {/* HERO SECTION + STATYSTYKI Z DYNAMICZNYM LICZNIKIEM */}
+        {/* HERO SECTION + STATYSTYKI ZE ZBALANSOWANYM RYTMEM PIONOWYM */}
         <section
           id="top"
-          className="mx-auto grid max-w-7xl gap-12 px-5 py-20 lg:grid-cols-2 lg:py-28"
+          className="mx-auto grid max-w-7xl gap-8 px-5 py-10 sm:py-14 lg:grid-cols-2 lg:gap-12 lg:py-16"
         >
           <div>
-            <p className="mb-4 text-xs font-bold uppercase tracking-widest text-lime-600 dark:text-lime-400">
+            <p className="mb-3 text-xs font-bold uppercase tracking-widest text-lime-600 dark:text-lime-400">
               {t.hero.eyebrow}
             </p>
-            <h1 className="text-4xl font-extrabold tracking-tight text-neutral-900 sm:text-5xl lg:text-6xl dark:text-white leading-tight">
+            <h1 className="text-3xl font-extrabold tracking-tight text-neutral-900 sm:text-5xl lg:text-6xl dark:text-white leading-tight">
               {t.hero.title}
             </h1>
-            <p className="mt-6 max-w-xl text-base sm:text-lg leading-relaxed text-neutral-700 dark:text-neutral-300">
+            <p className="mt-4 sm:mt-6 max-w-xl text-base sm:text-lg leading-relaxed text-neutral-700 dark:text-neutral-300">
               {t.hero.body}
             </p>
             <button
               type="button"
               onClick={scrollToCheckout}
-              className="mt-8 inline-flex items-center gap-2 rounded-full bg-lime-400 px-6 py-3.5 text-sm font-bold text-neutral-950 shadow-md transition-transform hover:scale-105 hover:bg-lime-300 cursor-pointer"
+              className="mt-6 sm:mt-8 inline-flex items-center gap-2 rounded-full bg-lime-400 px-6 py-3.5 text-sm font-bold text-neutral-950 shadow-md transition-transform hover:scale-105 hover:bg-lime-300 cursor-pointer"
             >
               <span>{t.hero.primary}</span>
               <ArrowRight className="size-4" />
             </button>
           </div>
 
-          <div className="rounded-3xl border border-neutral-300 bg-white p-7 sm:p-9 text-neutral-900 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/90 dark:text-white">
+          <div className="rounded-3xl border border-neutral-300 bg-white p-6 sm:p-8 text-neutral-900 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/90 dark:text-white">
             <p className="text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
               {t.stats.raised}
             </p>
-            <p className="mt-3 text-4xl sm:text-5xl font-black tracking-tight text-neutral-900 dark:text-white transition-all">
+            <p className="mt-2.5 sm:mt-3 text-4xl sm:text-5xl font-black tracking-tight text-neutral-900 dark:text-white transition-all">
               {currentTotalAmount}{" "}
               <span className="text-lg font-medium text-neutral-600 dark:text-neutral-400">
                 {t.stats.currency}
               </span>
             </p>
-            <div className="mt-8 h-2.5 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
+            <div className="mt-6 h-2.5 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
               <div className="h-full w-3/4 rounded-full bg-lime-400" />
             </div>
-            <p className="mt-4 text-xs font-bold text-neutral-700 dark:text-neutral-300">
+            <p className="mt-3 text-xs font-bold text-neutral-700 dark:text-neutral-300">
               {t.stats.verified}: {currentTotalCount}
             </p>
           </div>
@@ -315,10 +315,10 @@ export default function Page() {
         {isCheckoutVisible && (
           <section
             id="checkout-section"
-            className="py-14 sm:py-20 bg-emerald-500/5 dark:bg-emerald-950/15 border-y border-emerald-500/20 animate-in fade-in slide-in-from-bottom-6 duration-300"
+            className="py-10 sm:py-14 bg-emerald-500/5 dark:bg-emerald-950/15 border-y border-emerald-500/20 animate-in fade-in slide-in-from-bottom-6 duration-300"
           >
             <div className="max-w-4xl mx-auto px-4 sm:px-6">
-              <div className="relative text-center max-w-xl mx-auto mb-8">
+              <div className="relative text-center max-w-xl mx-auto mb-6 sm:mb-8">
                 <button
                   type="button"
                   onClick={() => setIsCheckoutVisible(false)}
@@ -371,21 +371,21 @@ export default function Page() {
           extraEntries={liveEntries}
         />
 
-        {/* 4. KARTY WPŁYWU (IMPACT CARDS) */}
-        <section className="mx-auto max-w-7xl px-5 py-20">
+        {/* 4. KARTY WPŁYWU (IMPACT CARDS) ZE ZMNIEJSZONĄ PUSTKĄ */}
+        <section className="mx-auto max-w-7xl px-5 py-10 sm:py-14">
           <div className="grid gap-6 md:grid-cols-3">
             {t.impact.cards.map((card, i) => (
               <article
                 key={card.title}
-                className="rounded-3xl border border-neutral-300 bg-white p-7 sm:p-8 text-neutral-900 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-white"
+                className="rounded-3xl border border-neutral-300 bg-white p-6 sm:p-8 text-neutral-900 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-white"
               >
                 <span className="text-xs font-black text-lime-600 dark:text-lime-400 uppercase tracking-widest">
                   0{i + 1}
                 </span>
-                <h3 className="mt-6 text-xl font-bold tracking-tight">
+                <h3 className="mt-4 sm:mt-6 text-xl font-bold tracking-tight">
                   {card.title}
                 </h3>
-                <p className="mt-3 text-xs sm:text-sm leading-relaxed text-neutral-700 dark:text-neutral-300">
+                <p className="mt-2.5 sm:mt-3 text-xs sm:text-sm leading-relaxed text-neutral-700 dark:text-neutral-300">
                   {card.body}
                 </p>
               </article>
@@ -393,9 +393,9 @@ export default function Page() {
           </div>
         </section>
 
-        {/* FOOTER - ZWIĘKSZONY KONTRAST DLA WCAG AA */}
+        {/* FOOTER - ZWIĘKSZONY KONTRAST DLA WCAG AA ORAZ ZWARTY PADDING */}
         <footer className="border-t border-neutral-300 dark:border-neutral-800 bg-slate-100 dark:bg-neutral-950">
-          <div className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-12 text-sm text-neutral-700 dark:text-neutral-300 sm:flex-row sm:items-end sm:justify-between">
+          <div className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-8 sm:py-10 text-sm text-neutral-700 dark:text-neutral-300 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <div className="font-bold text-base text-neutral-900 dark:text-white">
                 Patron
@@ -404,7 +404,7 @@ export default function Page() {
               <p className="mt-2 max-w-sm text-xs sm:text-sm leading-relaxed text-neutral-700 dark:text-neutral-300">
                 {t.footer.description}
               </p>
-              <p className="mt-5 text-xs text-neutral-700 dark:text-neutral-300 font-medium">
+              <p className="mt-4 text-xs text-neutral-700 dark:text-neutral-300 font-medium">
                 {t.footer.rights}
               </p>
             </div>

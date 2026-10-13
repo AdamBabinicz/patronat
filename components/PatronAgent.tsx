@@ -448,11 +448,11 @@ export default function PatronAgent({
   };
 
   return (
-    <section id="agent-section" className="relative py-12 sm:py-16">
+    <section id="agent-section" className="relative py-7 sm:py-11">
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
         {/* Nagłówek sekcji */}
-        <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-10">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest bg-emerald-700/10 text-emerald-800 dark:text-emerald-300 border border-emerald-700/30 mb-3">
+        <div className="text-center max-w-2xl mx-auto mb-5 sm:mb-7">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest bg-emerald-700/10 text-emerald-800 dark:text-emerald-300 border border-emerald-700/30 mb-2.5">
             <span>⚡</span>
             <span>{tAgent.eyebrow}</span>
           </div>
@@ -465,7 +465,7 @@ export default function PatronAgent({
         </div>
 
         {/* Karta zapytania agenta */}
-        <div className="rounded-3xl border border-border bg-card p-5 sm:p-8 shadow-xl transition-all">
+        <div className="rounded-3xl border border-border bg-card p-4 sm:p-6 shadow-xl transition-all">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -487,7 +487,7 @@ export default function PatronAgent({
                       ? "Wpisz intencję, budżet lub wklej link do strony firmy (np. drukarnia-virgo.pl)..."
                       : "Enter intention, budget or paste company URL (e.g. print-studio.com)..."
                 }
-                className={`w-full px-4 py-3 pr-12 text-sm sm:text-base rounded-2xl border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-700 transition-all ${
+                className={`w-full px-4 py-2.5 sm:py-3 pr-12 text-sm sm:text-base rounded-2xl border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-700 transition-all ${
                   isListening
                     ? "border-red-500 ring-2 ring-red-500/30"
                     : "border-border"
@@ -514,7 +514,7 @@ export default function PatronAgent({
             <button
               type="submit"
               disabled={isAnalyzing || !query.trim()}
-              className="px-6 py-3 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm sm:text-base transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md flex items-center justify-center gap-2 cursor-pointer"
+              className="px-6 py-2.5 sm:py-3 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm sm:text-base transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md flex items-center justify-center gap-2 cursor-pointer"
             >
               {isAnalyzing ? (
                 <>
@@ -531,8 +531,8 @@ export default function PatronAgent({
           </form>
 
           {/* Sugerowane przykłady intencji + link firmowy */}
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+          <div className="mt-3.5 sm:mt-4 flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mr-1">
               {language === "pl" ? "Przykłady:" : "Examples:"}
             </span>
             {tAgent.examples.map((example, idx) => (
@@ -540,7 +540,7 @@ export default function PatronAgent({
                 key={idx}
                 type="button"
                 onClick={() => handleExampleClick(example)}
-                className="px-3 py-1 rounded-xl text-xs font-medium border border-border/80 bg-background hover:bg-accent hover:text-foreground text-muted-foreground transition-colors cursor-pointer"
+                className="px-2.5 sm:px-3 py-1 rounded-xl text-xs font-medium border border-border/80 bg-background hover:bg-accent hover:text-foreground text-muted-foreground transition-colors cursor-pointer"
               >
                 {example}
               </button>
@@ -555,7 +555,7 @@ export default function PatronAgent({
                     : "https://virgo-print.com",
                 )
               }
-              className="px-3 py-1 rounded-xl text-xs font-bold border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 transition-colors cursor-pointer"
+              className="px-2.5 sm:px-3 py-1 rounded-xl text-xs font-bold border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 transition-colors cursor-pointer"
             >
               🌐{" "}
               {language === "pl"
@@ -566,7 +566,7 @@ export default function PatronAgent({
 
           {/* Status analizy w toku */}
           {isAnalyzing && (
-            <div className="mt-6 p-4 rounded-2xl bg-muted/60 border border-border text-center space-y-1 animate-pulse">
+            <div className="mt-5 p-3.5 sm:p-4 rounded-2xl bg-muted/60 border border-border text-center space-y-1 animate-pulse">
               <div className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
                 {tAi.matchingGoal}
               </div>
@@ -578,8 +578,8 @@ export default function PatronAgent({
 
           {/* Wynik dopasowania alokacji */}
           {matchedGoal && !isAnalyzing && (
-            <div className="mt-6 rounded-2xl border-2 border-amber-500/40 bg-gradient-to-b from-amber-500/5 via-card to-card p-5 sm:p-6 shadow-md transition-all">
-              <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-border/70">
+            <div className="mt-5 rounded-2xl border-2 border-amber-500/40 bg-gradient-to-b from-amber-500/5 via-card to-card p-4 sm:p-6 shadow-md transition-all">
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-3.5 border-b border-border/70">
                 <div className="flex items-center gap-2">
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-500/40">
                     <span>✓</span>
@@ -624,7 +624,7 @@ export default function PatronAgent({
                 </div>
               </div>
 
-              <div className="mt-4 space-y-3">
+              <div className="mt-3.5 space-y-3">
                 <div className="text-xs uppercase font-bold tracking-wider text-muted-foreground">
                   {tAgent.matched}
                 </div>
@@ -637,7 +637,7 @@ export default function PatronAgent({
 
                 {/* MODUŁ AI BARTER VALUATOR: Wycena i świadczenia rzeczowe */}
                 {matchedGoal.sponsorshipType === "in_kind" && (
-                  <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/25 space-y-3">
+                  <div className="p-3.5 sm:p-4 rounded-2xl bg-purple-500/10 border border-purple-500/25 space-y-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <Handshake className="size-4 text-purple-600 dark:text-purple-400" />
@@ -716,7 +716,7 @@ export default function PatronAgent({
 
                 {/* AI Impact Forecaster - Prognoza Wpływu Społecznego */}
                 {matchedGoal.impactForecast && (
-                  <div className="p-3.5 rounded-2xl bg-emerald-500/10 dark:bg-emerald-950/20 border border-emerald-500/30 space-y-2">
+                  <div className="p-3 sm:p-3.5 rounded-2xl bg-emerald-500/10 dark:bg-emerald-950/20 border border-emerald-500/30 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
                         <span>🌱</span>
@@ -768,7 +768,7 @@ export default function PatronAgent({
 
                 {/* Sekcja wyboru waluty i kwoty mecenatu */}
                 <div className="pt-3 border-t border-border/60">
-                  <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-[11px] text-muted-foreground uppercase font-bold tracking-wider">
@@ -828,7 +828,7 @@ export default function PatronAgent({
                     <button
                       type="button"
                       onClick={handleCommitAllocation}
-                      className="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 font-black text-xs sm:text-sm transition-all shadow-md flex items-center gap-2 cursor-pointer"
+                      className="px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 font-black text-xs sm:text-sm transition-all shadow-md flex items-center gap-2 cursor-pointer"
                     >
                       <span>⚡</span>
                       <span>

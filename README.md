@@ -18,7 +18,7 @@
 | 🌐 **Live Application**         | `https://patronat.vercel.app/`                                                         |
 | 💻 **Source Code Repository**   | `https://github.com/AdamBabinicz/patronat`                                             |
 | 🎥 **Video Demo & Pitch**       | `https://youtu.be/dQw4w9WgXcQ`                                                         |
-| 🏆 **Real-World Pilot Partner** | **UKS Roszada Radom** — Youth Chess Club, Poland ([pilot profile](https://roszada.pl)) |
+| 🏆 **Target Pilot Partner** | **UKS Roszada Radom** — Youth Chess Club, Poland — prospective pilot partner / target community use case (80+ players); production deployment planned after the hackathon ([club profile](https://roszada.pl)) |
 
 ---
 
@@ -32,7 +32,7 @@
 6. [Project Architecture](#-project-architecture-clean-architecture)
 7. [Getting Started Locally](#-getting-started-locally)
 8. [Judge Walkthrough — Test in 3 Minutes](#-judge-walkthrough--test-in-3-minutes)
-9. [Real-World Traction & Pilot Impact](#-real-world-traction--pilot-impact)
+9. [Pilot Framework, Simulation Data & Target Club Partnership](#-pilot-framework-simulation-data--target-club-partnership)
 10. [What Makes PatronAI Hack-Worthy](#-what-makes-patronai-hack-worthy--60-second-executive-summary)
 11. [License & Team](#-license--team)
 
@@ -71,9 +71,9 @@ flowchart LR
 
 ## 🚀 The Solution: PatronAI
 
-**PatronAI** is an autonomous agentic platform connecting patrons and businesses with verified youth sports needs. Powered by **Google Gemini multimodal intelligence** and agentic commerce workflows, PatronAI converts patron intentions into **audited, hash-verified allocations** — with instant corporate deliverables (LinkedIn posts, ESG statements, certificates, and personalized voice thank-you notes) generated the moment a contribution is made.
+**PatronAI** is an autonomous agentic platform connecting patrons and businesses with youth sports needs — represented in this prototype by an **illustrative demo catalog** (`lib/needsCatalog.ts`). Powered by **Google Gemini multimodal intelligence** and agentic commerce workflows, PatronAI converts patron intentions into **audited, hash-verified allocations** (demonstrated on mock data) — with instant corporate deliverables (LinkedIn posts, ESG statements, certificates, and personalized voice thank-you notes) generated the moment a contribution is made.
 
-The platform is **production-validated**: it already powers the real sponsorship program of **UKS Roszada Radom**, a Polish youth chess club with 80+ active players, which has raised **19,945+ PLN** through **130+ verified, audited allocations**.
+The platform is a **Competition Pilot & Prototype**: **Real Funds Collected: 0.00 PLN** — no sponsorship revenue exists, and no production PayPal account is connected. The public ledger presents a **100% Hypothetical Demonstration Dataset of 19,945 PLN across 130+ mock allocations**: a modeled scenario based on illustrative club needs, created solely to demonstrate how the architecture works end-to-end. No real invoices, budgets, or club expenditures exist behind these numbers.
 
 ### End-to-End Patronage Flow
 
@@ -157,7 +157,7 @@ PatronAgent is the agentic front door of the platform: it turns a raw intention 
 
 - **Multimodal Input:** Accepts natural language descriptions, **voice input via the Web Speech API** (`pl-PL` / `en-US`), or a plain company URL (e.g. `drukarnia-virgo.pl`, `facebook.com`).
 - **Automated URL Parsing & Domain Categorization:** The `app/api/agent/match/route.ts` Gemini-backed endpoint scrapes and classifies the business domain, determining whether the patronage is financial or in-kind — no forms, no onboarding friction.
-- **Needs-Catalog Matching:** Domain logic is decoupled into `lib/needsCatalog.ts` — a strictly typed catalog of the club's real needs (equipment, transport, tournaments, coaching) that the agent matches intentions against.
+- **Needs-Catalog Matching:** Domain logic is decoupled into `lib/needsCatalog.ts` — a strictly typed catalog of **illustrative club needs** (equipment, transport, tournaments, coaching): hypothetical demo scenarios the agent matches intentions against in this prototype.
 - **Social ROI Predictor:** Forecasts measurable societal impact per allocation: beneficiary count, training hours funded, competition access percentage.
 - **Adaptive Multi-Currency Engine:** Instant live switching with localized presets across **PLN**, **EUR**, and **USD** — sponsors see amounts in their own currency without page reloads.
 
@@ -166,7 +166,7 @@ PatronAgent is the agentic front door of the platform: it turns a raw intention 
 The flagship answer to the black-box donation problem, integrated directly in `components/PublicLedger.tsx`.
 
 - **Gemini Multimodal Vision OCR:** Reads scanned VAT invoices and receipts, extracting the **Merchant Tax ID (NIP)**, invoice line items, and net/gross totals into structured JSON.
-- **Semantic Purpose Verification:** Cross-checks what was actually purchased (e.g. _DGT electronic tournament clocks_, _championship bus transit_, _engraved trophies_) against the patron's original allocation goal — statutory spending mismatches are **flagged, not silently approved**.
+- **Semantic Purpose Verification:** Cross-checks what was purchased (e.g. _DGT electronic tournament clocks_, _championship bus transit_, _engraved trophies_ — **hypothetical test scenarios** with sample demo invoices) against the patron's original allocation goal — mismatches are **flagged, not silently approved**.
 - **🖼️ Live Upload / Camera Test Runner:** Built for hackathon judges — drag-and-drop (or camera-capture) your own receipt and watch instant AI OCR verification happen live in the Public Ledger.
 - **Tamper-Evident Cryptographic Ledger:** Every verified allocation is sealed with a **SHA-256 integrity hash**, making the public ledger tamper-evident down to individual line items.
 
@@ -203,6 +203,7 @@ The emotional payload of every sponsorship: donors don't just see a receipt — 
 
 - **PayPal JavaScript SDK:** Supports card and digital wallet payments through the PayPal Commerce Platform.
 - **Developer Simulation Mode:** A built-in simulation flow (`NEXT_PUBLIC_PAYPAL_CLIENT_ID=test`) lets judges trigger instant checkouts and explore post-payment deliverables without live credentials.
+- **Sandbox-Only Status:** The gateway runs exclusively in **simulation / sandbox mode — no production UKS Roszada account connected**. No real transactions have been (or can be) processed at this stage of the project.
 
 ---
 
@@ -316,7 +317,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser to experienc
 
 ### ⏱️ Minute 2 — Checkout + Instant Deliverables
 
-1. Proceed to checkout with the PayPal SDK (**simulation mode** — no real charge) or toggle 🎁 **In-Kind / Barter**.
+1. Proceed to checkout with the PayPal SDK (**simulation / sandbox mode** — no real charge, no production account connected) or toggle 🎁 **In-Kind / Barter**.
 2. In barter mode, watch the **AI Barter Valuator** assign a Gold/Silver/Bronze tier from the market valuation (AVE) and download the print-ready **`.txt` Barter Partnership Agreement**.
 3. After "payment," open the delivered **AI PR Kit**: the one-click LinkedIn announcement and the UN SDG 3/4-aligned ESG statement.
 4. Play the **AI Dynamic Impact Voice** note — a personalized spoken thank-you from the junior players, with the live equalizer waveform and bilingual transcript.
@@ -330,18 +331,24 @@ Open [http://localhost:3000](http://localhost:3000) in your browser to experienc
 
 ---
 
-## 📊 Real-World Traction & Pilot Impact
+## 📊 Pilot Framework, Simulation Data & Target Club Partnership
 
-PatronAI is not a slide deck — it runs the live sponsorship program of its flagship pilot partner, **UKS Roszada Radom** (youth chess club, Poland).
+PatronAI is a **competition prototype / pilot** prepared for the PayPal AI Hackathon — for full transparency with the jury, here is exactly what is real today and what is simulated:
 
-| Metric                               | Result                                   |
-| ------------------------------------ | ---------------------------------------- |
-| 💰 **Total Raised**                  | **19,945+ PLN**                          |
-| ✅ **Verified, Audited Allocations** | **130+**                                 |
-| ♟️ **Youth Beneficiaries**           | **80+ active players**                   |
-| 🎯 **Statutory Fulfillment**         | **100%** direct-to-need allocation ratio |
+**1. 🏁 Competition status — Real Funds Collected: 0.00 PLN.** This is a competition demonstration prototype: no real funds have been raised, and the club's production PayPal account (UKS Roszada Radom) is **not connected** — all checkout flows run in PayPal developer **simulation / sandbox mode, no production UKS Roszada account**.
 
-**What this proves:** the agentic workflow — matching → payment → audit → certificate — holds up outside the lab, with real businesses, real invoices, real barter agreements, and a real club community.
+**2. 📈 100% Hypothetical Demonstration Dataset — 19,945 PLN and 130+ allocations.** Every figure in the public ledger (amounts, invoices, receipts) is **mock demo data**: a modeled scenario based on illustrative club needs, created solely to demonstrate the matching → payment → audit → certificate pipeline end-to-end. **No real invoices, budgets, or club expenditures exist behind these numbers.**
+
+**3. 🤝 Target pilot club — UKS Roszada Radom (80+ children).** A real local club designated as the **prospective pilot partner / target community use case** for production deployment after the hackathon; the current implementation is a prototype powered entirely by sample demo data.
+
+| Metric (demonstration prototype) | Value                                                                                                |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| 💰 **Real Funds Collected**      | **0.00 PLN** — competition prototype demo; the ledger's 19,945+ PLN is mock data                      |
+| ✅ **Audited Allocations**       | **130+ synthetic mock entries** — hypothetical test scenarios for the Gemini OCR audit                |
+| 🧾 **Needs & Invoices**          | **100% hypothetical test scenarios** (chess clocks, entry fees, transport) used to exercise the Gemini OCR audit |
+| ♟️ **UKS Roszada Radom**         | **Target pilot club (80+ players)** — prospective pilot partner / target community use case; production deployment planned after the hackathon |
+
+**What this demonstrates:** the agentic workflow — matching → payment → audit → certificate — is a modeled scenario based on illustrative club needs, ready to be connected to a real club (UKS Roszada Radom) after the competition.
 
 ---
 
@@ -352,7 +359,7 @@ PatronAI is not a slide deck — it runs the live sponsorship program of its fla
 - **📣 Instant corporate deliverables.** One-click LinkedIn posts + UN SDG-aligned ESG statements the same minute the patron checks out — closing the CSR feedback loop that normally takes a quarter.
 - **🎙️ Emotional impact, engineered.** A personalized spoken thank-you from the athletes themselves, with a live equalizer waveform — sponsors don't just read a receipt, they _feel_ the impact.
 - **🔐 Tamper-evident, not just "transparent."** Every ledger entry carries a SHA-256 hash and a standalone `/certyfikat/[id]` verification page with dynamic QR + PDF export — sponsors audit individual line items, not trust an aggregate dashboard.
-- **🧪 Production-validated, not a demo.** 19,945+ PLN raised, 130+ audited allocations, 80+ active youth beneficiaries at a real club (UKS Roszada Radom) — proving the agentic workflow works in the wild.
+- **🧪 Transparent competition pilot, not inflated traction.** Real funds collected: **0.00 PLN** (PayPal runs in sandbox / developer simulation mode, no production UKS Roszada account); the ledger's 19,945 PLN and 130+ allocations are a **100% Hypothetical Demonstration Dataset** — mock invoices built on illustrative club needs to showcase the architecture — with UKS Roszada Radom (80+ active youth players) named as the **prospective pilot partner / target community use case** for deployment after the hackathon.
 - **🏛️ Clean Architecture that judges can read.** Domain logic decoupled into `lib/needsCatalog.ts`, one streamlined Gemini orchestration route, and strict type-safe i18n — a codebase built to scale past the hackathon.
 
 ---
@@ -367,4 +374,4 @@ This project is licensed under the [MIT License](https://opensource.org/licenses
 | ----------------------------------------- | ------------------------------------------------------------- |
 | **Lead Architect & Full-Stack Developer** | **Adam Gierczak** ([GitHub](https://github.com/AdamBabinicz)) |
 
-> Built for the **PayPal AI Hackathon** — with gratitude to the players, parents, and coaches of **UKS Roszada Radom** for piloting PatronAI in the real world. ♟️
+> Built for the **PayPal AI Hackathon** — with gratitude to **UKS Roszada Radom** (players, parents, and coaches), our prospective pilot partner / target community use case, whose deployment is planned after the competition. ♟️
