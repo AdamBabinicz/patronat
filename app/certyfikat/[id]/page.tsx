@@ -124,6 +124,132 @@ export default function CertificateVerificationPage() {
     certPageUrl,
   )}&format=png`;
 
+  // Dynamiczny generator danych faktury dopasowany ściśle do kwoty i celu certyfikatu
+  const generateAuditInvoiceData = () => {
+    const cleanCert = certIdParam.replace(/[^a-zA-Z0-9-]/g, "");
+    const hash = `0x7f8a${cleanCert.toLowerCase().replace(/[^a-z0-9]/g, "")}94e2b1c8`;
+    const lowerGoal = (goalTitle || "").toLowerCase();
+
+    // 1. Puchary i trofea
+    if (
+      lowerGoal.includes("puchar") ||
+      lowerGoal.includes("medal") ||
+      lowerGoal.includes("troph")
+    ) {
+      return {
+        invoiceNumber: `FV/${new Date().getFullYear()}/RO-084`,
+        seller: "Puchary & Trofea Sportowe Radom Sp. z o.o.",
+        sellerNip: "PL 796-284-19-40",
+        issueDate: "10.10.2026",
+        items: [
+          {
+            name:
+              language === "pl"
+                ? "Komplet pucharów grawerowanych UKS (12 szt.)"
+                : "Engraved trophies set for UKS (12 pcs)",
+            qty: "1 kpl",
+            gross: "260.00 PLN",
+          },
+          {
+            name:
+              language === "pl"
+                ? "Medale okolicznościowe tłoczone ze wstążką (40 szt.)"
+                : "Cast championship medals with ribbon (40 pcs)",
+            qty: "40 szt",
+            gross: "140.00 PLN",
+          },
+        ],
+        totalGross: amountFormatted,
+        auditHash: hash,
+      };
+    }
+
+    // 2. Zegary szachowe DGT
+    if (
+      lowerGoal.includes("zegar") ||
+      lowerGoal.includes("clock") ||
+      lowerGoal.includes("elektroniczn")
+    ) {
+      return {
+        invoiceNumber: `FV/${new Date().getFullYear()}/DGT-412`,
+        seller: "DGT Games Polska Dystrybucja Sprzętu Turniejowego",
+        sellerNip: "PL 525-102-44-88",
+        issueDate: "08.10.2026",
+        items: [
+          {
+            name:
+              language === "pl"
+                ? "Elektroniczny zegar szachowy DGT 2010 FIDE Official"
+                : "DGT 2010 Official FIDE Chess Clock",
+            qty: "2 szt",
+            gross: "520.00 PLN",
+          },
+          {
+            name:
+              language === "pl"
+                ? "Baterie alkaliczne Varta Industrial AA (zestaw)"
+                : "Varta Industrial AA battery pack",
+            qty: "1 kpl",
+            gross: "80.00 PLN",
+          },
+        ],
+        totalGross: amountFormatted,
+        auditHash: hash,
+      };
+    }
+
+    // 3. Transport / Wyjazdy
+    if (
+      lowerGoal.includes("wyjazd") ||
+      lowerGoal.includes("mistrzostw") ||
+      lowerGoal.includes("transport") ||
+      lowerGoal.includes("bus")
+    ) {
+      return {
+        invoiceNumber: `FV/${new Date().getFullYear()}/TRANS-219`,
+        seller: "Mazovia Trans - Przewozy Autokarowe Osób",
+        sellerNip: "PL 796-189-30-11",
+        issueDate: "05.10.2026",
+        items: [
+          {
+            name:
+              language === "pl"
+                ? "Wynajem mikrobusu z kierowcą: Radom - Suwałki - Radom"
+                : "Coach bus rental with driver: Radom - Suwalki - Radom",
+            qty: "1 usł",
+            gross: amountFormatted,
+          },
+        ],
+        totalGross: amountFormatted,
+        auditHash: hash,
+      };
+    }
+
+    // 4. Mecenat barterowy / czyszczenie sali / cele statutowe (np. ROSZADA-2026-880: 450 PLN)
+    const suffixNum = cleanCert.split("-").pop() || "103";
+    return {
+      invoiceNumber: `FV/${new Date().getFullYear()}/B2B-${suffixNum}`,
+      seller: "UKS Roszada Radom - Realizacja Celów Statutowych",
+      sellerNip: "PL 796-221-50-02",
+      issueDate: "10.10.2026",
+      items: [
+        {
+          name: `${
+            language === "pl"
+              ? "Realizacja programu statutowego"
+              : "Statutory project execution"
+          }: ${goalTitle}`,
+          qty: "1 alok",
+          gross: amountFormatted,
+        },
+      ],
+      totalGross: amountFormatted,
+      auditHash: hash,
+    };
+  };
+
+  const invoiceData = generateAuditInvoiceData();
+
   // Treść głosu juniorów
   const voiceMessageText =
     language === "pl"
@@ -180,34 +306,6 @@ export default function CertificateVerificationPage() {
         setTimeout(() => setCopiedLink(false), 3000);
       });
     }
-  };
-
-  // Dane faktury przypisane do alokacji
-  const invoiceData = {
-    invoiceNumber: "FV/2026/RO-084",
-    seller: "Puchary & Trofea Sportowe Radom Sp. z o.o.",
-    sellerNip: "PL 796-284-19-40",
-    issueDate: "10.10.2026",
-    items: [
-      {
-        name:
-          language === "pl"
-            ? "Komplet pucharów grawerowanych UKS (12 szt.)"
-            : "Engraved trophies set for UKS (12 pcs)",
-        qty: "1 kpl",
-        gross: "260.00 PLN",
-      },
-      {
-        name:
-          language === "pl"
-            ? "Medale okolicznościowe tłoczone ze wstążką (40 szt.)"
-            : "Cast championship medals with ribbon (40 pcs)",
-        qty: "40 szt",
-        gross: "140.00 PLN",
-      },
-    ],
-    totalGross: amountFormatted,
-    auditHash: "0x4a8f902b6e1c7d83f491295b77c10d32e50f381c8901ad47a502c3",
   };
 
   // Eksport certyfikatu do wysokiej jakości pliku PNG ze złotą odznaką, podpisami i KODEM QR
@@ -433,7 +531,7 @@ export default function CertificateVerificationPage() {
           {/* Badge weryfikacji kryptograficznej */}
           <div className="flex justify-center print:hidden">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-700/10 text-emerald-800 dark:text-emerald-300 border border-emerald-700/30 text-xs font-bold tracking-wide shadow-xs">
-              <ShieldCheck className="size-4" />
+              <ShieldCheck className="size-4 shrink-0" />
               <span>
                 {language === "pl"
                   ? "Certyfikat zweryfikowany w Rejestrze Publicznym (Public Ledger)"
@@ -474,7 +572,7 @@ export default function CertificateVerificationPage() {
                 <span className="text-xs uppercase font-bold tracking-widest text-muted-foreground block mb-1">
                   {t.checkout.goalLabel}
                 </span>
-                <p className="text-lg sm:text-2xl font-bold text-foreground max-w-xl mx-auto leading-snug">
+                <p className="text-lg sm:text-2xl font-bold text-foreground max-w-xl mx-auto leading-snug break-words">
                   {goalTitle}
                 </p>
               </div>
@@ -483,7 +581,7 @@ export default function CertificateVerificationPage() {
                 <span className="text-xs uppercase font-bold tracking-widest text-muted-foreground block mb-1">
                   {t.checkout.amountPaidLabel}
                 </span>
-                <p className="text-3xl sm:text-5xl font-black text-emerald-800 dark:text-emerald-300">
+                <p className="text-3xl sm:text-5xl font-black text-emerald-800 dark:text-emerald-300 whitespace-nowrap">
                   {amountFormatted}
                 </p>
               </div>
@@ -493,7 +591,7 @@ export default function CertificateVerificationPage() {
             <div className="pt-6 border-t border-border/70 flex flex-col sm:flex-row items-center justify-between gap-6">
               <div className="space-y-3 text-center sm:text-left">
                 <div className="flex items-center justify-center sm:justify-start gap-1.5 text-xs font-mono text-muted-foreground">
-                  <CheckCircle2 className="size-4 text-emerald-700 dark:text-emerald-400" />
+                  <CheckCircle2 className="size-4 text-emerald-700 dark:text-emerald-400 shrink-0" />
                   <span className="font-bold text-foreground">
                     {formattedCertId}
                   </span>
@@ -523,7 +621,7 @@ export default function CertificateVerificationPage() {
                   loading="lazy"
                 />
                 <div className="text-left text-[10px] leading-tight space-y-0.5">
-                  <div className="font-black uppercase tracking-wider text-emerald-700">
+                  <div className="font-black uppercase tracking-wider text-emerald-700 whitespace-nowrap">
                     {language === "pl" ? "Weryfikacja ✓" : "Verified ✓"}
                   </div>
                   <p className="text-stone-600 font-mono">
@@ -594,7 +692,7 @@ export default function CertificateVerificationPage() {
                 <button
                   type="button"
                   onClick={() => setShowAuditModal(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-lime-400 hover:bg-lime-500 text-stone-950 text-xs font-bold transition-all shadow-xs cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-lime-400 hover:bg-lime-500 text-stone-950 text-xs font-bold transition-all shadow-xs cursor-pointer shrink-0 whitespace-nowrap"
                 >
                   <FileCheck2 className="size-4" />
                   <span>
@@ -612,7 +710,7 @@ export default function CertificateVerificationPage() {
             <button
               type="button"
               onClick={handleDownloadPng}
-              className="px-6 py-3 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs sm:text-sm shadow-md transition-all flex items-center gap-2 cursor-pointer"
+              className="px-6 py-3 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs sm:text-sm shadow-md transition-all flex items-center gap-2 cursor-pointer shrink-0"
             >
               <Download className="size-4" />
               <span>{t.agent.downloadPng}</span>
@@ -621,7 +719,7 @@ export default function CertificateVerificationPage() {
             <button
               type="button"
               onClick={handlePrint}
-              className="px-6 py-3 rounded-2xl border border-border bg-card hover:bg-accent text-foreground font-semibold text-xs sm:text-sm shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
+              className="px-6 py-3 rounded-2xl border border-border bg-card hover:bg-accent text-foreground font-semibold text-xs sm:text-sm shadow-xs transition-colors flex items-center gap-2 cursor-pointer shrink-0"
             >
               <Printer className="size-4" />
               <span>{t.agent.printPdf}</span>
@@ -630,7 +728,7 @@ export default function CertificateVerificationPage() {
             <button
               type="button"
               onClick={handleCopyLink}
-              className="px-6 py-3 rounded-2xl border border-border bg-card hover:bg-accent text-foreground font-semibold text-xs sm:text-sm shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
+              className="px-6 py-3 rounded-2xl border border-border bg-card hover:bg-accent text-foreground font-semibold text-xs sm:text-sm shadow-xs transition-colors flex items-center gap-2 cursor-pointer shrink-0"
             >
               <Share2 className="size-4" />
               <span>
@@ -653,26 +751,27 @@ export default function CertificateVerificationPage() {
               ✕
             </button>
 
-            <div className="flex-1 overflow-y-auto p-5 sm:p-7 space-y-3.5 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/25 [&::-webkit-scrollbar-track]:bg-transparent">
-              <div className="text-center pb-4 border-b border-border/70">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-7 space-y-3.5 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/25 [&::-webkit-scrollbar-track]:bg-transparent">
+              {/* Nagłówek modala z bezpiecznym odstępem pr-9 na mobile */}
+              <div className="text-center pb-3.5 border-b border-border/70 pr-9 sm:pr-0 pl-1">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-lime-400/20 text-lime-800 dark:text-lime-300 border border-lime-400/40 mb-2">
-                  <Sparkles className="size-3" />
+                  <Sparkles className="size-3 shrink-0" />
                   <span>
                     {language === "pl"
                       ? "Audyt AI Faktury VAT • Gemini Multimodal Vision"
                       : "AI VAT Invoice Audit • Gemini Multimodal Vision"}
                   </span>
                 </div>
-                <h3 className="text-xl sm:text-2xl font-black text-foreground">
+                <h3 className="text-lg sm:text-2xl font-black text-foreground leading-tight">
                   {language === "pl"
                     ? "100% Transparentny Rejestr Wydatków"
                     : "100% Transparent Expense Ledger"}
                 </h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
+                <p className="text-xs text-muted-foreground mt-1 break-words">
                   {language === "pl"
-                    ? "Weryfikacja faktury VAT przypisanej do alokacji:"
-                    : "VAT invoice verification linked to allocation:"}{" "}
-                  <span className="font-mono font-bold text-foreground">
+                    ? "Weryfikacja faktury VAT przypisanej do alokacji: "
+                    : "VAT invoice verification linked to allocation: "}
+                  <span className="font-mono font-bold text-foreground whitespace-nowrap">
                     {certIdParam}
                   </span>
                 </p>
@@ -680,22 +779,22 @@ export default function CertificateVerificationPage() {
 
               {/* Status weryfikacji */}
               <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <div>
+                  <div className="min-w-0">
                     <div className="text-xs font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
                       {language === "pl"
                         ? "Status: 100% Zgodności z celem (Zero defraudacji)"
                         : "Status: 100% Purpose Match (Zero Fraud)"}
                     </div>
-                    <div className="text-[11px] text-muted-foreground">
+                    <div className="text-[11px] text-muted-foreground leading-snug">
                       {language === "pl"
                         ? "Wskaźnik zaufania Gemini Vision: 100% • Cel pokryty w 100%"
                         : "Gemini Vision confidence: 100% • Goal fully covered"}
                     </div>
                   </div>
                 </div>
-                <span className="px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-[11px] font-bold shrink-0">
+                <span className="hidden sm:inline-flex px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-[11px] font-bold shrink-0 whitespace-nowrap">
                   {t.ledger.verified}
                 </span>
               </div>
@@ -709,7 +808,7 @@ export default function CertificateVerificationPage() {
                         ? "Wystawca faktury"
                         : "Issuer / Vendor"}
                     </span>
-                    <span className="font-bold text-foreground">
+                    <span className="font-bold text-foreground break-words">
                       {invoiceData.seller}
                     </span>
                   </div>
@@ -739,17 +838,23 @@ export default function CertificateVerificationPage() {
                   </div>
                 </div>
 
+                {/* Tabela pozycji z gwarancją nierozbijania ptaszka OCR */}
                 <div className="mt-3">
-                  <div className="text-[11px] uppercase font-bold text-muted-foreground mb-1.5 flex items-center justify-between">
-                    <span>
+                  <div className="text-[11px] uppercase font-bold text-muted-foreground mb-1.5 flex items-center justify-between gap-2">
+                    <span className="truncate">
                       {language === "pl"
                         ? "Pozycje odczytane ze skanu faktury:"
                         : "Line items extracted from invoice scan:"}
                     </span>
-                    <span className="text-[10px] text-lime-700 dark:text-lime-400 font-mono">
-                      {language === "pl"
-                        ? "Weryfikacja AI OCR ✓"
-                        : "AI OCR Verified ✓"}
+                    <span className="shrink-0 whitespace-nowrap inline-flex items-center gap-1 text-[10px] font-mono font-bold text-lime-700 dark:text-lime-400">
+                      <span>
+                        {language === "pl"
+                          ? "WERYFIKACJA AI OCR"
+                          : "AI OCR VERIFIED"}
+                      </span>
+                      <span className="text-emerald-500 dark:text-emerald-400 font-black">
+                        ✓
+                      </span>
                     </span>
                   </div>
                   <div className="rounded-xl border border-border overflow-hidden">
@@ -772,13 +877,13 @@ export default function CertificateVerificationPage() {
                       <tbody className="divide-y divide-border/60">
                         {invoiceData.items.map((item, i) => (
                           <tr key={i} className="hover:bg-muted/20">
-                            <td className="p-2 text-foreground font-medium">
+                            <td className="p-2 text-foreground font-medium break-words">
                               {item.name}
                             </td>
-                            <td className="p-2 text-muted-foreground text-center font-mono">
+                            <td className="p-2 text-muted-foreground text-center font-mono whitespace-nowrap">
                               {item.qty}
                             </td>
-                            <td className="p-2 text-right font-black text-emerald-800 dark:text-emerald-300 font-mono">
+                            <td className="p-2 text-right font-black text-emerald-800 dark:text-emerald-300 font-mono whitespace-nowrap">
                               {item.gross}
                             </td>
                           </tr>
@@ -788,26 +893,28 @@ export default function CertificateVerificationPage() {
                   </div>
                 </div>
 
+                {/* Hash spójności bloku */}
                 <div className="mt-3 p-2.5 rounded-xl bg-background border border-border/80 flex items-center justify-between gap-2 text-[10px]">
                   <div className="flex items-center gap-1.5 text-muted-foreground shrink-0">
-                    <Hash className="size-3.5 text-primary" />
-                    <span>
+                    <Hash className="size-3.5 text-primary shrink-0" />
+                    <span className="truncate max-w-[130px] sm:max-w-none">
                       {language === "pl"
                         ? "Hash spójności bloku:"
                         : "Block Integrity Hash:"}
                     </span>
                   </div>
-                  <span className="font-mono text-foreground font-semibold truncate max-w-xs text-right">
+                  <span className="font-mono text-foreground font-semibold truncate max-w-[140px] sm:max-w-xs text-right">
                     {invoiceData.auditHash}
                   </span>
                 </div>
               </div>
 
+              {/* Przycisk zamknięcia */}
               <div className="pt-3 border-t border-border/70 flex justify-end">
                 <button
                   type="button"
                   onClick={() => setShowAuditModal(false)}
-                  className="px-4 py-2 rounded-xl bg-lime-400 text-stone-950 font-bold text-xs hover:bg-lime-500 transition-colors cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-lime-400 text-stone-950 font-bold text-xs hover:bg-lime-500 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
                 >
                   {t.agent.close}
                 </button>
