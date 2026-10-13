@@ -2,17 +2,21 @@ import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
-const siteTitle = "PatronAI: Mecenat Klubu UKS Roszada Radom z PayPal"; // 50 znaków
+// Dynamiczne ustalanie adresu URL (Vercel, zmienna środowiskowa lub domena własna)
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "https://patronat.vercel.app");
+
+const siteTitle = "PatronAI: Mecenat Klubu UKS Roszada Radom z PayPal";
 const siteDescription =
-  "Platforma mecenatu sportu UKS Roszada Radom. Wybierz cel, wesprzyj klub szachowy przez PayPal i odbierz oficjalny, weryfikowalny certyfikat mecenasa."; // 150 znaków
+  "Platforma mecenatu sportu UKS Roszada Radom. Wybierz cel, wesprzyj klub szachowy przez PayPal i odbierz oficjalny, weryfikowalny certyfikat mecenasa.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ||
-      (process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : "https://patronai.pl"),
-  ),
+  metadataBase: new URL(siteUrl),
   title: siteTitle,
   description: siteDescription,
   generator: "PatronAI",
@@ -28,10 +32,32 @@ export const metadata: Metadata = {
     "PayPal sponsor",
     "certyfikat mecenasa",
   ],
+  manifest: "/site.webmanifest",
+  icons: {
+    icon: [
+      {
+        url: "/favicon-96x96.png",
+        sizes: "96x96",
+        type: "image/png",
+      },
+      {
+        url: "/favicon.ico",
+        sizes: "any",
+      },
+    ],
+    apple: [
+      {
+        url: "/apple-touch-icon.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
+    ],
+    shortcut: "/favicon.ico",
+  },
   openGraph: {
     title: siteTitle,
     description: siteDescription,
-    url: "https://patronai.pl",
+    url: siteUrl,
     siteName: "PatronAI",
     locale: "pl_PL",
     type: "website",
@@ -50,23 +76,6 @@ export const metadata: Metadata = {
     description: siteDescription,
     images: ["/og-image.png"],
   },
-  icons: {
-    icon: [
-      {
-        url: "/icon-light-32x32.png",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: "/icon-dark-32x32.png",
-        media: "(prefers-color-scheme: dark)",
-      },
-      {
-        url: "/icon.svg",
-        type: "image/svg+xml",
-      },
-    ],
-    apple: "/apple-icon.png",
-  },
 };
 
 export const viewport: Viewport = {
@@ -82,7 +91,7 @@ const jsonLd = {
   "@graph": [
     {
       "@type": "SportsClub",
-      "@id": "https://patronai.pl/#organization",
+      "@id": `${siteUrl}/#organization`,
       name: "UKS Roszada Radom",
       sport: "Szachy / Chess",
       description:
@@ -95,7 +104,7 @@ const jsonLd = {
     },
     {
       "@type": "WebApplication",
-      "@id": "https://patronai.pl/#webapp",
+      "@id": `${siteUrl}/#webapp`,
       name: "PatronAI",
       applicationCategory: "FinanceApplication",
       operatingSystem: "All",
