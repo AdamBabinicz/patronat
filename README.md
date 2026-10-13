@@ -15,9 +15,9 @@
 
 | Resource                        | Link                                                                                   |
 | ------------------------------- | -------------------------------------------------------------------------------------- |
-| 🌐 **Live Application**         | `[ADD_DEPLOYMENT_URL_HERE]`                                                            |
-| 💻 **Source Code Repository**   | `[ADD_GITHUB_REPO_URL_HERE]`                                                           |
-| 🎥 **Video Demo & Pitch**       | `[ADD_VIDEO_DEMO_URL_HERE]`                                                            |
+| 🌐 **Live Application**         | `https://patronat.vercel.app/`                                                         |
+| 💻 **Source Code Repository**   | `https://github.com/AdamBabinicz/patronat`                                             |
+| 🎥 **Video Demo & Pitch**       | `https://youtu.be/dQw4w9WgXcQ`                                                         |
 | 🏆 **Real-World Pilot Partner** | **UKS Roszada Radom** — Youth Chess Club, Poland ([pilot profile](https://roszada.pl)) |
 
 ---
@@ -267,7 +267,7 @@ patronai/
 ### 1. Clone the repository
 
 ```bash
-git clone [ADD_GITHUB_REPO_URL_HERE]
+git clone https://github.com/AdamBabinicz/patronat
 cd patronai
 ```
 
@@ -363,10 +363,8 @@ This project is licensed under the [MIT License](https://opensource.org/licenses
 
 ### 👥 Team
 
-| Role                                      | Name / Contact        |
-| ----------------------------------------- | --------------------- |
-| **Project Lead & Full-Stack Engineering** | `[ADD_TEAM_MEMBER_1]` |
-| **AI / Prompt Engineering**               | `[ADD_TEAM_MEMBER_2]` |
-| **Product & Community Partnerships**      | `[ADD_TEAM_MEMBER_3]` |
+| Role                                      | Name / Contact                                                |
+| ----------------------------------------- | ------------------------------------------------------------- |
+| **Lead Architect & Full-Stack Developer** | **Adam Gierczak** ([GitHub](https://github.com/AdamBabinicz)) |
 
 > Built for the **PayPal AI Hackathon** — with gratitude to the players, parents, and coaches of **UKS Roszada Radom** for piloting PatronAI in the real world. ♟️
