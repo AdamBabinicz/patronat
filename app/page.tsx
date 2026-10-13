@@ -193,7 +193,7 @@ export default function Page() {
     <>
       <main className="min-h-screen bg-slate-50 text-neutral-900 transition-colors duration-200 dark:bg-neutral-950 dark:text-neutral-100">
         {/* HEADER / NAWIGACJA */}
-        <header className="sticky top-0 z-30 border-b border-neutral-200 bg-slate-50/90 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/90">
+        <header className="sticky top-0 z-30 border-b border-neutral-200 bg-slate-50/95 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/95">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
             <a href="#top" className="flex items-center gap-3 font-semibold">
               <span className="grid size-9 place-items-center rounded-xl bg-lime-400 text-neutral-950 shadow-sm">
@@ -213,7 +213,7 @@ export default function Page() {
                 type="button"
                 aria-label={t.nav.theme}
                 onClick={toggleTheme}
-                className="grid size-9 place-items-center rounded-full border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                className="grid size-9 place-items-center rounded-full border border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
               >
                 {dark ? (
                   <Sun className="size-4" />
@@ -223,14 +223,14 @@ export default function Page() {
               </button>
 
               {/* Segmentowy, czytelny przełącznik języka [ PL | EN ] */}
-              <div className="flex items-center rounded-full border border-neutral-200 bg-white p-0.5 text-xs font-bold dark:border-neutral-800 dark:bg-neutral-900">
+              <div className="flex items-center rounded-full border border-neutral-300 bg-white p-0.5 text-xs font-bold dark:border-neutral-700 dark:bg-neutral-900">
                 <button
                   type="button"
                   onClick={() => handleLanguageChange("pl")}
                   className={`rounded-full px-2.5 py-1 transition-all cursor-pointer ${
                     language === "pl"
                       ? "bg-lime-400 text-neutral-950 shadow-xs"
-                      : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
+                      : "text-neutral-700 hover:text-neutral-950 dark:text-neutral-300 dark:hover:text-white"
                   }`}
                 >
                   PL
@@ -241,7 +241,7 @@ export default function Page() {
                   className={`rounded-full px-2.5 py-1 transition-all cursor-pointer ${
                     language === "en"
                       ? "bg-lime-400 text-neutral-950 shadow-xs"
-                      : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
+                      : "text-neutral-700 hover:text-neutral-950 dark:text-neutral-300 dark:hover:text-white"
                   }`}
                 >
                   EN
@@ -272,7 +272,7 @@ export default function Page() {
             <h1 className="text-4xl font-extrabold tracking-tight text-neutral-900 sm:text-5xl lg:text-6xl dark:text-white leading-tight">
               {t.hero.title}
             </h1>
-            <p className="mt-6 max-w-xl text-base sm:text-lg leading-relaxed text-neutral-600 dark:text-neutral-400">
+            <p className="mt-6 max-w-xl text-base sm:text-lg leading-relaxed text-neutral-700 dark:text-neutral-300">
               {t.hero.body}
             </p>
             <button
@@ -285,20 +285,20 @@ export default function Page() {
             </button>
           </div>
 
-          <div className="rounded-3xl border border-neutral-200 bg-white p-7 sm:p-9 text-neutral-900 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/80 dark:text-white">
-            <p className="text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+          <div className="rounded-3xl border border-neutral-300 bg-white p-7 sm:p-9 text-neutral-900 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/90 dark:text-white">
+            <p className="text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
               {t.stats.raised}
             </p>
-            <p className="mt-3 text-4xl sm:text-5xl font-black tracking-tight text-foreground transition-all">
+            <p className="mt-3 text-4xl sm:text-5xl font-black tracking-tight text-neutral-900 dark:text-white transition-all">
               {currentTotalAmount}{" "}
-              <span className="text-lg font-normal text-neutral-500 dark:text-neutral-400">
+              <span className="text-lg font-medium text-neutral-600 dark:text-neutral-400">
                 {t.stats.currency}
               </span>
             </p>
-            <div className="mt-8 h-2.5 rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden">
+            <div className="mt-8 h-2.5 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
               <div className="h-full w-3/4 rounded-full bg-lime-400" />
             </div>
-            <p className="mt-4 text-xs font-semibold text-neutral-500 dark:text-neutral-400">
+            <p className="mt-4 text-xs font-bold text-neutral-700 dark:text-neutral-300">
               {t.stats.verified}: {currentTotalCount}
             </p>
           </div>
@@ -322,7 +322,7 @@ export default function Page() {
                 <button
                   type="button"
                   onClick={() => setIsCheckoutVisible(false)}
-                  className="absolute right-0 top-0 p-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  className="absolute right-0 top-0 p-2 text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white transition-colors cursor-pointer"
                   aria-label={t.agent.close}
                 >
                   <X className="size-5" />
@@ -333,7 +333,7 @@ export default function Page() {
                     ? "Krok 02 · Finalizacja alokacji"
                     : "Step 02 · Allocation checkout"}
                 </span>
-                <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground mt-1">
+                <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-neutral-900 dark:text-white mt-1">
                   {t.checkout.title}
                 </h2>
               </div>
@@ -377,7 +377,7 @@ export default function Page() {
             {t.impact.cards.map((card, i) => (
               <article
                 key={card.title}
-                className="rounded-3xl border border-neutral-200 bg-white p-7 sm:p-8 text-neutral-900 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/40 dark:text-white"
+                className="rounded-3xl border border-neutral-300 bg-white p-7 sm:p-8 text-neutral-900 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-white"
               >
                 <span className="text-xs font-black text-lime-600 dark:text-lime-400 uppercase tracking-widest">
                   0{i + 1}
@@ -385,7 +385,7 @@ export default function Page() {
                 <h3 className="mt-6 text-xl font-bold tracking-tight">
                   {card.title}
                 </h3>
-                <p className="mt-3 text-xs sm:text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+                <p className="mt-3 text-xs sm:text-sm leading-relaxed text-neutral-700 dark:text-neutral-300">
                   {card.body}
                 </p>
               </article>
@@ -393,30 +393,38 @@ export default function Page() {
           </div>
         </section>
 
-        {/* FOOTER */}
-        <footer className="border-t border-neutral-200 dark:border-neutral-800 bg-slate-100/50 dark:bg-neutral-900/30">
-          <div className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-12 text-sm text-neutral-600 dark:text-neutral-400 sm:flex-row sm:items-end sm:justify-between">
+        {/* FOOTER - ZWIĘKSZONY KONTRAST DLA WCAG AA */}
+        <footer className="border-t border-neutral-300 dark:border-neutral-800 bg-slate-100 dark:bg-neutral-950">
+          <div className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-12 text-sm text-neutral-700 dark:text-neutral-300 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <div className="font-bold text-base text-neutral-900 dark:text-white">
                 Patron
                 <span className="text-lime-600 dark:text-lime-400">AI</span>
               </div>
-              <p className="mt-2 max-w-sm text-xs sm:text-sm leading-relaxed">
+              <p className="mt-2 max-w-sm text-xs sm:text-sm leading-relaxed text-neutral-700 dark:text-neutral-300">
                 {t.footer.description}
               </p>
-              <p className="mt-5 text-xs text-neutral-500">{t.footer.rights}</p>
+              <p className="mt-5 text-xs text-neutral-700 dark:text-neutral-300 font-medium">
+                {t.footer.rights}
+              </p>
             </div>
-            <div className="flex flex-wrap gap-5 text-xs sm:text-sm font-medium">
-              <a href="/polityka-prywatnosci" className="hover:underline">
+            <div className="flex flex-wrap gap-5 text-xs sm:text-sm font-semibold">
+              <a
+                href="/polityka-prywatnosci"
+                className="hover:underline text-neutral-800 dark:text-neutral-200"
+              >
                 {t.footer.privacy}
               </a>
-              <a href="/regulamin" className="hover:underline">
+              <a
+                href="/regulamin"
+                className="hover:underline text-neutral-800 dark:text-neutral-200"
+              >
                 {t.footer.terms}
               </a>
               <button
                 type="button"
                 onClick={() => setShowSettings(true)}
-                className="hover:underline cursor-pointer"
+                className="hover:underline text-neutral-800 dark:text-neutral-200 cursor-pointer"
               >
                 {t.footer.cookie}
               </button>
@@ -427,14 +435,14 @@ export default function Page() {
 
       {/* BANER COOKIE */}
       {showCookies && (
-        <div className="fixed inset-x-4 bottom-4 z-40 mx-auto max-w-3xl rounded-3xl border border-neutral-200 bg-white p-5 shadow-2xl dark:border-neutral-800 dark:bg-neutral-900">
+        <div className="fixed inset-x-4 bottom-4 z-40 mx-auto max-w-3xl rounded-3xl border border-neutral-300 bg-white p-5 shadow-2xl dark:border-neutral-800 dark:bg-neutral-900">
           <div className="flex gap-3">
             <Cookie className="mt-1 size-5 shrink-0 text-lime-600 dark:text-lime-400" />
             <div className="flex-1">
               <h2 className="font-bold text-sm text-neutral-900 dark:text-white">
                 {t.cookie.title}
               </h2>
-              <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+              <p className="mt-1 text-xs text-neutral-700 dark:text-neutral-300 leading-relaxed">
                 {t.cookie.body}
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
@@ -448,14 +456,14 @@ export default function Page() {
                 <button
                   type="button"
                   onClick={() => saveConsent(false, false)}
-                  className="rounded-full border border-neutral-300 px-4 py-2 text-xs font-semibold text-neutral-800 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                  className="rounded-full border border-neutral-400 px-4 py-2 text-xs font-semibold text-neutral-800 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
                 >
                   {t.cookie.reject}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowSettings(true)}
-                  className="rounded-full border border-neutral-300 px-4 py-2 text-xs font-semibold text-neutral-800 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                  className="rounded-full border border-neutral-400 px-4 py-2 text-xs font-semibold text-neutral-800 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
                 >
                   {t.cookie.settings}
                 </button>
@@ -471,7 +479,7 @@ export default function Page() {
           <div
             role="dialog"
             aria-modal="true"
-            className="w-full max-w-md rounded-3xl border border-neutral-200 bg-white p-6 text-neutral-900 shadow-2xl dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
+            className="w-full max-w-md rounded-3xl border border-neutral-300 bg-white p-6 text-neutral-900 shadow-2xl dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
           >
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold">{t.cookie.settings}</h2>
@@ -479,18 +487,20 @@ export default function Page() {
                 type="button"
                 onClick={() => setShowSettings(false)}
                 aria-label={t.cookie.close}
-                className="text-neutral-500 hover:text-neutral-900 dark:hover:text-white cursor-pointer"
+                className="text-neutral-700 hover:text-neutral-950 dark:text-neutral-300 dark:hover:text-white cursor-pointer"
               >
                 <X className="size-5" />
               </button>
             </div>
-            <p className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">
+            <p className="mt-2 text-xs text-neutral-700 dark:text-neutral-300">
               {t.cookie.preferences}
             </p>
             <div className="mt-5 flex flex-col gap-2.5">
-              <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3.5 text-xs font-medium dark:border-neutral-800 dark:bg-neutral-950 flex justify-between items-center">
-                <span>{t.cookie.essential}</span>
-                <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+              <div className="rounded-2xl border border-neutral-300 bg-neutral-100 p-3.5 text-xs font-medium dark:border-neutral-800 dark:bg-neutral-950 flex justify-between items-center">
+                <span className="text-neutral-800 dark:text-neutral-200">
+                  {t.cookie.essential}
+                </span>
+                <span className="text-emerald-700 dark:text-emerald-400 font-bold">
                   {t.cookie.alwaysActive}
                 </span>
               </div>
@@ -504,14 +514,16 @@ export default function Page() {
                   key={label}
                   type="button"
                   onClick={() => setter(!value)}
-                  className="flex items-center justify-between rounded-2xl border border-neutral-200 p-3.5 text-left text-xs hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-800/50 transition-colors cursor-pointer"
+                  className="flex items-center justify-between rounded-2xl border border-neutral-300 p-3.5 text-left text-xs hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-800/50 transition-colors cursor-pointer"
                 >
-                  <span className="font-semibold">{label}</span>
+                  <span className="font-semibold text-neutral-800 dark:text-neutral-200">
+                    {label}
+                  </span>
                   <span
                     className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
                       value
                         ? "bg-lime-400 text-neutral-950"
-                        : "bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"
+                        : "bg-neutral-200 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300"
                     }`}
                   >
                     {value ? t.cookie.activeState : t.cookie.inactiveState}

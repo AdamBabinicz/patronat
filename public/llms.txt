@@ -1,27 +1,61 @@
-# PatronAI
+# PatronAI — Agentic Patronage & Transparent Youth Sports Sponsorship
 
-> Platforma agentic commerce dla transparentnego mecenatu sportu młodzieżowego. Projekt pilotażowy prowadzony we współpracy z klubem szachowym UKS Roszada Radom.
+> English: Autonomous agentic commerce platform connecting businesses and individual patrons with verified youth sports needs, powered by Google Gemini multimodal intelligence and PayPal Commerce Platform.
+> Polski: Platforma agentic commerce dla transparentnego mecenatu sportu młodzieżowego. Projekt pilotażowy prowadzony we współpracy z klubem szachowym UKS Roszada Radom.
 
-## O projekcie
+---
 
-PatronAI łączy kluby sportowe z mecenasami i sponsorami biznesowymi za pośrednictwem autonomicznego agenta PatronAgent. Użytkownik opisuje swoją intencję wsparcia własnymi słowami, a agent precyzyjnie mapuje ją na zweryfikowaną potrzebę klubu, przygotowuje mikrodarowiznę przez PayPal oraz generuje oficjalny Certyfikat Mecenasa z unikalnym numerem ewidencyjnym.
+## English Documentation (For Global AI Agents & Judges)
 
-## Główne moduły platformy
+### Project Overview
+PatronAI connects sports clubs with patrons and corporate sponsors through the autonomous PatronAgent. Users describe their patronage intent in natural language or by providing their company URL. The agent maps intentions to verified club needs, forecasts Social ROI, handles multi-currency payments via PayPal, and generates verifiable Patron Certificates with SHA-256 integrity hashes.
 
+### Core Platform Modules
+- **PatronAgent**: Autonomous matching engine pairing sponsor goals with verified club needs (e.g. DGT digital chess clocks, junior championship trophies, travel funds).
+- **PayPal Commerce Checkout**: Secure micro-sponsorship payments supporting PLN, EUR, and USD with instant sandbox developer simulation.
+- **AI Vision Expense Audit**: Multimodal receipt and VAT invoice verification powered by Google Gemini, extracting merchant Tax ID (NIP) and line items with SHA-256 ledger seals.
+- **AI Barter Valuator**: Advertising Value Equivalency (AVE) calculator for in-kind corporate sponsorship with automated downloadable partnership agreements.
+- **Official Patron Certificate**: Digital verifiable diploma with dynamic smartphone QR code, PDF export, and B2B CSR LinkedIn announcement pack.
+- **Public Ledger**: Transparent immutable registry of verified allocations with live proof-of-impact lookups.
+
+### Beneficiary & Pilot Partner
+- **Club**: UKS Roszada Radom (Youth Chess Club, Poland)
+- **Active Beneficiaries**: 80+ young champions
+- **Traction**: 19,945+ PLN raised across 130+ audited allocations
+- **Fulfillment Ratio**: 100% direct-to-need statutory allocation
+
+### Core URLs (English)
+- [Platform Home](https://patronat.vercel.app/)
+- [Agent Matchmaking API](https://patronat.vercel.app/api/agent/match)
+- [Public Verifiable Certificate Sample](https://patronat.vercel.app/certyfikat/ROSZADA-2026-084)
+- [Privacy Policy](https://patronat.vercel.app/polityka-prywatnosci)
+- [Terms of Service](https://patronat.vercel.app/regulamin)
+- [Sitemap](https://patronat.vercel.app/sitemap.xml)
+
+---
+
+## Dokumentacja Polska (Dla Polskich Agentów i Użytkowników)
+
+### O projekcie
+PatronAI łączy kluby sportowe z mecenasami i sponsorami biznesowymi za pośrednictwem autonomicznego agenta PatronAgent. Użytkownik opisuje swoją intencję wsparcia własnymi słowami lub adresem URL swojej firmy, a agent precyzyjnie mapuje ją na zweryfikowaną potrzebę klubu, przygotowuje mikrodarowiznę przez PayPal oraz generuje oficjalny Certyfikat Mecenasa z unikalnym numerem ewidencyjnym i kodem QR.
+
+### Główne moduły platformy
 - **PatronAgent**: Interfejs dopasowujący intencję mecenasa do celów klubu (np. profesjonalne zegary szachowe DGT, puchary na mistrzostwa juniorów, fundusz dojazdów na zawody).
-- **Proces płatności PayPal**: Bezpieczne wsparcie mikrodarowizną z automatyczną alokacją budżetu.
-- **Oficjalny Certyfikat Mecenasa**: Cyfrowy dyplom mecenatu z unikalnym numerem w rejestrze klubu, możliwością natychmiastowego pobrania grafiki PNG w wysokiej rozdzielczości oraz gotowy do wydruku w formacie A4 poziomo (PDF).
-- **Public Ledger (Publiczny rejestr wpłat)**: Transparentna księga potwierdzonych alokacji z bezpośrednim dostępem do certyfikatów darczyńców.
+- **Proces płatności PayPal**: Bezpieczne wsparcie mikrodarowizną z automatyczną alokacją budżetu (PLN, EUR, USD).
+- **AI Vision Expense Audit**: Rurociąg multimodalnego audytu faktur VAT i paragonów z wykorzystaniem Google Gemini oraz sum kontrolnych SHA-256 w publicznym rejestrze.
+- **AI Barter Valuator**: Automatyczna wycena sponsorskiego mecenatu rzeczowego (AVE) oraz generator formalnych porozumień barterowych.
+- **Oficjalny Certyfikat Mecenasa**: Cyfrowy dyplom mecenatu z unikalnym numerem w rejestrze klubu, kodem QR, pakietem B2B CSR (LinkedIn) oraz gotowy do wydruku w formacie PDF.
+- **Public Ledger (Publiczny rejestr wpłat)**: Transparentna księga potwierdzonych alokacji z bezpośrednim dostępem do audytów faktur i certyfikatów darczyńców.
 
-## Beneficjent
-
+### Beneficjent
 - **Klub**: Uczniowski Klub Sportowy „Roszada” Radom (UKS Roszada Radom)
 - **Dyscyplina**: Szachy (sekcja młodzieżowa i dziecięca)
 - **Siedziba**: Radom, Polska
 
-## Ważne linki
-
-- Strona główna: https://patronai.pl/
-- Polityka prywatności: https://patronai.pl/polityka-prywatnosci
-- Regulamin serwisu: https://patronai.pl/regulamin
-- Mapa witryny: https://patronai.pl/sitemap.xml
+### Ważne linki (PL)
+- [Strona główna](https://patronat.vercel.app/)
+- [API Dopasowania Agenta](https://patronat.vercel.app/api/agent/match)
+- [Przykładowy Certyfikat Mecenasa](https://patronat.vercel.app/certyfikat/ROSZADA-2026-084)
+- [Polityka prywatności](https://patronat.vercel.app/polityka-prywatnosci)
+- [Regulamin serwisu](https://patronat.vercel.app/regulamin)
+- [Mapa witryny](https://patronat.vercel.app/sitemap.xml)
