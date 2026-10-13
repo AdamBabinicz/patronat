@@ -42,7 +42,7 @@ export default function PublicLedger({
   const [selectedAuditEntry, setSelectedAuditEntry] =
     useState<LedgerEntry | null>(null);
 
-  // Stan wgrywania własnej faktury przez jurora (Live Demo)
+  // Stan wgrywania własnej faktury przez użytkownika / mecenasa (Live Demo)
   const [customAuditData, setCustomAuditData] =
     useState<InvoiceAuditData | null>(null);
   const [isAnalyzingCustom, setIsAnalyzingCustom] = useState(false);
@@ -82,7 +82,7 @@ export default function PublicLedger({
     liveUploadPrompt:
       language === "pl"
         ? "Przetestuj na żywo: Wgraj własną fakturę lub paragon (JPG/PNG)"
-        : "Live Test for Judges: Upload your own receipt/invoice (JPG/PNG)",
+        : "Live Test: Upload your own receipt/invoice (JPG/PNG)",
     analyzingDocument:
       language === "pl"
         ? "Trwa analiza multimodalna faktury przez Gemini Vision..."
@@ -457,10 +457,10 @@ export default function PublicLedger({
             {tLedger.body}
           </p>
 
-          {/* Badge Transparentności AI + Przycisk Własnego Testu dla Jury */}
+          {/* Badge Transparentności AI + Przycisk Własnego Testu */}
           <div className="mt-3 sm:mt-4 flex flex-wrap items-center justify-center gap-2">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-xs font-semibold">
-              <ShieldCheck className="size-4" />
+              <ShieldCheck className="size-4 shrink-0" />
               <span>
                 {language === "pl"
                   ? "100% alokacji poddanych automatycznemu audytowi spójności Gemini Vision"
@@ -468,7 +468,7 @@ export default function PublicLedger({
               </span>
             </div>
 
-            {/* Szybki przycisk Live Upload dla Jurora */}
+            {/* Szybki przycisk Live Upload */}
             <button
               type="button"
               onClick={() => {
@@ -482,13 +482,13 @@ export default function PublicLedger({
                 );
                 setTimeout(() => fileInputRef.current?.click(), 100);
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-lime-400/20 hover:bg-lime-400/30 border border-lime-500/40 text-lime-900 dark:text-lime-200 text-xs font-black transition-all cursor-pointer shadow-xs"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-lime-400/20 hover:bg-lime-400/30 border border-lime-500/40 text-lime-900 dark:text-lime-200 text-xs font-black transition-all cursor-pointer shadow-xs shrink-0 whitespace-nowrap"
             >
               <Upload className="size-3.5" />
               <span>
                 {language === "pl"
-                  ? "Wgraj własną fakturę (Demo dla Jury)"
-                  : "Upload your invoice (Judges Demo)"}
+                  ? "Wgraj własną fakturę (WERSJA PILOTAŻOWA)"
+                  : "Upload your invoice (PILOT VERSION)"}
               </span>
             </button>
           </div>
@@ -527,7 +527,7 @@ export default function PublicLedger({
                     <td className="py-3.5 px-5 font-bold text-foreground">
                       <div className="flex items-center gap-2">
                         {isLive && (
-                          <span className="size-2 rounded-full bg-emerald-500 animate-ping" />
+                          <span className="size-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
                         )}
                         <span>{patron}</span>
                       </div>
@@ -535,7 +535,7 @@ export default function PublicLedger({
                     <td className="py-3.5 px-5 text-muted-foreground">
                       {purpose}
                     </td>
-                    <td className="py-3.5 px-5 font-black text-emerald-800 dark:text-emerald-300">
+                    <td className="py-3.5 px-5 font-black text-emerald-800 dark:text-emerald-300 whitespace-nowrap">
                       {amount}
                     </td>
                     <td className="py-3.5 px-5">
@@ -691,31 +691,33 @@ export default function PublicLedger({
                 ✕
               </button>
 
-              <div className="flex-1 overflow-y-auto p-5 sm:p-7 space-y-3.5 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/25 [&::-webkit-scrollbar-track]:bg-transparent">
-                <div className="text-center pb-4 border-b border-border/70">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-7 space-y-3.5 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/25 [&::-webkit-scrollbar-track]:bg-transparent">
+                {/* Nagłówek modala z bezpiecznym odstępem na mobile (pr-9), by nie kolidować z przyciskiem ✕ */}
+                <div className="text-center pb-3.5 border-b border-border/70 pr-9 sm:pr-0 pl-1">
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-lime-400/20 text-lime-800 dark:text-lime-300 border border-lime-400/40 mb-2">
-                    <Sparkles className="size-3" />
+                    <Sparkles className="size-3 shrink-0" />
                     <span>{tAudit.modalTitle}</span>
                   </div>
-                  <h3 className="text-xl sm:text-2xl font-black text-foreground">
+                  <h3 className="text-lg sm:text-2xl font-black text-foreground leading-tight">
                     {tAudit.badge}
                   </h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-1 break-words">
                     {language === "pl"
-                      ? "Weryfikacja faktury VAT przypisanej do alokacji:"
-                      : "VAT invoice verification linked to allocation:"}{" "}
-                    <span className="font-mono font-bold text-foreground">
+                      ? "Weryfikacja faktury VAT przypisanej do alokacji: "
+                      : "VAT invoice verification linked to allocation: "}
+                    <span className="font-mono font-bold text-foreground whitespace-nowrap">
                       {selectedAuditEntry[3]}
                     </span>
                   </p>
                 </div>
 
-                <div className="p-3 rounded-2xl bg-lime-500/10 border border-lime-500/30 flex items-center justify-between gap-2">
+                {/* Boks wgrywania własnej faktury na żywo */}
+                <div className="p-3 rounded-2xl bg-lime-500/10 border border-lime-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   <div className="text-xs">
                     <span className="font-bold text-foreground block">
                       {tAudit.liveUploadPrompt}
                     </span>
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-[11px] text-muted-foreground block">
                       {language === "pl"
                         ? "Sprawdź multimodalne rozpoznawanie faktury na żywo"
                         : "Test live multimodal invoice recognition"}
@@ -725,7 +727,7 @@ export default function PublicLedger({
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isAnalyzingCustom}
-                    className="px-3 py-1.5 rounded-xl bg-lime-400 hover:bg-lime-500 text-stone-950 font-black text-xs transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shrink-0"
+                    className="self-start sm:self-auto px-3.5 py-1.5 rounded-xl bg-lime-400 hover:bg-lime-500 text-stone-950 font-black text-xs transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shrink-0 whitespace-nowrap"
                   >
                     {isAnalyzingCustom ? (
                       <>
@@ -743,32 +745,34 @@ export default function PublicLedger({
                   </button>
                 </div>
 
+                {/* Status audytu Gemini Vision */}
                 <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2.5 min-w-0">
                     <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                    <div>
+                    <div className="min-w-0">
                       <div className="text-xs font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
                         {tAudit.alignmentVerified}
                       </div>
-                      <div className="text-[11px] text-muted-foreground">
+                      <div className="text-[11px] text-muted-foreground leading-snug">
                         {language === "pl"
                           ? `Wskaźnik zaufania Gemini Vision: ${activeAudit.semanticMatchScore}% • Cel pokryty w 100%`
                           : `Gemini Vision confidence: ${activeAudit.semanticMatchScore}% • Goal fully covered`}
                       </div>
                     </div>
                   </div>
-                  <span className="px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-[11px] font-bold shrink-0">
+                  <span className="hidden sm:inline-flex px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-[11px] font-bold shrink-0 whitespace-nowrap">
                     {tLedger.verified}
                   </span>
                 </div>
 
+                {/* Dane sprzedawcy i dokumentu */}
                 <div className="space-y-2 text-xs">
                   <div className="grid grid-cols-2 gap-2 p-3 rounded-xl bg-muted/40 border border-border/60">
                     <div>
                       <span className="text-[10px] uppercase font-bold text-muted-foreground block">
                         {tAudit.vendorName}
                       </span>
-                      <span className="font-bold text-foreground">
+                      <span className="font-bold text-foreground break-words">
                         {activeAudit.seller}
                       </span>
                     </div>
@@ -798,13 +802,19 @@ export default function PublicLedger({
                     </div>
                   </div>
 
+                  {/* Tabela pozycji z gwarancją nierozbijania ptaszka OCR */}
                   <div className="mt-3">
-                    <div className="text-[11px] uppercase font-bold text-muted-foreground mb-1.5 flex items-center justify-between">
-                      <span>{tAudit.itemsPurchased}</span>
-                      <span className="text-[10px] text-lime-700 dark:text-lime-400 font-mono">
-                        {language === "pl"
-                          ? "Weryfikacja AI OCR ✓"
-                          : "AI OCR Verified ✓"}
+                    <div className="text-[11px] uppercase font-bold text-muted-foreground mb-1.5 flex items-center justify-between gap-2">
+                      <span className="truncate">{tAudit.itemsPurchased}</span>
+                      <span className="shrink-0 whitespace-nowrap inline-flex items-center gap-1 text-[10px] font-mono font-bold text-lime-700 dark:text-lime-400">
+                        <span>
+                          {language === "pl"
+                            ? "WERYFIKACJA AI OCR"
+                            : "AI OCR VERIFIED"}
+                        </span>
+                        <span className="text-emerald-500 dark:text-emerald-400 font-black">
+                          ✓
+                        </span>
                       </span>
                     </div>
                     <div className="rounded-xl border border-border overflow-hidden">
@@ -827,13 +837,13 @@ export default function PublicLedger({
                         <tbody className="divide-y divide-border/60">
                           {activeAudit.items.map((item, i) => (
                             <tr key={i} className="hover:bg-muted/20">
-                              <td className="p-2 text-foreground font-medium">
+                              <td className="p-2 text-foreground font-medium break-words">
                                 {item.name}
                               </td>
-                              <td className="p-2 text-muted-foreground text-center font-mono">
+                              <td className="p-2 text-muted-foreground text-center font-mono whitespace-nowrap">
                                 {item.qty}
                               </td>
-                              <td className="p-2 text-right font-black text-emerald-800 dark:text-emerald-300 font-mono">
+                              <td className="p-2 text-right font-black text-emerald-800 dark:text-emerald-300 font-mono whitespace-nowrap">
                                 {item.gross}
                               </td>
                             </tr>
@@ -843,17 +853,21 @@ export default function PublicLedger({
                     </div>
                   </div>
 
+                  {/* Hash Integralności SHA-256 */}
                   <div className="mt-3 p-2.5 rounded-xl bg-background border border-border/80 flex items-center justify-between gap-2 text-[10px]">
                     <div className="flex items-center gap-1.5 text-muted-foreground shrink-0">
-                      <Hash className="size-3.5 text-primary" />
-                      <span>{tAudit.integrityHash}:</span>
+                      <Hash className="size-3.5 text-primary shrink-0" />
+                      <span className="truncate max-w-[130px] sm:max-w-none">
+                        {tAudit.integrityHash}:
+                      </span>
                     </div>
-                    <span className="font-mono text-foreground font-semibold truncate max-w-xs text-right">
+                    <span className="font-mono text-foreground font-semibold truncate max-w-[140px] sm:max-w-xs text-right">
                       {activeAudit.auditHash}
                     </span>
                   </div>
                 </div>
 
+                {/* Dolne przyciski akcji */}
                 <div className="pt-3 border-t border-border/70 flex justify-between gap-2">
                   <button
                     type="button"
@@ -861,7 +875,7 @@ export default function PublicLedger({
                       setSelectedEntry(selectedAuditEntry);
                       setSelectedAuditEntry(null);
                     }}
-                    className="px-3.5 py-2 rounded-xl border border-border bg-background hover:bg-muted text-xs font-semibold text-foreground transition-colors cursor-pointer flex items-center gap-1.5"
+                    className="px-3.5 py-2 rounded-xl border border-border bg-background hover:bg-muted text-xs font-semibold text-foreground transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap"
                   >
                     <span>👁️</span>
                     <span>
@@ -877,7 +891,7 @@ export default function PublicLedger({
                       setSelectedAuditEntry(null);
                       setCustomAuditData(null);
                     }}
-                    className="px-4 py-2 rounded-xl bg-lime-400 text-stone-950 font-bold text-xs hover:bg-lime-500 transition-colors cursor-pointer"
+                    className="px-4 py-2 rounded-xl bg-lime-400 text-stone-950 font-bold text-xs hover:bg-lime-500 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
                   >
                     {tAudit.close}
                   </button>
@@ -899,8 +913,8 @@ export default function PublicLedger({
                 ✕
               </button>
 
-              <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/25 [&::-webkit-scrollbar-track]:bg-transparent">
-                <div className="text-center pb-5 border-b border-border/70">
+              <div className="flex-1 overflow-y-auto p-5 sm:p-8 space-y-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/25 [&::-webkit-scrollbar-track]:bg-transparent">
+                <div className="text-center pb-4 border-b border-border/70 pr-8 sm:pr-0">
                   <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 mb-2">
                     <span>★</span>
                     <span>{tCheckout.certificateBadge}</span>
@@ -935,7 +949,7 @@ export default function PublicLedger({
                     <span className="text-muted-foreground">
                       {tLedger.amount}:
                     </span>
-                    <span className="font-black text-emerald-800 dark:text-emerald-300 text-base">
+                    <span className="font-black text-emerald-800 dark:text-emerald-300 text-base whitespace-nowrap">
                       {selectedEntry[2]}
                     </span>
                   </div>
@@ -943,7 +957,7 @@ export default function PublicLedger({
                     <span className="text-muted-foreground">
                       {tLedger.status}:
                     </span>
-                    <span className="font-bold text-emerald-800 dark:text-emerald-400">
+                    <span className="font-bold text-emerald-800 dark:text-emerald-400 whitespace-nowrap">
                       {tLedger.verified}
                     </span>
                   </div>
@@ -999,7 +1013,7 @@ export default function PublicLedger({
                       setSelectedAuditEntry(selectedEntry);
                       setSelectedEntry(null);
                     }}
-                    className="px-3.5 py-2 rounded-xl border border-lime-500/40 bg-lime-400/10 hover:bg-lime-400/20 text-xs font-bold text-lime-800 dark:text-lime-300 transition-colors flex items-center gap-1.5 cursor-pointer"
+                    className="px-3.5 py-2 rounded-xl border border-lime-500/40 bg-lime-400/10 hover:bg-lime-400/20 text-xs font-bold text-lime-800 dark:text-lime-300 transition-colors flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap"
                   >
                     <FileCheck2 className="size-3.5" />
                     <span>
@@ -1012,7 +1026,7 @@ export default function PublicLedger({
                   <button
                     type="button"
                     onClick={handlePrint}
-                    className="px-3.5 py-2 rounded-xl bg-primary text-primary-foreground font-semibold text-xs hover:opacity-90 transition-all flex items-center gap-1.5 cursor-pointer"
+                    className="px-3.5 py-2 rounded-xl bg-primary text-primary-foreground font-semibold text-xs hover:opacity-90 transition-all flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap"
                   >
                     <span>🖨️</span>
                     <span>{tCheckout.printBtn}</span>
@@ -1020,7 +1034,7 @@ export default function PublicLedger({
 
                   <Link
                     href={`/certyfikat/${encodeURIComponent(selectedEntry[3])}`}
-                    className="px-3.5 py-2 rounded-xl border border-border bg-background text-foreground font-semibold text-xs hover:bg-muted transition-colors flex items-center gap-1"
+                    className="px-3.5 py-2 rounded-xl border border-border bg-background text-foreground font-semibold text-xs hover:bg-muted transition-colors flex items-center gap-1 shrink-0 whitespace-nowrap"
                   >
                     <span>↗</span>
                     <span>{language === "pl" ? "Strona" : "Page"}</span>
@@ -1029,7 +1043,7 @@ export default function PublicLedger({
                   <button
                     type="button"
                     onClick={() => setSelectedEntry(null)}
-                    className="px-3 py-2 rounded-xl border border-border/80 bg-background text-muted-foreground hover:text-foreground font-medium text-xs transition-colors cursor-pointer"
+                    className="px-3 py-2 rounded-xl border border-border/80 bg-background text-muted-foreground hover:text-foreground font-medium text-xs transition-colors cursor-pointer shrink-0 whitespace-nowrap"
                   >
                     {tAgent.close}
                   </button>
