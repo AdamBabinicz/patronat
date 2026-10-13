@@ -1,0 +1,27 @@
+# PatronAI
+
+> Platforma agentic commerce dla transparentnego mecenatu sportu młodzieżowego. Projekt pilotażowy prowadzony we współpracy z klubem szachowym UKS Roszada Radom.
+
+## O projekcie
+
+PatronAI łączy kluby sportowe z mecenasami i sponsorami biznesowymi za pośrednictwem autonomicznego agenta PatronAgent. Użytkownik opisuje swoją intencję wsparcia własnymi słowami, a agent precyzyjnie mapuje ją na zweryfikowaną potrzebę klubu, przygotowuje mikrodarowiznę przez PayPal oraz generuje oficjalny Certyfikat Mecenasa z unikalnym numerem ewidencyjnym.
+
+## Główne moduły platformy
+
+- **PatronAgent**: Interfejs dopasowujący intencję mecenasa do celów klubu (np. profesjonalne zegary szachowe DGT, puchary na mistrzostwa juniorów, fundusz dojazdów na zawody).
+- **Proces płatności PayPal**: Bezpieczne wsparcie mikrodarowizną z automatyczną alokacją budżetu.
+- **Oficjalny Certyfikat Mecenasa**: Cyfrowy dyplom mecenatu z unikalnym numerem w rejestrze klubu, możliwością natychmiastowego pobrania grafiki PNG w wysokiej rozdzielczości oraz gotowy do wydruku w formacie A4 poziomo (PDF).
+- **Public Ledger (Publiczny rejestr wpłat)**: Transparentna księga potwierdzonych alokacji z bezpośrednim dostępem do certyfikatów darczyńców.
+
+## Beneficjent
+
+- **Klub**: Uczniowski Klub Sportowy „Roszada” Radom (UKS Roszada Radom)
+- **Dyscyplina**: Szachy (sekcja młodzieżowa i dziecięca)
+- **Siedziba**: Radom, Polska
+
+## Ważne linki
+
+- Strona główna: https://patronai.pl/
+- Polityka prywatności: https://patronai.pl/polityka-prywatnosci
+- Regulamin serwisu: https://patronai.pl/regulamin
+- Mapa witryny: https://patronai.pl/sitemap.xml
