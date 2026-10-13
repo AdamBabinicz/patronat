@@ -539,7 +539,7 @@ export default function PublicLedger({
                       {amount}
                     </td>
                     <td className="py-3.5 px-5">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-700/10 text-emerald-800 dark:text-emerald-300 border border-emerald-700/25">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-700/10 text-emerald-800 dark:text-emerald-300 border border-emerald-700/25 shrink-0 whitespace-nowrap">
                         {tLedger.verified}
                       </span>
                     </td>
@@ -552,7 +552,7 @@ export default function PublicLedger({
                             setCustomAuditData(null);
                             setSelectedAuditEntry(entry);
                           }}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-lime-500/40 bg-lime-400/10 hover:bg-lime-400/20 text-xs font-bold text-lime-800 dark:text-lime-300 transition-all cursor-pointer"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-lime-500/40 bg-lime-400/10 hover:bg-lime-400/20 text-xs font-bold text-lime-800 dark:text-lime-300 transition-all cursor-pointer shrink-0 whitespace-nowrap"
                           title={
                             language === "pl"
                               ? "Zobacz audyt faktury VAT (Gemini Vision)"
@@ -572,7 +572,7 @@ export default function PublicLedger({
                         <button
                           type="button"
                           onClick={() => setSelectedEntry(entry)}
-                          className="px-2.5 py-1.5 rounded-xl border border-border bg-background hover:bg-accent text-xs font-semibold text-foreground transition-all shadow-xs cursor-pointer"
+                          className="px-2.5 py-1.5 rounded-xl border border-border bg-background hover:bg-accent text-xs font-semibold text-foreground transition-all shadow-xs cursor-pointer shrink-0 whitespace-nowrap"
                         >
                           {certId} 👁️
                         </button>
@@ -580,7 +580,7 @@ export default function PublicLedger({
                         {/* Bezpośredni link */}
                         <Link
                           href={`/certyfikat/${encodeURIComponent(certId)}`}
-                          className="px-2 py-1.5 rounded-xl border border-border/80 bg-background hover:bg-muted text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+                          className="px-2 py-1.5 rounded-xl border border-border/80 bg-background hover:bg-muted text-xs font-bold text-muted-foreground hover:text-foreground transition-colors shrink-0"
                           title={
                             language === "pl"
                               ? "Otwórz stronę weryfikacji"
@@ -611,33 +611,35 @@ export default function PublicLedger({
                   isLive ? "bg-emerald-500/10 border-emerald-500/40" : "bg-card"
                 }`}
               >
-                <div className="flex justify-between items-start gap-2">
-                  <div>
+                <div className="flex justify-between items-start gap-2.5">
+                  <div className="min-w-0 flex-1">
                     <h3 className="font-bold text-foreground text-sm flex items-center gap-1.5">
                       {isLive && (
-                        <span className="size-2 rounded-full bg-emerald-500" />
+                        <span className="size-2 rounded-full bg-emerald-500 shrink-0" />
                       )}
-                      <span>{patron}</span>
+                      <span className="truncate">{patron}</span>
                     </h3>
-                    <p className="text-xs text-muted-foreground">{purpose}</p>
+                    <p className="text-xs text-muted-foreground break-words">
+                      {purpose}
+                    </p>
                   </div>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-700/10 text-emerald-800 dark:text-emerald-300 border border-emerald-700/25">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-700/10 text-emerald-800 dark:text-emerald-300 border border-emerald-700/25 shrink-0 whitespace-nowrap">
                     {tLedger.verified}
                   </span>
                 </div>
 
                 <div className="flex justify-between items-center pt-2 border-t border-border/60">
-                  <span className="font-black text-emerald-800 dark:text-emerald-300 text-sm">
+                  <span className="font-black text-emerald-800 dark:text-emerald-300 text-sm shrink-0 whitespace-nowrap">
                     {amount}
                   </span>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <button
                       type="button"
                       onClick={() => {
                         setCustomAuditData(null);
                         setSelectedAuditEntry(entry);
                       }}
-                      className="px-2 py-1 rounded-lg border border-lime-500/40 bg-lime-400/10 text-[10px] font-bold text-lime-800 dark:text-lime-300 cursor-pointer flex items-center gap-1"
+                      className="px-2 py-1 rounded-lg border border-lime-500/40 bg-lime-400/10 text-[10px] font-bold text-lime-800 dark:text-lime-300 cursor-pointer flex items-center gap-1 shrink-0 whitespace-nowrap"
                     >
                       <FileCheck2 className="size-3" />
                       <span>
@@ -648,13 +650,13 @@ export default function PublicLedger({
                     <button
                       type="button"
                       onClick={() => setSelectedEntry(entry)}
-                      className="px-2 py-1 rounded-lg border border-border bg-background text-[11px] font-bold text-foreground cursor-pointer"
+                      className="px-2 py-1 rounded-lg border border-border bg-background text-[11px] font-bold text-foreground cursor-pointer shrink-0 whitespace-nowrap"
                     >
                       {certId} 👁️
                     </button>
                     <Link
                       href={`/certyfikat/${encodeURIComponent(certId)}`}
-                      className="px-2 py-1 rounded-lg border border-border bg-background text-[11px] font-bold text-muted-foreground"
+                      className="px-2 py-1 rounded-lg border border-border bg-background text-[11px] font-bold text-muted-foreground shrink-0"
                     >
                       ↗
                     </Link>
