@@ -2,7 +2,7 @@
 "use client";
 
 // Dwujęzyczny (PL / EN) komponent integrujący PayPal JS SDK.
-// Stabilne renderowanie przycisków PayPal, BLIK, Przelewy24 i Karty bez pętli przeładowań DOM i błędów Strict Mode.
+// Stabilne renderowanie przycisków PayPal, BLIK, Przelewy24 i Karty bez pętli przeładowań DOM i błędów walidacji.
 import React, { useEffect, useRef, useState } from "react";
 
 export type Language = "pl" | "en";
@@ -78,7 +78,6 @@ export default function PayPalButton({
   const isMountedRef = useRef<boolean>(true);
   const isRenderedRef = useRef<boolean>(false);
 
-  // Dynamiczne referencje – gwarantują, że PayPal zawsze czyta najnowszą kwotę i cel
   const propsRef = useRef({
     amount,
     currency,
@@ -115,7 +114,7 @@ export default function PayPalButton({
   const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "test";
   const isTestMode = clientId === "test";
 
-  // Obsługa powrotu z PayPala na telefonie (gdy user kliknie rezygnację i wróci z parametrem ?canceled=true)
+  // Obsługa powrotu z PayPala na telefonie (gdy user wróci pod ?canceled=true)
   useEffect(() => {
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
@@ -138,7 +137,6 @@ export default function PayPalButton({
     isRenderedRef.current = false;
     let buttonsInstance: any = null;
 
-    // Ochrona przed fałszywymi ostrzeżeniami Zoid w konsoli
     const originalConsoleError = console.error;
     console.error = (...args: any[]) => {
       const errorString = args
@@ -196,7 +194,6 @@ export default function PayPalButton({
       if (isRenderedRef.current) return;
 
       if (!window.paypal || !window.paypal.Buttons) {
-        // Jeśli skrypt jest jeszcze przetwarzany, nie zgłaszaj błędu od razu
         return;
       }
 
@@ -226,7 +223,7 @@ export default function PayPalButton({
                 ? window.location.origin + window.location.pathname
                 : "";
 
-            // TRYB TESTOWY BROWSER-BASED (client-id=test)
+            // TRYB TESTOWY BROWSER-BASED (actions.order.create wymaga czystego formatu bez application_context)
             if (actions && actions.order) {
               return actions.order.create({
                 purchase_units: [
@@ -238,18 +235,10 @@ export default function PayPalButton({
                     },
                   },
                 ],
-                application_context: {
-                  brand_name: current.clubName || undefined,
-                  locale: paypalLocale,
-                  landing_page: "NO_PREFERENCE",
-                  user_action: "PAY_NOW",
-                  return_url: `${currentOrigin}?success=true`,
-                  cancel_url: `${currentOrigin}?canceled=true`,
-                },
               });
             }
 
-            // TRYB Z BACKENDEM REST API
+            // TRYB Z BACKENDEM REST API (obsługujący cancelUrl i returnUrl)
             const response = await fetch("/api/paypal/create-order", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -404,7 +393,6 @@ export default function PayPalButton({
 
       document.body.appendChild(script);
     } else {
-      // Skrypt już istnieje w dokumencie
       if (script.src !== expectedSrc) {
         script.remove();
         (window as any).paypal = undefined;
@@ -429,7 +417,6 @@ export default function PayPalButton({
       } else if (window.paypal && window.paypal.Buttons) {
         renderButtons();
       } else {
-        // Skrypt jest jeszcze w trakcie ładowania – podpinamy się pod zdarzenie
         script.addEventListener("load", () => {
           if (isMountedRef.current) renderButtons();
         });
