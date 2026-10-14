@@ -7,6 +7,7 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
 [![Gemini AI](https://img.shields.io/badge/Google_Gemini-Multimodal_AI-orange?style=for-the-badge&logo=google)](https://ai.google.dev/)
 [![PayPal Commerce](https://img.shields.io/badge/PayPal-Commerce_Platform-00457C?style=for-the-badge&logo=paypal)](https://developer.paypal.com/)
+[![Neon PostgreSQL](https://img.shields.io/badge/Neon-Serverless_Postgres-00E599?style=for-the-badge&logo=postgresql)](https://neon.tech/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
 ---
@@ -106,6 +107,9 @@ flowchart TB
     end
     subgraph API["API Layer"]
         MATCH["app/api/agent/match/route.ts<br/>Streamlined Gemini NLP & URL Matching"]
+        LEDGERAPI["app/api/ledger/route.ts<br/>Cloud Ledger GET/POST + Pilot Seed"]
+        CERTAPI["app/api/certificate/[id]/route.ts<br/>DB-driven Certificate Verification"]
+        CAPTURE["app/api/paypal/capture-order/route.ts<br/>PayPal Capture + Persistent DB Write"]
     end
     subgraph GEM["Google Gemini"]
         NLP["Reasoning ·<br/>Social ROI Prediction"]
@@ -114,7 +118,8 @@ flowchart TB
     subgraph PAY["Payments"]
         PP["PayPal JavaScript SDK<br/>Commerce Platform + Developer Simulation"]
     end
-    subgraph LEDGER["Trust Layer"]
+    subgraph LEDGER["Trust & Persistence Layer"]
+        DB[("Neon Serverless<br/>PostgreSQL")]
         HASH["SHA-256 Integrity Hashes"]
         CERT["/certyfikat/[id] · QR + PDF"]
     end
@@ -125,7 +130,15 @@ flowchart TB
     CAM --> VISION
     UI --> PP
     UI --> VOICE
+    UI --> LEDGERAPI
+    UI --> CERTAPI
+    MATCH --> LEDGERAPI
+    PP --> CAPTURE
     VISION --> HASH
+    LEDGERAPI --> DB
+    CERTAPI --> DB
+    CAPTURE --> DB
+    DB --> HASH
     HASH --> CERT
     UI --> I18N
 ```
@@ -217,22 +230,31 @@ The emotional payload of every sponsorship: donors don't just see a receipt — 
 | **Payments & Checkout**     | PayPal JavaScript SDK (Commerce Platform, Sandbox / Developer Simulation Mode)                 |
 | **Domain & i18n**           | `lib/needsCatalog.ts` (typed needs domain), `lib/translations/` (strict type-safe `pl` / `en`) |
 | **Security & Trust**        | SHA-256 cryptographic integrity hashes, standalone QR verification route                       |
-| **State & Storage**         | React State, LocalStorage (theme & language persistence)                                       |
+| **Database & Persistence**  | Neon Serverless PostgreSQL (`@neondatabase/serverless`), connection pooling, auto-migrating DDL schema (`allocations` and `audit_reports` tables) |
+| **Client State**            | React State (ephemeral UI state)                                                                |
 | **Deployment**              | Vercel / Google Cloud Run (Dockerized Container)                                               |
 
 ---
 
 ## 📁 Project Architecture (Clean Architecture)
 
-Domain logic is deliberately decoupled from the UI and API layers: the club needs catalog lives in `lib/needsCatalog.ts`, the Gemini orchestration is consolidated into a single streamlined route, and all user-facing strings flow through a strict, type-safe translation layer.
+Domain logic is deliberately decoupled from the UI and API layers: the club needs catalog lives in `lib/needsCatalog.ts`, the Neon persistence client lives in `lib/db.ts`, the Gemini orchestration is consolidated into a single streamlined route, and all user-facing strings flow through a strict, type-safe translation layer. The public ledger and certificates are stored in a relational Neon Serverless PostgreSQL database, not in the browser.
 
 ```bash
 patronai/
 ├── app/
 │   ├── api/
-│   │   └── agent/
-│   │       └── match/
-│   │           └── route.ts         # Streamlined Gemini NLP & company-URL matching engine
+│   │   ├── agent/
+│   │   │   └── match/
+│   │   │       └── route.ts         # Streamlined Gemini NLP & company-URL matching engine
+│   │   ├── ledger/
+│   │   │   └── route.ts             # Cloud database ledger GET/POST with automated pilot dataset seeding
+│   │   ├── certificate/
+│   │   │   └── [id]/
+│   │   │       └── route.ts         # Database-driven certificate verification endpoint
+│   │   └── paypal/
+│   │       └── capture-order/
+│   │           └── route.ts         # PayPal capture with persistent database write
 │   ├── certyfikat/
 │   │   └── [id]/
 │   │       └── page.tsx             # Standalone verifiable certificate route (QR + PDF + ledger lookup)
@@ -248,6 +270,7 @@ patronai/
 │       ├── DonationCertificate.tsx  # Certificate, AI Voice note & CSR pack
 │       └── types.ts                 # TypeScript currency & allocation interfaces
 ├── lib/
+│   ├── db.ts                        # Neon Serverless PostgreSQL client, schema DDL & interfaces
 │   ├── needsCatalog.ts              # Domain layer: typed club needs catalog (decoupled core logic)
 │   └── translations/
 │       ├── index.ts                 # Localization manager (strict, type-safe)
@@ -264,6 +287,7 @@ patronai/
 
 - Node.js 18.x or higher
 - npm or pnpm package manager
+- A Neon Serverless PostgreSQL database (free tier) — the schema is created automatically on first request
 
 ### 1. Clone the repository
 
@@ -289,11 +313,16 @@ GEMINI_API_KEY=your_gemini_api_key_here
 # PayPal Client ID — set to 'test' for the built-in developer simulation mode
 NEXT_PUBLIC_PAYPAL_CLIENT_ID=test
 
+# Neon Serverless PostgreSQL — pooled connection string for the public ledger & certificates
+DATABASE_URL=postgresql://neondb_owner:password@ep-xyz-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require
+
 # Application Base URL — used for certificate links & QR codes
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
 > **Note:** With `NEXT_PUBLIC_PAYPAL_CLIENT_ID=test`, checkout runs in **developer simulation mode** — payments are simulated instantly so you can test the full post-payment flow (certificate, CSR pack, AI voice note) without PayPal credentials.
+>
+> **Database note:** Paste the **pooled** connection string from your Neon project dashboard. Tables `allocations` and `audit_reports` are created automatically (auto-migrating DDL) on the first API request, and the pilot demonstration dataset is seeded on demand.
 
 ### 4. Run the development server
 
@@ -359,6 +388,7 @@ PatronAI is a **competition prototype / pilot** prepared for the PayPal AI Hacka
 - **📣 Instant corporate deliverables.** One-click LinkedIn posts + UN SDG-aligned ESG statements the same minute the patron checks out — closing the CSR feedback loop that normally takes a quarter.
 - **🎙️ Emotional impact, engineered.** A personalized spoken thank-you from the athletes themselves, with a live equalizer waveform — sponsors don't just read a receipt, they _feel_ the impact.
 - **🔐 Tamper-evident, not just "transparent."** Every ledger entry carries a SHA-256 hash and a standalone `/certyfikat/[id]` verification page with dynamic QR + PDF export — sponsors audit individual line items, not trust an aggregate dashboard.
+- **🗄️ Durable cloud persistence, not a browser cache.** The public ledger and every issued certificate live in a **relational Neon Serverless PostgreSQL** database — reached through pooled serverless connections (`@neondatabase/serverless`) against an auto-migrating DDL schema (`allocations`, `audit_reports`). Audit records and certificate lookups survive refreshes, device changes and cleared browser storage, so the trust trail is a queryable server-side record rather than client-side state.
 - **🧪 Transparent competition pilot, not inflated traction.** Real funds collected: **0.00 PLN** (PayPal runs in sandbox / developer simulation mode, no production UKS Roszada account); the ledger's 19,945 PLN and 130+ allocations are a **100% Hypothetical Demonstration Dataset** — mock invoices built on illustrative club needs to showcase the architecture — with UKS Roszada Radom (80+ active youth players) named as the **prospective pilot partner / target community use case** for deployment after the hackathon.
 - **🏛️ Clean Architecture that judges can read.** Domain logic decoupled into `lib/needsCatalog.ts`, one streamlined Gemini orchestration route, and strict type-safe i18n — a codebase built to scale past the hackathon.
 
