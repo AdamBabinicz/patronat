@@ -31,6 +31,7 @@ export default function DonationCheckout({
   const [message, setMessage] = useState<string>("");
   const [paymentSuccess, setPaymentSuccess] = useState<any | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [isAwaitingReturn, setIsAwaitingReturn] = useState<boolean>(false);
 
   // Synchronizacja po zmianie języka (np. z navbaru strony)
   useEffect(() => {
@@ -56,6 +57,29 @@ export default function DonationCheckout({
     if (initialCurrency) setCurrency(initialCurrency);
   }, [initialAmount, initialGoal, initialCurrency]);
 
+  // Wykrywanie powrotu z zewnętrznej karty PayPala na telefonie
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && isAwaitingReturn) {
+        setIsAwaitingReturn(false);
+      }
+    };
+
+    const handleWindowFocus = () => {
+      if (isAwaitingReturn) {
+        setIsAwaitingReturn(false);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleWindowFocus);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleWindowFocus);
+    };
+  }, [isAwaitingReturn]);
+
   const t = (messages || getTranslations(locale)).checkout;
   const currentGoal = goal || initialGoal || t.defaultGoal;
   const currentEffectiveAmount = isCustom
@@ -63,7 +87,16 @@ export default function DonationCheckout({
     : amount;
   const minAmount = 1;
 
-  // Przełączenie języka bezpośrednio w formularzu kasy
+  // Tłumaczenia pomocnicze dla powrotu i anulowania
+  const cancelText =
+    locale === "pl"
+      ? "Anuluj i wybierz inną kwotę"
+      : "Cancel and choose different amount";
+  const mobileNoticeText =
+    locale === "pl"
+      ? "Otwarto okno płatności. Jeśli rozmyśliłeś się, kliknij poniżej:"
+      : "Payment window opened. If you changed your mind, click below:";
+
   const handleLocaleChange = (newLocale: Language) => {
     setLocale(newLocale);
     if (newLocale === "en" && currency === "PLN") {
@@ -102,9 +135,15 @@ export default function DonationCheckout({
     }
   };
 
+  const handlePaymentCancel = () => {
+    setPaymentError(null);
+    setIsAwaitingReturn(false);
+  };
+
   const handlePaymentSuccess = (details: any) => {
     setPaymentSuccess(details);
     setPaymentError(null);
+    setIsAwaitingReturn(false);
 
     // Dynamiczny zapis do publicznego rejestru (localStorage)
     if (typeof window !== "undefined") {
@@ -150,6 +189,7 @@ export default function DonationCheckout({
   const resetForm = () => {
     setPaymentSuccess(null);
     setPaymentError(null);
+    setIsAwaitingReturn(false);
     setCustomAmount("");
     setIsCustom(false);
     setAmount(currency === "PLN" ? 100 : 25);
@@ -268,6 +308,20 @@ export default function DonationCheckout({
         </div>
       )}
 
+      {/* Baner pomocniczy po kliknięciu PayPala na urządzeniu mobilnym */}
+      {isAwaitingReturn && (
+        <div className="mb-4 p-3 bg-muted/60 border border-border rounded-xl text-center space-y-2">
+          <p className="text-xs text-muted-foreground">{mobileNoticeText}</p>
+          <button
+            type="button"
+            onClick={handlePaymentCancel}
+            className="text-xs font-semibold text-foreground underline cursor-pointer"
+          >
+            {cancelText}
+          </button>
+        </div>
+      )}
+
       {/* Autoryzacja i Przycisk PayPal */}
       <div className="pt-3 border-t border-border">
         <label className="block text-[11px] font-bold text-muted-foreground text-center mb-3">
@@ -291,7 +345,11 @@ export default function DonationCheckout({
             note={message || undefined}
             description={`${currentGoal} - ${clubName}`}
             onSuccess={handlePaymentSuccess}
-            onError={(err: Error) => setPaymentError(err.message)}
+            onError={(err: Error) => {
+              setPaymentError(err.message);
+              setIsAwaitingReturn(false);
+            }}
+            onCancel={handlePaymentCancel}
           />
         ) : (
           <button
