@@ -1,15 +1,15 @@
 -- ============================================================================
 --  PatronAI — Neon Serverless PostgreSQL
---  Plik: schema.sql  ·  pełny, IDEMPOTENTNY baseline DDL
---  Uruchamiany przez: lib/db.ts (@neondatabase/serverless, pooled DATABASE_URL)
---  Uwaga: to samo DDL jest wykonywane automatycznie ("auto-migrating DDL")
---         przy pierwszym żądaniu do /api/ledger, /api/certificate/[id]
---         oraz /api/paypal/capture-order.
---  Wersjonowane zmiany: katalog migrations/ (001 … 006).
+--  File: schema.sql  ·  Full, IDEMPOTENT baseline DDL
+--  Executed by: lib/db.ts (@neondatabase/serverless, pooled DATABASE_URL)
+--  Note: This DDL is executed automatically ("auto-migrating DDL")
+--        on the first request to /api/ledger, /api/certificate/[id],
+--        and /api/paypal/capture-order.
+--  Versioned migrations: migrations/ directory (001 … 006).
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
--- 0. Rejestr migracji
+-- 0. Schema Migrations Log
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS schema_migrations (
   version      text        PRIMARY KEY,
@@ -20,50 +20,50 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 );
 
 COMMENT ON TABLE schema_migrations IS
-  'Rejestr wykonanych migracji (001…006). Używany przez runner w lib/db.ts oraz CLI.';
+  'Registry of executed migrations (001…006). Utilized by database runners in lib/db.ts and CLI scripts.';
 
 -- ---------------------------------------------------------------------------
--- 1. Sekwencja publicznego numeru wpisu w rejestrze (KROK 03 · Public Ledger)
+-- 1. Public Ledger Entry Sequence (STEP 03 · Public Ledger)
 -- ---------------------------------------------------------------------------
 CREATE SEQUENCE IF NOT EXISTS allocations_ledger_entry_no_seq
   AS integer START WITH 1001;
 
 -- ---------------------------------------------------------------------------
--- 2. allocations — wpis publicznego rejestru (Trust & Persistence Layer)
+-- 2. allocations — Public Ledger Entries (Trust & Persistence Layer)
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS allocations (
   id                      uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
 
-  -- identyfikacja publiczna
+  -- Public identification
   ledger_entry_no         integer       NOT NULL DEFAULT nextval('allocations_ledger_entry_no_seq'),
-  public_ref              text          NOT NULL,          -- slug trasy /certyfikat/[id]
+  public_ref              text          NOT NULL,          -- route slug for /certyfikat/[id]
   status                  text          NOT NULL DEFAULT 'pending',
 
-  -- typ wkładu: finansowy (PayPal) lub barter (AI Barter Valuator)
+  -- Contribution type: financial (PayPal) or in-kind/barter (AI Barter Valuator)
   contribution_type       text          NOT NULL DEFAULT 'financial',
 
-  -- patron (B2B / osoba / anonim)
+  -- Patron details (Corporate / Individual / Anonymous)
   patron_display_name     text          NOT NULL DEFAULT 'Patron anonimowy',
   patron_type             text          NOT NULL DEFAULT 'anonymous',
   patron_email            text,
-  patron_url              text,                            -- firmowy URL parsowany przez PatronAgent
+  patron_url              text,                            -- Company website parsed by PatronAgent
   patron_domain           text,
-  business_category       text,                            -- kategoryzacja domeny (Gemini)
+  business_category       text,                            -- Industry categorization (Gemini NLP)
 
-  -- migawka potrzeby klubu (źródło: lib/needsCatalog.ts — katalog pozostaje w kodzie)
+  -- Snapshot of club need (Source: lib/needsCatalog.ts — catalog in code, state in DB)
   need_code               text          NOT NULL,
   need_title_pl           text          NOT NULL,
   need_title_en           text          NOT NULL,
   need_category           text,
   need_quantity           integer       NOT NULL DEFAULT 1,
 
-  -- kwota i waluta (PLN / EUR / USD — multi-currency engine)
+  -- Gross amount and multi-currency engine (PLN / EUR / USD)
   amount_gross            numeric(12,2) NOT NULL,
   currency                char(3)       NOT NULL DEFAULT 'PLN',
   amount_pln_equivalent   numeric(12,2),
   fx_rate                 numeric(12,6),
 
-  -- wkład rzeczowy / barter (AVE + tier)
+  -- In-kind contribution / Barter (Advertising Value Equivalency - AVE & tier)
   ave_market_value        numeric(12,2),
   barter_tier             text,
   barter_item             text,
@@ -74,14 +74,14 @@ CREATE TABLE IF NOT EXISTS allocations (
   competition_access_pct  numeric(5,2),
   sdg_tags                text[]        NOT NULL DEFAULT '{}',
 
-  -- Trust layer: SHA-256 + certyfikat
+  -- Trust layer: SHA-256 seal & verification
   integrity_hash          char(64),
   hash_algo               text          NOT NULL DEFAULT 'sha256',
   hashed_at               timestamptz,
   certificate_issued_at   timestamptz,
   qr_payload              text,
 
-  -- i18n + pochodzenie danych
+  -- i18n & data lineage
   locale                  text          NOT NULL DEFAULT 'pl',
   data_source             text          NOT NULL DEFAULT 'live',
   is_demo_data            boolean       NOT NULL DEFAULT false,
@@ -119,11 +119,11 @@ CREATE TABLE IF NOT EXISTS allocations (
 );
 
 COMMENT ON TABLE allocations IS
-  'Publiczny rejestr alokacji: patron, potrzeba klubu (migawka z lib/needsCatalog.ts), kwota/waluta, wartość barterowa (AVE), hash SHA-256 i status audytu.';
+  'Public ledger of allocations: patron, club need snapshot, amounts/currencies, barter AVE, SHA-256 seal, and audit state.';
 COMMENT ON COLUMN allocations.integrity_hash IS
-  'SHA-256 wpisu rejestru — podstawa tamper-evident ledger i weryfikacji /certyfikat/[id].';
+  'SHA-256 hash sealing ledger entries — serves as base for tamper-evident verification on /certyfikat/[id].';
 COMMENT ON COLUMN allocations.data_source IS
-  'live = dane rzeczywiste; hypothetical_demo_dataset = w 100% hipotetyczny zbiór demonstracyjny (0,00 PLN realnych środków).';
+  'live = real production data; hypothetical_demo_dataset = 100% hypothetical demonstration dataset (0.00 PLN live funds).';
 
 -- ---------------------------------------------------------------------------
 -- 3. audit_reports — AI Vision Expense Audit (Gemini Multimodal Vision OCR)
@@ -134,12 +134,12 @@ CREATE TABLE IF NOT EXISTS audit_reports (
   report_ref          text          NOT NULL,
 
   engine              text          NOT NULL DEFAULT 'gemini-multimodal-vision',
-  engine_model        text,                                -- uzupełniane w runtime z konfiguracji Gemini
+  engine_model        text,                                -- Populated at runtime from Gemini config
   source_kind         text          NOT NULL DEFAULT 'upload',
   mime_type           text,
   image_sha256        char(64),
 
-  -- dane wyekstrahowane z faktury / paragonu (OCR → strukturalny JSON)
+  -- Structured OCR data extracted from invoice / receipt
   merchant_name       text,
   merchant_nip        text,
   invoice_number      text,
@@ -150,7 +150,7 @@ CREATE TABLE IF NOT EXISTS audit_reports (
   gross_total         numeric(12,2),
   document_currency   char(3)       NOT NULL DEFAULT 'PLN',
 
-  -- audyt semantyczny: cel alokacji vs. rzeczywisty zakup
+  -- Semantic reconciliation: allocation objective vs. actual expense
   allocation_goal     text,
   semantic_match      boolean,
   match_confidence    numeric(4,3),
@@ -178,12 +178,12 @@ CREATE TABLE IF NOT EXISTS audit_reports (
 );
 
 COMMENT ON TABLE audit_reports IS
-  'Wynik audytu AI Vision: NIP, pozycje faktury, kwoty netto/VAT/brutto oraz wynik weryfikacji semantycznej wobec celu alokacji (rozbieżności = flaga, nie cicha akceptacja).';
+  'AI Vision audit results: Tax ID, invoice line items, amounts, and semantic reconciliation against allocation objective (mismatches are flagged, never silently approved).';
 COMMENT ON COLUMN audit_reports.line_items IS
-  'Pozycje dokumentu w formacie JSON: [{ "name", "qty", "unit_price", "gross" }, …].';
+  'Extracted line items in structured JSON array: [{ "name", "qty", "unit_price", "gross" }, …].';
 
 -- ---------------------------------------------------------------------------
--- 4. payment_orders — trwały zapis przechwyceń PayPal (capture-order)
+-- 4. payment_orders — Persistent PayPal Captures (capture-order)
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS payment_orders (
   id                  uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -221,10 +221,10 @@ CREATE TABLE IF NOT EXISTS payment_orders (
 );
 
 COMMENT ON TABLE payment_orders IS
-  'Zamówienia i przechwycenia PayPal. Prototyp działa wyłącznie w trybie sandbox / developer simulation (brak produkcyjnego konta UKS Roszada).';
+  'Persistent PayPal checkout records. The prototype functions exclusively in sandbox/developer simulation mode (no live club merchant account).';
 
 -- ---------------------------------------------------------------------------
--- 5. Indeksy
+-- 5. Indexes
 -- ---------------------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS allocations_status_idx       ON allocations (status);
 CREATE INDEX IF NOT EXISTS allocations_created_at_idx   ON allocations (created_at DESC);
@@ -245,7 +245,7 @@ CREATE INDEX IF NOT EXISTS payment_orders_status_idx     ON payment_orders (stat
 CREATE INDEX IF NOT EXISTS payment_orders_mode_idx       ON payment_orders (mode);
 
 -- ---------------------------------------------------------------------------
--- 6. Trigger updated_at
+-- 6. updated_at Trigger Function
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION patronai_set_updated_at()
 RETURNS trigger
@@ -273,7 +273,7 @@ CREATE TRIGGER payment_orders_set_updated_at
   FOR EACH ROW EXECUTE FUNCTION patronai_set_updated_at();
 
 -- ---------------------------------------------------------------------------
--- 7. Widoki (widoki = wyłącznie odczyt dla tras API i trasy /certyfikat/[id])
+-- 7. Views (Read-only interfaces for API Route Handlers & /certyfikat/[id])
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE VIEW v_public_ledger AS
 SELECT
@@ -314,7 +314,7 @@ LEFT JOIN LATERAL (
   LIMIT 1
 ) ar ON true;
 
-COMMENT ON VIEW v_public_ledger IS 'Widok KROK 03 · Public Ledger — wpis alokacji z ostatnim raportem audytu AI Vision.';
+COMMENT ON VIEW v_public_ledger IS 'Public Ledger view (STEP 03) — allocation record joined with latest AI Vision expense audit.';
 
 CREATE OR REPLACE VIEW v_certificate_verification AS
 SELECT
@@ -346,7 +346,7 @@ FROM allocations a
 LEFT JOIN audit_reports ar ON ar.allocation_id = a.id;
 
 COMMENT ON VIEW v_certificate_verification IS
-  'Źródło danych trasy /api/certificate/[id] — weryfikacja certyfikatu (SHA-256 + wynik audytu) wprost z bazy.';
+  'Data source for /api/certificate/[id] — real-time verification of certificate authenticity (SHA-256 seal + audit status).';
 
 CREATE OR REPLACE VIEW v_ledger_totals AS
 SELECT
@@ -362,7 +362,7 @@ FROM allocations
 GROUP BY currency, is_demo_data, data_source;
 
 COMMENT ON VIEW v_ledger_totals IS
-  'Sumy rejestru w podziale na walutę i pochodzenie danych — dla prototypu: 130 wpisów / 19 945,00 PLN zbioru hipotetycznego.';
+  'Aggregated ledger metrics grouped by currency and data lineage (130 records / 19,945.00 PLN demo baseline).';
 
 CREATE OR REPLACE VIEW v_audit_flag_queue AS
 SELECT
@@ -385,9 +385,9 @@ WHERE ar.flag_status = 'mismatch' OR a.status = 'flagged'
 ORDER BY ar.audited_at DESC NULLS LAST;
 
 COMMENT ON VIEW v_audit_flag_queue IS
-  'Kolejka rozbieżności — wpisy wstrzymane do wyjaśnienia (audyt semantyczny nie akceptuje rozbieżności po cichu).';
+  'Discrepancy audit queue — flagged records held for human-in-the-loop review (semantic reconciliation never silently approves mismatches).';
 
 -- ============================================================================
--- Koniec baseline DDL. Seeding zbioru demonstratyjnego: migrations/006_*.sql
--- (130 alokacji / 19 945,00 PLN, data_source = 'hypothetical_demo_dataset').
+-- End of baseline DDL. Demo dataset seeding: migrations/006_seed_demo_dataset.sql
+-- (130 allocations / 19,945.00 PLN, data_source = 'hypothetical_demo_dataset').
 -- ============================================================================

@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """
-PatronAI — walidacja schema.sql + migrations/001..006 na lokalnym PostgreSQL 16.
+PatronAI — Automated Schema & Migration Validation (schema.sql + migrations 001..006).
+Target engine: PostgreSQL 16 / Neon Serverless PostgreSQL.
 
-Uruchamiane jako bieżący użytkownik (bez sudo): initdb + pg_ctl w /home/user/pgdata.
+Runs as current unprivileged user: initdb + pg_ctl under /home/user/pgdata.
 
-Kroki:
-  1. start serwera PostgreSQL 16 (gniazdo UNIX w /tmp/pgsock, bez TCP),
-  2. plik "up-only" = schema.sql + sekcje +migrate Up wszystkich migracji,
-  3. wykonanie z ON_ERROR_STOP=1, następnie powtórka (test idempotencji seeda),
-  4. kontrole: tabele, widoki, indeksy, triggery, sumy, statusy, FK, CHECK-i, migracje,
-  5. druga baza: wszystkie sekcje +migrate Down w odwrotnej kolejności (test rollbacku).
+Execution Pipeline:
+  1. Initialize local PostgreSQL 16 server (UNIX socket at /tmp/pgsock, no TCP exposure).
+  2. Compile "up-only" execution plan: schema.sql + +migrate Up sections for all migrations.
+  3. Execute with ON_ERROR_STOP=1, followed by duplicate execution (validates seed idempotency).
+  4. Perform data integrity assertions: base tables, views, indexes, triggers, totals,
+     currencies, statuses, foreign keys, CHECK constraints, and migration logs.
+  5. Provision clean rollback database and execute all +migrate Down sections in reverse order
+     (validates 100% clean teardown and schema rollback capability).
 """
 import os
 import re
@@ -68,7 +71,7 @@ def main():
     r = subprocess.run([f"{PG_BIN}/pg_ctl", "-D", PGDATA, "-l", "/tmp/pglog.txt", "-w",
                         "-o", f"-p {PGPORT} -k {SOCK} -c listen_addresses=''", "start"],
                        capture_output=True, text=True)
-    print("start serwera:", (r.stdout + r.stderr).strip().splitlines()[-1])
+    print("Database server startup:", (r.stdout + r.stderr).strip().splitlines()[-1])
     if r.returncode != 0:
         print("PG_CTL FAILED")
         return 1
@@ -77,76 +80,76 @@ def main():
         psql(f"DROP DATABASE IF EXISTS {db}", db="postgres")
         psql(f"CREATE DATABASE {db}", db="postgres")
 
-    # --- 1. plik up-only ---------------------------------------------------
+    # --- 1. Compile Up-only plan ------------------------------------------
     up = ["-- ===== schema.sql (baseline) =====", open(f"{BASE}/schema.sql").read(), ""]
     for f in MIGRATIONS:
         up.append(f"\n-- ===== {f} (Up) =====")
         up.append(split_section(open(f"{BASE}/migrations/{f}").read(), "up"))
     open("/tmp/up.sql", "w").write("\n".join(up) + "\n")
 
-    print("\n===== WYKONANIE: schema.sql + migracje 001–006 (Up) =====")
+    print("\n===== EXECUTION: schema.sql + Migrations 001–006 (Up) =====")
     r = psql_file("/tmp/up.sql")
     print("exit_code:", r.returncode)
     notices = [l for l in r.stderr.splitlines() if "NOTICE" in l]
     errors = [l for l in r.stderr.splitlines() if "ERROR" in l or "FATAL" in l]
-    print("liczba NOTICE (pomijalne, IF NOT EXISTS):", len(notices))
-    print("liczba ERROR:", len(errors))
+    print("NOTICE count (expected with IF NOT EXISTS):", len(notices))
+    print("ERROR count:", len(errors))
     for e in errors[:20]:
         print("   ", e)
     if r.returncode != 0:
-        failures.append("wykonanie UP nieudane")
+        failures.append("UP execution failed")
 
-    # --- 2. kontrole -------------------------------------------------------
+    # --- 2. Data Integrity & Schema Assertions -----------------------------
     checks = {
-        "tabele bazowe": "SELECT string_agg(table_name, ', ' ORDER BY table_name) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'",
-        "widoki": "SELECT string_agg(table_name, ', ' ORDER BY table_name) FROM information_schema.views WHERE table_schema='public'",
-        "indeksy (nazwane _idx)": "SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND indexname LIKE '%_idx'",
-        "triggery": "SELECT count(*) FROM information_schema.triggers WHERE trigger_schema='public'",
-        "wpisy rejestru": "SELECT count(*) FROM allocations",
-        "SUMA PLN": "SELECT SUM(amount_pln_equivalent) FROM allocations",
-        "waluty": "SELECT string_agg(currency || '=' || c, ' ' ORDER BY currency) FROM (SELECT currency, count(*) c FROM allocations GROUP BY currency) t",
-        "statusy": "SELECT string_agg(status || '=' || c, ' ' ORDER BY status) FROM (SELECT status, count(*) c FROM allocations GROUP BY status) t",
-        "typy wkładu": "SELECT string_agg(contribution_type || '=' || c, ' ' ORDER BY contribution_type) FROM (SELECT contribution_type, count(*) c FROM allocations GROUP BY contribution_type) t",
-        "tiery barteru": "SELECT string_agg(barter_tier || ':' || ave_market_value, ', ' ORDER BY ave_market_value DESC) FROM allocations WHERE contribution_type='in_kind'",
-        "raporty audytu": "SELECT count(*) FROM audit_reports",
-        "audyty mismatch": "SELECT count(*) FROM audit_reports WHERE flag_status='mismatch'",
-        "audyty match": "SELECT count(*) FROM audit_reports WHERE flag_status='match'",
-        "pozycje JSON (line_items)": "SELECT count(*) FROM audit_reports WHERE jsonb_typeof(line_items)='array' AND jsonb_array_length(line_items)=2",
-        "NIP 10 cyfr": "SELECT count(*) FROM audit_reports WHERE merchant_nip ~ '^[0-9]{10}$'",
-        "zamowienia PayPal": "SELECT count(*) FROM payment_orders",
-        "tryb PayPal": "SELECT string_agg(mode || '/' || status || '=' || c, ' ' ORDER BY mode) FROM (SELECT mode, status, count(*) c FROM payment_orders GROUP BY mode, status) t",
-        "migracje": "SELECT string_agg(version, ',' ORDER BY version) FROM schema_migrations",
-        "v_public_ledger": "SELECT count(*) FROM v_public_ledger",
-        "v_certificate_verification": "SELECT count(*) FROM v_certificate_verification",
-        "certyfikaty z hashem": "SELECT count(*) FROM v_certificate_verification WHERE is_hash_sealed",
-        "v_ledger_totals suma": "SELECT SUM(total_pln_equivalent) FROM v_ledger_totals",
-        "v_audit_flag_queue": "SELECT count(*) FROM v_audit_flag_queue",
+        "Base tables": "SELECT string_agg(table_name, ', ' ORDER BY table_name) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'",
+        "Views": "SELECT string_agg(table_name, ', ' ORDER BY table_name) FROM information_schema.views WHERE table_schema='public'",
+        "Indexes (*_idx)": "SELECT count(*) FROM pg_indexes WHERE schemaname='public' AND indexname LIKE '%_idx'",
+        "Triggers": "SELECT count(*) FROM information_schema.triggers WHERE trigger_schema='public'",
+        "Ledger records": "SELECT count(*) FROM allocations",
+        "Total gross PLN": "SELECT SUM(amount_pln_equivalent) FROM allocations",
+        "Currencies breakdown": "SELECT string_agg(currency || '=' || c, ' ' ORDER BY currency) FROM (SELECT currency, count(*) c FROM allocations GROUP BY currency) t",
+        "Statuses breakdown": "SELECT string_agg(status || '=' || c, ' ' ORDER BY status) FROM (SELECT status, count(*) c FROM allocations GROUP BY status) t",
+        "Contribution types": "SELECT string_agg(contribution_type || '=' || c, ' ' ORDER BY contribution_type) FROM (SELECT contribution_type, count(*) c FROM allocations GROUP BY contribution_type) t",
+        "Barter tiers (AVE)": "SELECT string_agg(barter_tier || ':' || ave_market_value, ', ' ORDER BY ave_market_value DESC) FROM allocations WHERE contribution_type='in_kind'",
+        "Audit reports": "SELECT count(*) FROM audit_reports",
+        "Audit mismatch flags": "SELECT count(*) FROM audit_reports WHERE flag_status='mismatch'",
+        "Audit match flags": "SELECT count(*) FROM audit_reports WHERE flag_status='match'",
+        "JSONB line_items": "SELECT count(*) FROM audit_reports WHERE jsonb_typeof(line_items)='array' AND jsonb_array_length(line_items)=2",
+        "Merchant Tax ID (10 digits)": "SELECT count(*) FROM audit_reports WHERE merchant_nip ~ '^[0-9]{10}$'",
+        "PayPal payment orders": "SELECT count(*) FROM payment_orders",
+        "PayPal modes/statuses": "SELECT string_agg(mode || '/' || status || '=' || c, ' ' ORDER BY mode) FROM (SELECT mode, status, count(*) c FROM payment_orders GROUP BY mode, status) t",
+        "Applied migrations": "SELECT string_agg(version, ',' ORDER BY version) FROM schema_migrations",
+        "v_public_ledger rows": "SELECT count(*) FROM v_public_ledger",
+        "v_certificate_verification rows": "SELECT count(*) FROM v_certificate_verification",
+        "SHA-256 sealed certificates": "SELECT count(*) FROM v_certificate_verification WHERE is_hash_sealed",
+        "v_ledger_totals sum": "SELECT SUM(total_pln_equivalent) FROM v_ledger_totals",
+        "v_audit_flag_queue rows": "SELECT count(*) FROM v_audit_flag_queue",
         "FK audit_reports": "SELECT count(*) FROM pg_constraint WHERE conname='audit_reports_allocation_id_fkey' AND contype='f'",
         "FK payment_orders": "SELECT count(*) FROM pg_constraint WHERE conname='payment_orders_allocation_id_fkey' AND contype='f'",
         "CHECK allocations": "SELECT count(*) FROM pg_constraint WHERE contype='c' AND connamespace='public'::regnamespace AND conname LIKE 'allocations%chk'",
-        "funkcja triggera": "SELECT count(*) FROM pg_proc WHERE proname='patronai_set_updated_at'",
+        "Trigger function": "SELECT count(*) FROM pg_proc WHERE proname='patronai_set_updated_at'",
     }
-    print("\n===== KONTROLE DANYCH =====")
+    print("\n===== SCHEMA & DATA INTEGRITY CHECKS =====")
     for label, sql in checks.items():
         r = psql(sql)
         val = r.stdout.strip()
-        print(f"  {label:28s} -> {val if r.returncode == 0 else 'BŁĄD: ' + r.stderr.strip()[:160]}")
+        print(f"  {label:32s} -> {val if r.returncode == 0 else 'ERROR: ' + r.stderr.strip()[:160]}")
         if r.returncode != 0:
-            failures.append(f"kontrola: {label}")
+            failures.append(f"Assertion failed: {label}")
 
-    # --- 3. idempotencja ---------------------------------------------------
+    # --- 3. Seed Idempotency Check ----------------------------------------
     r = psql_file("/tmp/up.sql")
     a = psql("SELECT count(*) FROM allocations").stdout.strip()
     u = psql("SELECT count(*) FROM audit_reports").stdout.strip()
     p = psql("SELECT count(*) FROM payment_orders").stdout.strip()
     s = psql("SELECT SUM(amount_pln_equivalent) FROM allocations").stdout.strip()
-    print(f"\n  idempotencja (ponowne UP) -> error_code={r.returncode} "
-          f"allocations={a} audits={u} payments={p} suma_pln={s}")
+    print(f"\n  Idempotency (repeated UP) -> error_code={r.returncode} "
+          f"allocations={a} audits={u} payments={p} total_pln={s}")
     if r.returncode != 0 or (a, u, p) != ("130", "130", "127"):
-        failures.append("ponowne UP nie jest idempotentne")
+        failures.append("Repeated UP execution is not idempotent")
 
-    # --- 4. rollback -------------------------------------------------------
-    print("\n===== TEST ROLLBACKU (006 → 001, wszystkie sekcje Down) =====")
+    # --- 4. Rollback & Teardown Check (006 → 001) -------------------------
+    print("\n===== ROLLBACK VERIFICATION (006 → 001, All Down Sections) =====")
     psql_file("/tmp/up.sql", db=DB_ROLLBACK)
     down = []
     for f in reversed(MIGRATIONS):
@@ -158,35 +161,35 @@ def main():
     for e in [l for l in r.stderr.splitlines() if "ERROR" in l][:10]:
         print("   ", e)
     if r.returncode != 0:
-        failures.append("rollback nieudany")
+        failures.append("Rollback execution failed")
     else:
-        left = psql("SELECT coalesce(string_agg(table_name, ', '), 'brak tabel') "
+        left = psql("SELECT coalesce(string_agg(table_name, ', '), 'no tables remaining') "
                     "FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'",
                     db=DB_ROLLBACK).stdout.strip()
-        reg = psql("SELECT coalesce(to_regclass('public.schema_migrations')::text, 'usunieta')",
+        reg = psql("SELECT coalesce(to_regclass('public.schema_migrations')::text, 'dropped')",
                    db=DB_ROLLBACK).stdout.strip()
         fn = psql("SELECT count(*) FROM pg_proc WHERE proname='patronai_set_updated_at'", db=DB_ROLLBACK).stdout.strip()
         vw = psql("SELECT count(*) FROM information_schema.views WHERE table_schema='public'", db=DB_ROLLBACK).stdout.strip()
         sq = psql("SELECT count(*) FROM pg_class WHERE relname='allocations_ledger_entry_no_seq'", db=DB_ROLLBACK).stdout.strip()
-        print(f"  tabele po rollbacku      -> {left}")
-        print(f"  schema_migrations        -> {reg}")
-        print(f"  funkcja trig./widoki/seq -> {fn} / {vw} / {sq}")
-        ok = ("brak tabel" in left and reg == "usunieta"
+        print(f"  Tables post-rollback     -> {left}")
+        print(f"  schema_migrations table  -> {reg}")
+        print(f"  Trig. functions/views/seq-> {fn} / {vw} / {sq}")
+        ok = ("no tables remaining" in left and reg == "dropped"
               and fn == "0" and vw == "0" and sq == "0")
         if not ok:
-            failures.append("rollback pozostawil obiekty w bazie")
+            failures.append("Rollback left orphaned objects in public schema")
 
     r = subprocess.run([f"{PG_BIN}/pg_ctl", "-D", PGDATA, "-m", "fast", "stop"],
                        capture_output=True, text=True)
-    print("\nstop serwera:", (r.stdout + r.stderr).strip().splitlines()[-1])
+    print("\nDatabase server stopped:", (r.stdout + r.stderr).strip().splitlines()[-1])
 
-    print("\n===== WYNIK =====")
+    print("\n===== FINAL VALIDATION RESULT =====")
     if failures:
-        print("NIEPOWODZENIA:")
+        print("FAILURES DETECTED:")
         for f in failures:
             print("  -", f)
         return 1
-    print("OK — schema.sql i migracje 001–006 wykonują się bez błędów; seed idempotentny; rollback czysty.")
+    print("SUCCESS — schema.sql and migrations 001–006 executed without errors; seed is idempotent; rollback is clean.")
     return 0
 
 

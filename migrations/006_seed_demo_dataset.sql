@@ -1,28 +1,29 @@
 -- ============================================================================
---  PatronAI · migracja 006 — seed hipotetycznego zbioru demonstracyjnego
---  Plik: migrations/006_seed_demo_dataset.sql
---  Wymaga: 002–005
+--  PatronAI · Migration 006 — Seed Hypothetical Demonstration Dataset
+--  File: migrations/006_seed_demo_dataset.sql
+--  Prerequisites: 002–005
 --
---  ⚠️  ZASTRZEŻENIE: 100% hipotetyczny zbiór demonstracyjny.
---     130 alokacji · 19 945,00 PLN (suma księgowana w PLN). Dane generowane
---     z potrzeb klubu (lib/needsCatalog.ts) wyłącznie po to, by pokazać
---     przepływ: dopasowanie → płatność → audyt AI Vision → certyfikat.
---     Realne środki zebrane: 0,00 PLN. Brak produkcyjnego konta PayPal.
+--  ⚠️  DISCLAIMER: 100% hypothetical demonstration dataset.
+--     130 allocations · 19,945.00 PLN (accounting baseline total in PLN).
+--     Data is synthetically derived from club needs catalog (lib/needsCatalog.ts)
+--     solely to demonstrate the full end-to-end lifecycle:
+--     intent matching → checkout → AI Vision expense audit → certificate issuance.
+--     Real funds collected: 0.00 PLN. Operates under developer sandbox simulation.
 --
---  Charakterystyka zbioru (deterministyczny, idempotentny):
---    • 127 wpisów finansowych:  91 × 141,00 PLN + 36 × 139,00 PLN = 17 835,00 PLN
---    •   3 wpisy barterowe:   1180,00 (gold) + 620,00 (silver) + 310,00 (bronze)
---      = 2 110,00 PLN
---    • RAZEM: 19 945,00 PLN — dokładnie wartość prezentowana w README
---    • 4 wpisy z rozbieżnością audytu (flag_status = mismatch)
---    • kursy demonstracyjne: PLN 1,00 · EUR 4,30 · USD 4,00
---      (amount_pln_equivalent = wartość księgowana w PLN — podstawa sumy rejestru)
+--  Dataset characteristics (deterministic, fully idempotent):
+--    • 127 financial records: 91 × 141.00 PLN + 36 × 139.00 PLN = 17,835.00 PLN
+--    •   3 in-kind barter records: 1,180.00 (gold) + 620.00 (silver) + 310.00 (bronze)
+--      = 2,110.00 PLN
+--    • TOTAL: 19,945.00 PLN — exact ledger total presented in documentation
+--    • 4 records with deliberate audit discrepancies (flag_status = mismatch)
+--    • Demo FX rates: PLN 1.00 · EUR 4.30 · USD 4.00
+--      (amount_pln_equivalent = accounting valuation baseline)
 -- ============================================================================
 
 -- +migrate Up ---------------------------------------------------------------
 BEGIN;
 
--- --- 1. 130 wpisów rejestru (deterministycznie, suma = 19 945,00 PLN) -------
+-- --- 1. 130 Ledger Allocations (Deterministic seed, sum = 19,945.00 PLN) ---
 WITH needs(idx, code, title_pl, title_en, category) AS (
   VALUES
     (1, 'NEED-001', 'Zegary szachowe DGT 2010',        'DGT 2010 chess clocks',         'equipment'),
@@ -133,7 +134,7 @@ JOIN needs   n ON n.idx = b.need_idx
 JOIN patrons p ON p.idx = b.patron_idx
 ON CONFLICT (public_ref) DO NOTHING;
 
--- --- 2. Raporty audytu AI Vision (po jednym na wpis) ----------------------
+-- --- 2. AI Vision Expense Audit Reports (One per allocation) --------------
 WITH ranked AS (
   SELECT
     a.id, a.public_ref, a.need_title_pl, a.need_category, a.amount_gross, a.currency,
@@ -203,7 +204,7 @@ SELECT
 FROM ranked r
 ON CONFLICT (report_ref) DO NOTHING;
 
--- --- 3. Zamówienia PayPal (tryb sandbox/simulation — bez realnych środków) --
+-- --- 3. PayPal Orders (Sandbox/simulation mode — 0.00 PLN live transactions) -
 WITH ranked AS (
   SELECT
     a.id, a.public_ref, a.amount_gross, a.currency, a.contribution_type, a.status, a.paid_at,
@@ -233,7 +234,7 @@ SELECT
     'public_ref', r.public_ref,
     'capture_status', 'COMPLETED',
     'simulated', true,
-    'note', 'Symulacja deweloperska — brak produkcyjnego konta UKS Roszada.'
+    'note', 'Developer simulation mode — no live merchant account for UKS Roszada.'
   ),
   r.paid_at,
   r.paid_at,

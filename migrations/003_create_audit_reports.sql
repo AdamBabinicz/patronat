@@ -1,7 +1,7 @@
 -- ============================================================================
---  PatronAI · migracja 003 — tabela audit_reports (AI Vision Expense Audit)
---  Plik: migrations/003_create_audit_reports.sql
---  Wymaga: 002   ·   Rollback: DROP TABLE
+--  PatronAI · Migration 003 — Audit Reports Table (AI Vision Expense Audit)
+--  File: migrations/003_create_audit_reports.sql
+--  Prerequisites: 002   ·   Rollback: DROP TABLE
 -- ============================================================================
 
 -- +migrate Up ---------------------------------------------------------------
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS audit_reports (
 );
 
 COMMENT ON TABLE audit_reports IS
-  'Wynik audytu AI Vision (OCR + weryfikacja semantyczna wobec celu alokacji). Rozbieżność ustawia flag_status = mismatch, nigdy cichej akceptacji.';
+  'AI Vision audit results (OCR + semantic reconciliation against allocation objective). Discrepancies trigger flag_status = mismatch, never silent approval.';
 
 INSERT INTO schema_migrations (version, name)
 VALUES ('003', 'create_audit_reports')

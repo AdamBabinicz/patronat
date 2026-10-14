@@ -1,7 +1,7 @@
 -- ============================================================================
---  PatronAI · migracja 002 — tabela allocations (publiczny rejestr + trust layer)
---  Plik: migrations/002_create_allocations.sql
---  Wymaga: 001   ·   Rollback: DROP TABLE (utrata rejestru alokacji!)
+--  PatronAI · Migration 002 — Allocations Table (Public Ledger & Trust Layer)
+--  File: migrations/002_create_allocations.sql
+--  Prerequisites: 001   ·   Rollback: DROP TABLE (Permanent loss of ledger entries!)
 -- ============================================================================
 
 -- +migrate Up ---------------------------------------------------------------
@@ -88,9 +88,9 @@ CREATE TABLE IF NOT EXISTS allocations (
 );
 
 COMMENT ON TABLE allocations IS
-  'Publiczny rejestr alokacji: patron, migawka potrzeby z lib/needsCatalog.ts, kwota/waluta, AVE + tier barterowy, hash SHA-256, status audytu.';
+  'Public ledger of allocations: patron, club need snapshot from lib/needsCatalog.ts, amount/currency, barter AVE + tier, SHA-256 seal, and audit state.';
 COMMENT ON COLUMN allocations.data_source IS
-  'live = dane rzeczywiste; hypothetical_demo_dataset = w 100% hipotetyczny zbiór demonstracyjny.';
+  'live = production data; hypothetical_demo_dataset = 100% hypothetical demonstration dataset.';
 
 INSERT INTO schema_migrations (version, name)
 VALUES ('002', 'create_allocations')

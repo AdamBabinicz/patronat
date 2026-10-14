@@ -1,13 +1,13 @@
 -- ============================================================================
---  PatronAI · migracja 005 — indeksy, trigger updated_at, widoki, RLS
---  Plik: migrations/005_indexes_triggers_views.sql
---  Wymaga: 002, 003, 004
+--  PatronAI · Migration 005 — Indexes, updated_at Trigger, Views, and Analytics
+--  File: migrations/005_indexes_triggers_views.sql
+--  Prerequisites: 002, 003, 004
 -- ============================================================================
 
 -- +migrate Up ---------------------------------------------------------------
 BEGIN;
 
--- --- indeksy ---------------------------------------------------------------
+-- --- Indexes ---------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS allocations_status_idx       ON allocations (status);
 CREATE INDEX IF NOT EXISTS allocations_created_at_idx   ON allocations (created_at DESC);
 CREATE INDEX IF NOT EXISTS allocations_currency_idx     ON allocations (currency);
@@ -26,7 +26,7 @@ CREATE INDEX IF NOT EXISTS payment_orders_allocation_idx ON payment_orders (allo
 CREATE INDEX IF NOT EXISTS payment_orders_status_idx     ON payment_orders (status);
 CREATE INDEX IF NOT EXISTS payment_orders_mode_idx       ON payment_orders (mode);
 
--- --- trigger updated_at ----------------------------------------------------
+-- --- updated_at Trigger Function -------------------------------------------
 CREATE OR REPLACE FUNCTION patronai_set_updated_at()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -52,7 +52,7 @@ CREATE TRIGGER payment_orders_set_updated_at
   BEFORE UPDATE ON payment_orders
   FOR EACH ROW EXECUTE FUNCTION patronai_set_updated_at();
 
--- --- widoki ----------------------------------------------------------------
+-- --- Analytical & Interface Views -----------------------------------------
 CREATE OR REPLACE VIEW v_public_ledger AS
 SELECT
   a.ledger_entry_no,
@@ -154,10 +154,10 @@ JOIN allocations a ON a.id = ar.allocation_id
 WHERE ar.flag_status = 'mismatch' OR a.status = 'flagged'
 ORDER BY ar.audited_at DESC NULLS LAST;
 
-COMMENT ON VIEW v_public_ledger IS 'KROK 03 · Public Ledger — alokacja + ostatni raport audytu AI Vision.';
-COMMENT ON VIEW v_certificate_verification IS 'Źródło trasy /api/certificate/[id] — weryfikacja SHA-256 + wynik audytu.';
-COMMENT ON VIEW v_ledger_totals IS 'Sumy rejestru w podziale na walutę i pochodzenie danych.';
-COMMENT ON VIEW v_audit_flag_queue IS 'Kolejka rozbieżności audytu (mismatch / status flagged).';
+COMMENT ON VIEW v_public_ledger IS 'Public Ledger view (STEP 03) — allocation record combined with latest AI Vision expense audit.';
+COMMENT ON VIEW v_certificate_verification IS 'Data source for /api/certificate/[id] — real-time verification of certificate authenticity (SHA-256 seal + audit status).';
+COMMENT ON VIEW v_ledger_totals IS 'Aggregated ledger metrics grouped by currency and data lineage.';
+COMMENT ON VIEW v_audit_flag_queue IS 'Discrepancy audit queue — records held for human-in-the-loop review (semantic reconciliation never silently approves mismatches).';
 
 INSERT INTO schema_migrations (version, name)
 VALUES ('005', 'indexes_triggers_views')

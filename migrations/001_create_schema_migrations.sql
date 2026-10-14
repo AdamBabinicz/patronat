@@ -1,7 +1,7 @@
 -- ============================================================================
---  PatronAI · migracja 001 — rejestr migracji
---  Plik: migrations/001_create_schema_migrations.sql
---  Wymaga: brak   ·   Uruchamiać w transakcji
+--  PatronAI · Migration 001 — Schema Migrations Registry
+--  File: migrations/001_create_schema_migrations.sql
+--  Prerequisites: None   ·   Execute within transaction
 -- ============================================================================
 
 -- +migrate Up ---------------------------------------------------------------

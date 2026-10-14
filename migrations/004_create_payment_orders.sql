@@ -1,7 +1,7 @@
 -- ============================================================================
---  PatronAI · migracja 004 — tabela payment_orders (PayPal capture-order)
---  Plik: migrations/004_create_payment_orders.sql
---  Wymaga: 002   ·   Rollback: DROP TABLE
+--  PatronAI · Migration 004 — Payment Orders Table (PayPal capture-order)
+--  File: migrations/004_create_payment_orders.sql
+--  Prerequisites: 002   ·   Rollback: DROP TABLE
 -- ============================================================================
 
 -- +migrate Up ---------------------------------------------------------------
@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS payment_orders (
 );
 
 COMMENT ON TABLE payment_orders IS
-  'Trwały zapis zamówień PayPal z app/api/paypal/capture-order/route.ts. Prototyp: wyłącznie sandbox / simulation (0,00 PLN realnych środków).';
+  'Persistent PayPal order records from app/api/paypal/capture-order/route.ts. Prototype operates in sandbox / simulation mode (0.00 PLN real-money transactions).';
 
 INSERT INTO schema_migrations (version, name)
 VALUES ('004', 'create_payment_orders')
