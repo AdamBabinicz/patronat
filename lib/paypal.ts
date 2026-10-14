@@ -11,6 +11,9 @@ export interface CreateOrderParams {
   donorName?: string;
   donorNote?: string;
   clubName?: string;
+  cancelUrl?: string;
+  returnUrl?: string;
+  locale?: string;
 }
 
 export interface PayPalOrderResponse {
@@ -75,9 +78,7 @@ export async function getPayPalAccessToken(): Promise<string> {
   const clientSecret = process.env.PAYPAL_CLIENT_SECRET || "";
 
   if (!clientId || clientId === "test" || !clientSecret) {
-    throw new Error(
-      "Brak skonfigurowanych kluczy produkcyjnych PayPal API. Ustaw NEXT_PUBLIC_PAYPAL_CLIENT_ID oraz PAYPAL_CLIENT_SECRET w .env.local (pobierz je z https://developer.paypal.com).",
-    );
+    throw new Error("MISSING_PAYPAL_CREDENTIALS");
   }
 
   const now = Date.now();
@@ -102,7 +103,7 @@ export async function getPayPalAccessToken(): Promise<string> {
   if (!response.ok) {
     const errText = await response.text();
     console.error("PayPal OAuth Error:", errText);
-    throw new Error(`Błąd autoryzacji PayPal (${response.status}): ${errText}`);
+    throw new Error(`PAYPAL_AUTH_ERROR_${response.status}: ${errText}`);
   }
 
   const data = await response.json();
@@ -117,24 +118,33 @@ export async function getPayPalAccessToken(): Promise<string> {
 }
 
 /**
- * Tworzy zamówienie płatności (Order) w standardzie PayPal v2 z obsługą idempotencji
+ * Tworzy zamówienie płatności (Order) w standardzie PayPal v2 z obsługą idempotencji i wyjścia mobilnego
  */
 export async function createPayPalOrder(
   params: CreateOrderParams,
 ): Promise<PayPalOrderResponse> {
   const currency = params.currency || "PLN";
   const formattedAmount = Number(params.amount).toFixed(2);
-  const cleanGoal = (
-    params.goal ||
-    params.description ||
-    "Ogólny fundusz rozwoju talentów"
-  ).slice(0, 120);
-  const cleanPatron = (
-    params.patronName ||
-    params.donorName ||
-    "Anonimowy Mecenas"
-  ).slice(0, 120);
-  const cleanClub = (params.clubName || "UKS Roszada Radom").slice(0, 120);
+  const cleanGoal = (params.goal || params.description || "").slice(0, 120);
+  const cleanPatron = (params.patronName || params.donorName || "").slice(
+    0,
+    120,
+  );
+  const cleanClub = (params.clubName || "").slice(0, 127);
+
+  const fallbackOrigin =
+    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const cancelUrl = params.cancelUrl || `${fallbackOrigin}?canceled=true`;
+  const returnUrl = params.returnUrl || `${fallbackOrigin}?success=true`;
+  const paypalLocale = params.locale === "en" ? "en_US" : "pl_PL";
+
+  const descriptionParts = [cleanClub, cleanGoal].filter(Boolean).join(" - ");
+  const orderDescription = (
+    descriptionParts ||
+    cleanGoal ||
+    cleanClub ||
+    currency
+  ).slice(0, 127);
 
   const accessToken = await getPayPalAccessToken();
   const baseUrl = getPayPalBaseUrl();
@@ -152,11 +162,8 @@ export async function createPayPalOrder(
       purchase_units: [
         {
           reference_id: requestId,
-          description: `Mecenat: ${cleanClub} - Cel: ${cleanGoal}`.slice(
-            0,
-            127,
-          ),
-          custom_id: cleanPatron.slice(0, 127),
+          description: orderDescription,
+          custom_id: cleanPatron ? cleanPatron.slice(0, 127) : undefined,
           amount: {
             currency_code: currency,
             value: formattedAmount,
@@ -164,10 +171,13 @@ export async function createPayPalOrder(
         },
       ],
       application_context: {
-        brand_name: cleanClub.slice(0, 127),
+        brand_name: cleanClub || undefined,
+        locale: paypalLocale,
         landing_page: "NO_PREFERENCE",
-        shipping_preference: "NO_SHIPPING", // Kluczowe: darowizna nie wymaga wysyłki towaru
+        shipping_preference: "NO_SHIPPING",
         user_action: "PAY_NOW",
+        return_url: returnUrl,
+        cancel_url: cancelUrl,
       },
     }),
     cache: "no-store",
@@ -176,7 +186,7 @@ export async function createPayPalOrder(
   if (!response.ok) {
     const errorData = await response.text();
     console.error("PayPal API Create Order Error:", errorData);
-    throw new Error(`Błąd tworzenia zlecenia PayPal: ${errorData}`);
+    throw new Error(`PAYPAL_CREATE_ORDER_ERROR: ${errorData}`);
   }
 
   return response.json();
@@ -189,7 +199,7 @@ export async function capturePayPalOrder(
   orderId: string,
 ): Promise<CaptureOrderResponse> {
   if (!orderId || typeof orderId !== "string") {
-    throw new Error("Nieprawidłowy identyfikator zamówienia PayPal (orderId).");
+    throw new Error("INVALID_PAYPAL_ORDER_ID");
   }
 
   const accessToken = await getPayPalAccessToken();
@@ -212,7 +222,7 @@ export async function capturePayPalOrder(
   if (!response.ok) {
     const errorData = await response.text();
     console.error("PayPal API Capture Order Error:", errorData);
-    throw new Error(`Błąd zatwierdzenia płatności PayPal: ${errorData}`);
+    throw new Error(`PAYPAL_CAPTURE_ORDER_ERROR: ${errorData}`);
   }
 
   return response.json();

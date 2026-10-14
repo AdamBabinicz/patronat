@@ -40,6 +40,7 @@ const translations = {
     captureError: "Błąd podczas zatwierdzania płatności:",
     testModeBadge: "Tryb testowy PayPal aktywny (client-id=test)",
     simulateSuccess: "⚡ Błyskawiczny test bez logowania do PayPal",
+    cancelPayment: "Anuluj i wróć",
   },
   en: {
     loading: "Loading secure PayPal checkout gateway...",
@@ -51,6 +52,7 @@ const translations = {
     captureError: "Error capturing payment:",
     testModeBadge: "PayPal Test Mode Active (client-id=test)",
     simulateSuccess: "⚡ Instant test without PayPal login",
+    cancelPayment: "Cancel and return",
   },
 };
 
@@ -112,6 +114,24 @@ export default function PayPalButton({
   const t = translations[locale] || translations.pl;
   const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "test";
   const isTestMode = clientId === "test";
+
+  // Obsługa powrotu z PayPala na telefonie (gdy user kliknie link 'Anuluj' w PayPalu i wróci pod ?canceled=true)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("canceled") === "true") {
+        urlParams.delete("canceled");
+        const newUrl =
+          window.location.pathname +
+          (urlParams.toString() ? `?${urlParams.toString()}` : "");
+        window.history.replaceState({}, "", newUrl);
+
+        if (propsRef.current.onCancel) {
+          propsRef.current.onCancel();
+        }
+      }
+    }
+  }, []);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -202,6 +222,10 @@ export default function PayPalButton({
             const currentDonor =
               current.donorName || current.patronName || t.anonymous;
             const currentNote = current.donorNote || current.note || "";
+            const currentOrigin =
+              typeof window !== "undefined"
+                ? window.location.origin + window.location.pathname
+                : "";
 
             // TRYB TESTOWY BROWSER-BASED (client-id=test)
             if (actions && actions.order) {
@@ -215,6 +239,14 @@ export default function PayPalButton({
                     },
                   },
                 ],
+                application_context: {
+                  brand_name: current.clubName || "Klub Sportowy",
+                  locale: paypalLocale,
+                  landing_page: "NO_PREFERENCE",
+                  user_action: "PAY_NOW",
+                  return_url: `${currentOrigin}?success=true`,
+                  cancel_url: `${currentOrigin}?canceled=true`,
+                },
               });
             }
 
@@ -231,6 +263,8 @@ export default function PayPalButton({
                 donorNote: currentNote,
                 clubName: current.clubName || "Klub Sportowy",
                 locale: current.locale || "pl",
+                returnUrl: `${currentOrigin}?success=true`,
+                cancelUrl: `${currentOrigin}?canceled=true`,
               }),
             });
 
@@ -447,6 +481,17 @@ export default function PayPalButton({
 
       {/* Kontener przycisków PayPal, BLIK, Przelewy24 i Karty */}
       <div ref={buttonContainerRef} className="w-full min-h-[44px]" />
+
+      {/* Bezpośredni przycisk anulowania dla użytkownika w interfejsie */}
+      {onCancel && (
+        <button
+          type="button"
+          onClick={onCancel}
+          className="mt-3 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer py-1 px-3 rounded-lg hover:bg-muted/50"
+        >
+          {t.cancelPayment}
+        </button>
+      )}
 
       {/* Panel trybu testowego */}
       {isTestMode && (
