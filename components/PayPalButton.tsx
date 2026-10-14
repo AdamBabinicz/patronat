@@ -2,7 +2,7 @@
 "use client";
 
 // Dwujęzyczny (PL / EN) komponent integrujący PayPal JS SDK.
-// Stabilne renderowanie przycisków PayPal, BLIK, Przelewy24 i Karty bez pętli przeładowań DOM i błędów walidacji.
+// Poprawiona hierarchia: zawsze preferuje backend REST API z cancel_url dla urządzeń mobilnych.
 import React, { useEffect, useRef, useState } from "react";
 
 export type Language = "pl" | "en";
@@ -223,7 +223,37 @@ export default function PayPalButton({
                 ? window.location.origin + window.location.pathname
                 : "";
 
-            // TRYB TESTOWY BROWSER-BASED (actions.order.create wymaga czystego formatu bez application_context)
+            // 1. ZALECANY TRYB REST API BACKEND
+            // Tworzy zamówienie przez serwer z application_context (cancel_url i brand_name),
+            // dzięki czemu na ekranie PayPala w telefonie pojawia się link rezygnacji "Anuluj i wróć".
+            if (!isTestMode) {
+              const response = await fetch("/api/paypal/create-order", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  amount: currentAmount,
+                  currency: currentCurrency,
+                  goal: currentGoal,
+                  patronName: currentDonor,
+                  donorName: currentDonor,
+                  donorNote: currentNote,
+                  clubName: current.clubName,
+                  locale: current.locale || "pl",
+                  returnUrl: `${currentOrigin}?success=true`,
+                  cancelUrl: `${currentOrigin}?canceled=true`,
+                }),
+              });
+
+              if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`${t.orderError} ${errorText}`);
+              }
+
+              const resData = await response.json();
+              return resData.id;
+            }
+
+            // 2. FALLBACK TYLKO DLA TRYBU CLIENT-ID=TEST BEZ BACKENDU
             if (actions && actions.order) {
               return actions.order.create({
                 purchase_units: [
@@ -237,41 +267,14 @@ export default function PayPalButton({
                 ],
               });
             }
-
-            // TRYB Z BACKENDEM REST API (obsługujący cancelUrl i returnUrl)
-            const response = await fetch("/api/paypal/create-order", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                amount: currentAmount,
-                currency: currentCurrency,
-                goal: currentGoal,
-                patronName: currentDonor,
-                donorName: currentDonor,
-                donorNote: currentNote,
-                clubName: current.clubName,
-                locale: current.locale || "pl",
-                returnUrl: `${currentOrigin}?success=true`,
-                cancelUrl: `${currentOrigin}?canceled=true`,
-              }),
-            });
-
-            if (!response.ok) {
-              const errorText = await response.text();
-              throw new Error(`${t.orderError} ${errorText}`);
-            }
-
-            const resData = await response.json();
-            return resData.id;
           },
 
           onApprove: async (data: any, actions: any) => {
             try {
               let details: any;
 
-              if (actions && actions.order) {
-                details = await actions.order.capture();
-              } else {
+              // W trybie produkcyjnym/sandboxowym zatwierdzamy przez backend
+              if (!isTestMode) {
                 const response = await fetch("/api/paypal/capture-order", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
@@ -287,6 +290,8 @@ export default function PayPalButton({
                 }
 
                 details = await response.json();
+              } else if (actions && actions.order) {
+                details = await actions.order.capture();
               }
 
               const enrichedDetails = {
