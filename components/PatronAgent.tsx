@@ -53,6 +53,7 @@ interface RotatingSponsor {
   queryPl: string;
   queryEn: string;
   isCompany: boolean;
+  isAnonymous?: boolean;
 }
 
 // Deklaracje dla Web Speech API
@@ -110,7 +111,7 @@ export default function PatronAgent({
   );
   const [customAmount, setCustomAmount] = useState<number | null>(null);
 
-  // 100% DYNAMICZNA LISTA: brak jakichkolwiek sztywno wpisanych sponsorów w kodzie
+  // 100% DYNAMICZNA LISTA Z BAZY NEON
   const [sponsorsList, setSponsorsList] = useState<RotatingSponsor[]>([]);
   const [currentSponsorIndex, setCurrentSponsorIndex] = useState(0);
   const [isSponsorFading, setIsSponsorFading] = useState(false);
@@ -153,50 +154,56 @@ export default function PatronAgent({
           if (!rawName || typeof rawName !== "string") continue;
           const cleanName = rawName.trim();
 
-          // Pomijamy anonimowych mecenasów w rotacji przykładów
-          if (
+          const isAnonymous =
             cleanName.toLowerCase().includes("anonim") ||
-            cleanName.toLowerCase().includes("anonymous") ||
-            seenNames.has(cleanName)
-          ) {
+            cleanName.toLowerCase().includes("anonymous");
+
+          // Unikamy duplikatów (zwłaszcza wielu anonimowych wpisów z bazy)
+          const dedupKey = isAnonymous ? "anonymous" : cleanName.toLowerCase();
+          if (seenNames.has(dedupKey)) {
             continue;
           }
-
-          seenNames.add(cleanName);
+          seenNames.add(dedupKey);
 
           const isCompany =
-            cleanName.toLowerCase().includes("sp.") ||
-            cleanName.toLowerCase().includes("sp z") ||
-            cleanName.toLowerCase().includes(".pl") ||
-            cleanName.toLowerCase().includes(".com") ||
-            cleanName.toLowerCase().includes("solutions") ||
-            cleanName.toLowerCase().includes("kancelaria") ||
-            cleanName.toLowerCase().includes("studio") ||
-            cleanName.toLowerCase().includes("firma") ||
-            cleanName.toLowerCase().includes("group");
+            !isAnonymous &&
+            (cleanName.toLowerCase().includes("sp.") ||
+              cleanName.toLowerCase().includes("sp z") ||
+              cleanName.toLowerCase().includes(".pl") ||
+              cleanName.toLowerCase().includes(".com") ||
+              cleanName.toLowerCase().includes("solutions") ||
+              cleanName.toLowerCase().includes("kancelaria") ||
+              cleanName.toLowerCase().includes("studio") ||
+              cleanName.toLowerCase().includes("firma") ||
+              cleanName.toLowerCase().includes("group"));
 
-          const queryUrl =
-            cleanName.includes(".") && !cleanName.includes(" ")
+          const queryUrlPl = isAnonymous
+            ? "Anonimowy Darczyńca - statutowe wsparcie młodzieży i klubu"
+            : cleanName.includes(".") && !cleanName.includes(" ")
               ? cleanName.startsWith("http")
                 ? cleanName
                 : `https://${cleanName}`
               : `${cleanName} - wsparcie statutowych celów klubu`;
 
+          const queryUrlEn = isAnonymous
+            ? "Anonymous Patron - youth sports development sponsorship"
+            : cleanName.includes(".") && !cleanName.includes(" ")
+              ? cleanName.startsWith("http")
+                ? cleanName
+                : `https://${cleanName}`
+              : `${cleanName} - youth sports club sponsorship`;
+
           extracted.push({
             name: cleanName,
-            queryPl: queryUrl,
-            queryEn:
-              cleanName.includes(".") && !cleanName.includes(" ")
-                ? cleanName.startsWith("http")
-                  ? cleanName
-                  : `https://${cleanName}`
-                : `${cleanName} - youth sports club sponsorship`,
+            queryPl: queryUrlPl,
+            queryEn: queryUrlEn,
             isCompany,
+            isAnonymous,
           });
         }
 
         if (isMounted && extracted.length > 0) {
-          // Tasujemy pobranych mecenasów, aby przy każdym wejściu kolejność była inna i demokratyczna
+          // Tasujemy pobranych mecenasów, aby przy każdym odświeżeniu kolejność była inna
           setSponsorsList(extracted.sort(() => Math.random() - 0.5));
         }
       } catch (err) {
@@ -550,6 +557,14 @@ export default function PatronAgent({
     URL.revokeObjectURL(url);
   };
 
+  // Bezpieczna nazwa mecenasa w placeholderze
+  const getSponsorDisplayName = (sponsor: RotatingSponsor) => {
+    if (sponsor.isAnonymous) {
+      return language === "pl" ? "Anonimowy Darczyńca" : "Anonymous Patron";
+    }
+    return sponsor.name;
+  };
+
   return (
     <section id="agent-section" className="relative py-7 sm:py-11">
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
@@ -586,8 +601,8 @@ export default function PatronAgent({
                       : "Listening... speak your intention or website"
                     : activeSponsor
                       ? language === "pl"
-                        ? `Wpisz intencję, budżet lub stronę (np. ${activeSponsor.name})...`
-                        : `Enter intention, budget or URL (e.g. ${activeSponsor.name})...`
+                        ? `Wpisz intencję, budżet lub stronę (np. ${getSponsorDisplayName(activeSponsor)})...`
+                        : `Enter intention, budget or URL (e.g. ${getSponsorDisplayName(activeSponsor)})...`
                       : language === "pl"
                         ? "Wpisz intencję, budżet lub wklej stronę firmy..."
                         : "Enter intention, budget or paste website..."
@@ -679,9 +694,13 @@ export default function PatronAgent({
                     ? language === "pl"
                       ? `Firma: ${activeSponsor.name}`
                       : `Company: ${activeSponsor.name}`
-                    : language === "pl"
-                      ? `Mecenas: ${activeSponsor.name}`
-                      : `Patron: ${activeSponsor.name}`}
+                    : activeSponsor.isAnonymous
+                      ? language === "pl"
+                        ? "Mecenas: Anonimowy Darczyńca"
+                        : "Patron: Anonymous Donor"
+                      : language === "pl"
+                        ? `Mecenas: ${activeSponsor.name}`
+                        : `Patron: ${activeSponsor.name}`}
                 </span>
               </button>
             )}
