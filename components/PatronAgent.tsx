@@ -48,6 +48,13 @@ interface PatronAgentProps {
   onSelectAllocation?: (allocation: AllocationPayload) => void;
 }
 
+interface RotatingSponsor {
+  name: string;
+  queryPl: string;
+  queryEn: string;
+  isCompany: boolean;
+}
+
 // Deklaracje dla Web Speech API
 interface SpeechRecognitionEventLike {
   results: {
@@ -84,7 +91,6 @@ const PRESET_AMOUNTS_BY_CURRENCY: Record<Currency, number[]> = {
   USD: [25, 50, 100, 250, 500],
 };
 
-// Pomocniczy przelicznik PLN -> EUR / USD
 function convertFromPln(amountPln: number, target: Currency): number {
   if (target === "EUR") return Math.round(amountPln / 4.2 / 5) * 5 || 25;
   if (target === "USD") return Math.round(amountPln / 4.0 / 5) * 5 || 25;
@@ -104,24 +110,126 @@ export default function PatronAgent({
   );
   const [customAmount, setCustomAmount] = useState<number | null>(null);
 
-  // Stan modalu umowy barterowej
+  // 100% DYNAMICZNA LISTA: brak jakichkolwiek sztywno wpisanych sponsorów w kodzie
+  const [sponsorsList, setSponsorsList] = useState<RotatingSponsor[]>([]);
+  const [currentSponsorIndex, setCurrentSponsorIndex] = useState(0);
+  const [isSponsorFading, setIsSponsorFading] = useState(false);
+
   const [showBarterModal, setShowBarterModal] = useState(false);
   const [copiedBarter, setCopiedBarter] = useState(false);
 
-  // Dynamiczny wybór waluty na karcie agenta (domyślnie EUR dla EN, PLN dla PL)
   const [selectedCurrency, setSelectedCurrency] = useState<Currency>(
     language === "en" ? "EUR" : "PLN",
   );
 
-  // Synchronizacja waluty karty z językiem strony
   useEffect(() => {
     setSelectedCurrency(language === "en" ? "EUR" : "PLN");
   }, [language]);
 
+  // Pobieranie listy darczyńców wyłącznie z bazy Neon (przez /api/ledger)
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchSponsorsFromNeon() {
+      try {
+        const response = await fetch("/api/ledger");
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const entries = Array.isArray(data)
+          ? data
+          : data.entries || data.allocations || [];
+
+        if (!Array.isArray(entries) || entries.length === 0) return;
+
+        const extracted: RotatingSponsor[] = [];
+        const seenNames = new Set<string>();
+
+        for (const item of entries) {
+          const rawName = Array.isArray(item)
+            ? item[0]
+            : item.patron_name || item.donor_name || item.patron || item.name;
+
+          if (!rawName || typeof rawName !== "string") continue;
+          const cleanName = rawName.trim();
+
+          // Pomijamy anonimowych mecenasów w rotacji przykładów
+          if (
+            cleanName.toLowerCase().includes("anonim") ||
+            cleanName.toLowerCase().includes("anonymous") ||
+            seenNames.has(cleanName)
+          ) {
+            continue;
+          }
+
+          seenNames.add(cleanName);
+
+          const isCompany =
+            cleanName.toLowerCase().includes("sp.") ||
+            cleanName.toLowerCase().includes("sp z") ||
+            cleanName.toLowerCase().includes(".pl") ||
+            cleanName.toLowerCase().includes(".com") ||
+            cleanName.toLowerCase().includes("solutions") ||
+            cleanName.toLowerCase().includes("kancelaria") ||
+            cleanName.toLowerCase().includes("studio") ||
+            cleanName.toLowerCase().includes("firma") ||
+            cleanName.toLowerCase().includes("group");
+
+          const queryUrl =
+            cleanName.includes(".") && !cleanName.includes(" ")
+              ? cleanName.startsWith("http")
+                ? cleanName
+                : `https://${cleanName}`
+              : `${cleanName} - wsparcie statutowych celów klubu`;
+
+          extracted.push({
+            name: cleanName,
+            queryPl: queryUrl,
+            queryEn:
+              cleanName.includes(".") && !cleanName.includes(" ")
+                ? cleanName.startsWith("http")
+                  ? cleanName
+                  : `https://${cleanName}`
+                : `${cleanName} - youth sports club sponsorship`,
+            isCompany,
+          });
+        }
+
+        if (isMounted && extracted.length > 0) {
+          // Tasujemy pobranych mecenasów, aby przy każdym wejściu kolejność była inna i demokratyczna
+          setSponsorsList(extracted.sort(() => Math.random() - 0.5));
+        }
+      } catch (err) {
+        console.debug("Baza Neon jeszcze odpowiada lub brak połączenia:", err);
+      }
+    }
+
+    fetchSponsorsFromNeon();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Rotacja co 4.5 sekundy po pobranych z Neon sponsorach
+  useEffect(() => {
+    if (sponsorsList.length <= 1) return;
+
+    const interval = setInterval(() => {
+      setIsSponsorFading(true);
+      setTimeout(() => {
+        setCurrentSponsorIndex((prev) => (prev + 1) % sponsorsList.length);
+        setIsSponsorFading(false);
+      }, 300);
+    }, 4500);
+
+    return () => clearInterval(interval);
+  }, [sponsorsList.length]);
+
+  const activeSponsor = sponsorsList[currentSponsorIndex] || null;
+
   const tAgent = messages.agent;
   const tAi = messages.ai;
 
-  // Obsługa zapytania głosowego (Web Speech API)
   const toggleVoiceInput = () => {
     if (typeof window === "undefined") return;
 
@@ -279,11 +387,10 @@ export default function PatronAgent({
     handleMatch(exampleText);
   };
 
-  // Obsługa zmiany waluty na karcie agenta
   const handleCurrencyChange = (newCurrency: Currency) => {
     setSelectedCurrency(newCurrency);
     if (matchedGoal) {
-      const basePln = 500; // Bazowa kwota referencyjna
+      const basePln = 500;
       const newAmount =
         newCurrency === "PLN" ? basePln : convertFromPln(basePln, newCurrency);
       setCustomAmount(newAmount);
@@ -295,7 +402,6 @@ export default function PatronAgent({
     }
   };
 
-  // Przełączanie typu mecenatu (finansowy vs rzeczowy)
   const toggleSponsorshipType = (type: "financial" | "in_kind") => {
     if (!matchedGoal) return;
     setMatchedGoal({
@@ -326,7 +432,6 @@ export default function PatronAgent({
       });
     }
 
-    // Płynne przewinięcie do sekcji kasy
     const checkoutEl = document.getElementById("checkout-section");
     if (checkoutEl) {
       checkoutEl.scrollIntoView({ behavior: "smooth" });
@@ -338,7 +443,6 @@ export default function PatronAgent({
     matchedGoal?.amount ||
     (selectedCurrency === "PLN" ? 400 : 100);
 
-  // Wyliczanie rangi mecenasa na podstawie wyceny
   const getBarterTier = (amount: number, cur: Currency) => {
     const plnEquiv =
       cur === "EUR" ? amount * 4.2 : cur === "USD" ? amount * 4.0 : amount;
@@ -372,7 +476,6 @@ export default function PatronAgent({
 
   const barterTier = getBarterTier(effectiveAmount, selectedCurrency);
 
-  // Szablon formalnego porozumienia barterowego
   const partnerName =
     matchedGoal?.detectedDomain ||
     (language === "pl"
@@ -450,7 +553,6 @@ export default function PatronAgent({
   return (
     <section id="agent-section" className="relative py-7 sm:py-11">
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
-        {/* Nagłówek sekcji */}
         <div className="text-center max-w-2xl mx-auto mb-5 sm:mb-7">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest bg-emerald-700/10 text-emerald-800 dark:text-emerald-300 border border-emerald-700/30 mb-2.5">
             <span>⚡</span>
@@ -464,7 +566,6 @@ export default function PatronAgent({
           </p>
         </div>
 
-        {/* Karta zapytania agenta */}
         <div className="rounded-3xl border border-border bg-card p-4 sm:p-6 shadow-xl transition-all">
           <form
             onSubmit={(e) => {
@@ -483,9 +584,13 @@ export default function PatronAgent({
                     ? language === "pl"
                       ? "Słucham... powiedz swoją intencję lub podaj stronę firmy"
                       : "Listening... speak your intention or website"
-                    : language === "pl"
-                      ? "Wpisz intencję, budżet lub wklej link do strony firmy (np. drukarnia-virgo.pl)..."
-                      : "Enter intention, budget or paste company URL (e.g. print-studio.com)..."
+                    : activeSponsor
+                      ? language === "pl"
+                        ? `Wpisz intencję, budżet lub stronę (np. ${activeSponsor.name})...`
+                        : `Enter intention, budget or URL (e.g. ${activeSponsor.name})...`
+                      : language === "pl"
+                        ? "Wpisz intencję, budżet lub wklej stronę firmy..."
+                        : "Enter intention, budget or paste website..."
                 }
                 className={`w-full px-4 py-2.5 sm:py-3 pr-12 text-sm sm:text-base rounded-2xl border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-700 transition-all ${
                   isListening
@@ -530,7 +635,7 @@ export default function PatronAgent({
             </button>
           </form>
 
-          {/* Sugerowane przykłady intencji + link firmowy */}
+          {/* Sugerowane przykłady intencji + rotujący mecenas Z BAZY NEON */}
           <div className="mt-3.5 sm:mt-4 flex flex-wrap items-center gap-1.5 sm:gap-2">
             <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mr-1">
               {language === "pl" ? "Przykłady:" : "Examples:"}
@@ -545,26 +650,43 @@ export default function PatronAgent({
                 {example}
               </button>
             ))}
-            {/* Przykład linku firmowego dla B2B */}
-            <button
-              type="button"
-              onClick={() =>
-                handleExampleClick(
+
+            {/* Wyświetla się TYLKO wtedy, gdy baza Neon zwróci realnego sponsora */}
+            {activeSponsor && (
+              <button
+                type="button"
+                onClick={() =>
+                  handleExampleClick(
+                    language === "pl"
+                      ? activeSponsor.queryPl
+                      : activeSponsor.queryEn,
+                  )
+                }
+                title={
                   language === "pl"
-                    ? "https://drukarnia-virgo.pl"
-                    : "https://virgo-print.com",
-                )
-              }
-              className="px-2.5 sm:px-3 py-1 rounded-xl text-xs font-bold border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 transition-colors cursor-pointer"
-            >
-              🌐{" "}
-              {language === "pl"
-                ? "Firma: drukarnia-virgo.pl"
-                : "Company: virgo-print.com"}
-            </button>
+                    ? "Kliknij, aby przetestować dopasowanie dla tego darczyńcy z bazy"
+                    : "Click to simulate matching for this patron from database"
+                }
+                className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-xl text-xs font-bold border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 transition-all duration-300 cursor-pointer ${
+                  isSponsorFading
+                    ? "opacity-0 scale-95"
+                    : "opacity-100 scale-100"
+                }`}
+              >
+                <span>{activeSponsor.isCompany ? "🌐" : "🤝"}</span>
+                <span>
+                  {activeSponsor.isCompany
+                    ? language === "pl"
+                      ? `Firma: ${activeSponsor.name}`
+                      : `Company: ${activeSponsor.name}`
+                    : language === "pl"
+                      ? `Mecenas: ${activeSponsor.name}`
+                      : `Patron: ${activeSponsor.name}`}
+                </span>
+              </button>
+            )}
           </div>
 
-          {/* Status analizy w toku */}
           {isAnalyzing && (
             <div className="mt-5 p-3.5 sm:p-4 rounded-2xl bg-muted/60 border border-border text-center space-y-1 animate-pulse">
               <div className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
@@ -576,10 +698,8 @@ export default function PatronAgent({
             </div>
           )}
 
-          {/* Wynik dopasowania alokacji */}
           {matchedGoal && !isAnalyzing && (
             <div className="mt-5 rounded-2xl border-2 border-amber-500/40 bg-gradient-to-b from-amber-500/5 via-card to-card p-4 sm:p-6 shadow-md transition-all">
-              {/* Zoptymalizowany nagłówek karty z eleganckim przełącznikiem w jednej linii */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3.5 border-b border-border/70">
                 <div className="flex items-center justify-between sm:justify-start gap-2">
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-500/40 shrink-0">
@@ -595,7 +715,6 @@ export default function PatronAgent({
                   </div>
                 </div>
 
-                {/* Przełącznik typu: Finansowy ↔ Rzeczowy / Barter - zawsze w jednym poziomym rzędzie */}
                 <div className="flex items-center justify-between sm:justify-end gap-3">
                   <div className="inline-flex items-center rounded-xl bg-muted p-1 text-xs font-bold border border-border shrink-0">
                     <button
@@ -650,7 +769,6 @@ export default function PatronAgent({
                   {matchedGoal.description}
                 </p>
 
-                {/* MODUŁ AI BARTER VALUATOR: Wycena i świadczenia rzeczowe */}
                 {matchedGoal.sponsorshipType === "in_kind" && (
                   <div className="p-3.5 sm:p-4 rounded-2xl bg-purple-500/10 border border-purple-500/25 space-y-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -676,7 +794,6 @@ export default function PatronAgent({
                           : "Direct services or physical equipment delivery.")}
                     </p>
 
-                    {/* Świadczenia wzajemne klubu */}
                     <div className="pt-2 border-t border-purple-500/20 text-[11px] text-muted-foreground space-y-1">
                       <div className="font-bold text-foreground">
                         {language === "pl"
@@ -705,7 +822,6 @@ export default function PatronAgent({
                       </div>
                     </div>
 
-                    {/* Przycisk generatora umowy barterowej */}
                     <div className="pt-1 flex justify-end">
                       <button
                         type="button"
@@ -729,7 +845,6 @@ export default function PatronAgent({
                   </p>
                 )}
 
-                {/* AI Impact Forecaster - Prognoza Wpływu Społecznego */}
                 {matchedGoal.impactForecast && (
                   <div className="p-3 sm:p-3.5 rounded-2xl bg-emerald-500/10 dark:bg-emerald-950/20 border border-emerald-500/30 space-y-2">
                     <div className="flex items-center justify-between">
@@ -781,7 +896,6 @@ export default function PatronAgent({
                   </div>
                 )}
 
-                {/* Sekcja wyboru waluty i kwoty mecenatu */}
                 <div className="pt-3 border-t border-border/60">
                   <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
                     <div>
@@ -794,7 +908,6 @@ export default function PatronAgent({
                             : tAgent.allocation}
                         </span>
 
-                        {/* Bezpośredni przełącznik walut [ PLN | EUR | USD ] */}
                         <div className="flex items-center rounded-lg bg-muted p-0.5 text-[10px] font-bold border border-border">
                           {(["PLN", "EUR", "USD"] as Currency[]).map((cur) => (
                             <button
@@ -818,7 +931,6 @@ export default function PatronAgent({
                           {effectiveAmount} {selectedCurrency}
                         </span>
 
-                        {/* Szybkie pigułki dopasowane do wybranej waluty */}
                         <div className="flex items-center gap-1 ml-2">
                           {PRESET_AMOUNTS_BY_CURRENCY[selectedCurrency].map(
                             (preset) => (
@@ -861,7 +973,6 @@ export default function PatronAgent({
           )}
         </div>
 
-        {/* MODAL POROZUMIENIA BARTEROWEGO (AI BARTER DRAFT) */}
         {showBarterModal && matchedGoal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
             <div className="relative w-full max-w-xl rounded-3xl border-2 border-purple-500/50 bg-card p-5 sm:p-7 shadow-2xl overflow-y-auto max-h-[90vh]">
@@ -892,14 +1003,12 @@ export default function PatronAgent({
                 </p>
               </div>
 
-              {/* Treść umowy */}
               <div className="mt-4">
                 <div className="relative rounded-2xl border border-border/80 bg-background/80 p-4 text-[11px] sm:text-xs font-mono text-foreground leading-relaxed whitespace-pre-wrap max-h-72 overflow-y-auto">
                   {barterAgreementText}
                 </div>
               </div>
 
-              {/* Przyciski akcji */}
               <div className="mt-5 pt-3 border-t border-border/70 flex flex-wrap justify-between gap-2">
                 <div className="flex gap-2">
                   <button
