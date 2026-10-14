@@ -14,12 +14,12 @@
 
 ## 📌 Submission Meta Links
 
-| Resource                        | Link                                                                                   |
-| ------------------------------- | -------------------------------------------------------------------------------------- |
-| 🌐 **Live Application**         | `https://patronat.vercel.app/`                                                         |
-| 💻 **Source Code Repository**   | `https://github.com/AdamBabinicz/patronat`                                             |
-| 🎥 **Video Demo & Pitch**       | `https://youtu.be/dQw4w9WgXcQ`                                                         |
-| 🏆 **Target Pilot Partner** | **UKS Roszada Radom** — Youth Chess Club, Poland — prospective pilot partner / target community use case (80+ players); production deployment planned after the hackathon ([club profile](https://roszada.pl)) |
+| Resource                      | Link                                                                                                                                                                                                           |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🌐 **Live Application**       | `https://patronat.vercel.app/`                                                                                                                                                                                 |
+| 💻 **Source Code Repository** | `https://github.com/AdamBabinicz/patronat`                                                                                                                                                                     |
+| 🎥 **Video Demo & Pitch**     | `https://youtu.be/dQw4w9WgXcQ`                                                                                                                                                                                 |
+| 🏆 **Target Pilot Partner**   | **UKS Roszada Radom** — Youth Chess Club, Poland — prospective pilot partner / target community use case (80+ players); production deployment planned after the hackathon ([club profile](https://roszada.pl)) |
 
 ---
 
@@ -91,6 +91,11 @@ flowchart LR
 ---
 
 ## 🏗️ System Architecture & Pipeline Diagrams
+
+<div align="center">
+  <img src="./public/infografika-patronai-neon.png" alt="PatronAI × Neon Serverless PostgreSQL Architecture" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.25);" />
+  <p><em>PatronAI × Neon Serverless PostgreSQL — Trust & Persistence Layer Architecture</em></p>
+</div>
 
 ### High-Level System Flow
 
@@ -222,17 +227,17 @@ The emotional payload of every sponsorship: donors don't just see a receipt — 
 
 ## 🛠️ Technology Stack
 
-| Layer                       | Technologies                                                                                   |
-| --------------------------- | ---------------------------------------------------------------------------------------------- |
-| **Frontend Framework**      | Next.js 15 (App Router), React 19, TypeScript 5                                                |
-| **Styling & UI**            | Tailwind CSS 3.4, Lucide Icons, Canvas API (audio equalizer)                                   |
-| **Artificial Intelligence** | Google Gemini API (Multimodal Vision + Reasoning), Web Speech API (input & synthesis)          |
-| **Payments & Checkout**     | PayPal JavaScript SDK (Commerce Platform, Sandbox / Developer Simulation Mode)                 |
-| **Domain & i18n**           | `lib/needsCatalog.ts` (typed needs domain), `lib/translations/` (strict type-safe `pl` / `en`) |
-| **Security & Trust**        | SHA-256 cryptographic integrity hashes, standalone QR verification route                       |
+| Layer                       | Technologies                                                                                                                                      |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Frontend Framework**      | Next.js 15 (App Router), React 19, TypeScript 5                                                                                                   |
+| **Styling & UI**            | Tailwind CSS 3.4, Lucide Icons, Canvas API (audio equalizer)                                                                                      |
+| **Artificial Intelligence** | Google Gemini API (Multimodal Vision + Reasoning), Web Speech API (input & synthesis)                                                             |
+| **Payments & Checkout**     | PayPal JavaScript SDK (Commerce Platform, Sandbox / Developer Simulation Mode)                                                                    |
+| **Domain & i18n**           | `lib/needsCatalog.ts` (typed needs domain), `lib/translations/` (strict type-safe `pl` / `en`)                                                    |
+| **Security & Trust**        | SHA-256 cryptographic integrity hashes, standalone QR verification route                                                                          |
 | **Database & Persistence**  | Neon Serverless PostgreSQL (`@neondatabase/serverless`), connection pooling, auto-migrating DDL schema (`allocations` and `audit_reports` tables) |
-| **Client State**            | React State (ephemeral UI state)                                                                |
-| **Deployment**              | Vercel / Google Cloud Run (Dockerized Container)                                               |
+| **Client State**            | React State (ephemeral UI state)                                                                                                                  |
+| **Deployment**              | Vercel / Google Cloud Run (Dockerized Container)                                                                                                  |
 
 ---
 
@@ -370,11 +375,11 @@ PatronAI is a **competition prototype / pilot** prepared for the PayPal AI Hacka
 
 **3. 🤝 Target pilot club — UKS Roszada Radom (80+ children).** A real local club designated as the **prospective pilot partner / target community use case** for production deployment after the hackathon; the current implementation is a prototype powered entirely by sample demo data.
 
-| Metric (demonstration prototype) | Value                                                                                                |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| 💰 **Real Funds Collected**      | **0.00 PLN** — competition prototype demo; the ledger's 19,945+ PLN is mock data                      |
-| ✅ **Audited Allocations**       | **130+ synthetic mock entries** — hypothetical test scenarios for the Gemini OCR audit                |
-| 🧾 **Needs & Invoices**          | **100% hypothetical test scenarios** (chess clocks, entry fees, transport) used to exercise the Gemini OCR audit |
+| Metric (demonstration prototype) | Value                                                                                                                                          |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| 💰 **Real Funds Collected**      | **0.00 PLN** — competition prototype demo; the ledger's 19,945+ PLN is mock data                                                               |
+| ✅ **Audited Allocations**       | **130+ synthetic mock entries** — hypothetical test scenarios for the Gemini OCR audit                                                         |
+| 🧾 **Needs & Invoices**          | **100% hypothetical test scenarios** (chess clocks, entry fees, transport) used to exercise the Gemini OCR audit                               |
 | ♟️ **UKS Roszada Radom**         | **Target pilot club (80+ players)** — prospective pilot partner / target community use case; production deployment planned after the hackathon |
 
 **What this demonstrates:** the agentic workflow — matching → payment → audit → certificate — is a modeled scenario based on illustrative club needs, ready to be connected to a real club (UKS Roszada Radom) after the competition.
