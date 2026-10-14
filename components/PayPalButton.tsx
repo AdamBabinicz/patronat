@@ -2,7 +2,7 @@
 "use client";
 
 // Dwujęzyczny (PL / EN) komponent integrujący PayPal JS SDK.
-// Stabilne renderowanie przycisków PayPal, BLIK, Przelewy24 i Karty bez pętli przeładowań DOM.
+// Stabilne renderowanie przycisków PayPal, BLIK, Przelewy24 i Karty bez pętli przeładowań DOM i błędów Strict Mode.
 import React, { useEffect, useRef, useState } from "react";
 
 export type Language = "pl" | "en";
@@ -115,7 +115,7 @@ export default function PayPalButton({
   const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "test";
   const isTestMode = clientId === "test";
 
-  // Obsługa powrotu z PayPala na telefonie (gdy user kliknie link 'Anuluj' w PayPalu i wróci pod ?canceled=true)
+  // Obsługa powrotu z PayPala na telefonie (gdy user kliknie rezygnację i wróci z parametrem ?canceled=true)
   useEffect(() => {
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
@@ -138,7 +138,7 @@ export default function PayPalButton({
     isRenderedRef.current = false;
     let buttonsInstance: any = null;
 
-    // 1. Ochrona przed fałszywymi ostrzeżeniami Zoid w konsoli
+    // Ochrona przed fałszywymi ostrzeżeniami Zoid w konsoli
     const originalConsoleError = console.error;
     console.error = (...args: any[]) => {
       const errorString = args
@@ -196,8 +196,7 @@ export default function PayPalButton({
       if (isRenderedRef.current) return;
 
       if (!window.paypal || !window.paypal.Buttons) {
-        setScriptError(t.renderError);
-        setIsLoading(false);
+        // Jeśli skrypt jest jeszcze przetwarzany, nie zgłaszaj błędu od razu
         return;
       }
 
@@ -240,7 +239,7 @@ export default function PayPalButton({
                   },
                 ],
                 application_context: {
-                  brand_name: current.clubName || "Klub Sportowy",
+                  brand_name: current.clubName || undefined,
                   locale: paypalLocale,
                   landing_page: "NO_PREFERENCE",
                   user_action: "PAY_NOW",
@@ -261,7 +260,7 @@ export default function PayPalButton({
                 patronName: currentDonor,
                 donorName: currentDonor,
                 donorNote: currentNote,
-                clubName: current.clubName || "Klub Sportowy",
+                clubName: current.clubName,
                 locale: current.locale || "pl",
                 returnUrl: `${currentOrigin}?success=true`,
                 cancelUrl: `${currentOrigin}?canceled=true`,
@@ -282,7 +281,6 @@ export default function PayPalButton({
               let details: any;
 
               if (actions && actions.order) {
-                // W trybie przeglądarkowym pobieramy autoryzację z popupu PayPala
                 details = await actions.order.capture();
               } else {
                 const response = await fetch("/api/paypal/capture-order", {
@@ -307,7 +305,7 @@ export default function PayPalButton({
                 orderID: data?.orderID || `ORD-${Date.now()}`,
                 orderId:
                   data?.orderID ||
-                  `ROSZADA-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
+                  `ORD-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
                 amount: propsRef.current.amount,
                 currency: propsRef.current.currency,
                 goal: propsRef.current.goal || propsRef.current.description,
@@ -360,15 +358,21 @@ export default function PayPalButton({
               if (isMountedRef.current) {
                 isRenderedRef.current = true;
                 setIsLoading(false);
+                setScriptError(null);
               }
             })
-            .catch(() => {
+            .catch((err: any) => {
+              const errMsg = String(err?.message || err);
+              if (!errMsg.includes("container element removed")) {
+                console.error("PayPal render error:", err);
+              }
               if (isMountedRef.current) {
                 setIsLoading(false);
               }
             });
         }
       } catch (err) {
+        console.error("PayPal Buttons initialization error:", err);
         if (isMountedRef.current) {
           setScriptError(t.renderError);
           setIsLoading(false);
@@ -376,49 +380,19 @@ export default function PayPalButton({
       }
     };
 
-    const existingScript = document.getElementById(
-      scriptId,
-    ) as HTMLScriptElement | null;
     const expectedSrc = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=${currency}&locale=${paypalLocale}&intent=capture`;
+    let script = document.getElementById(scriptId) as HTMLScriptElement | null;
 
-    // Jeśli skrypt istnieje, ale w innej walucie -> usuń stary i pobierz nowy
-    if (existingScript) {
-      if (
-        existingScript.src === expectedSrc &&
-        window.paypal &&
-        window.paypal.Buttons
-      ) {
-        renderButtons();
-      } else {
-        existingScript.remove();
-        delete window.paypal;
-
-        const script = document.createElement("script");
-        script.id = scriptId;
-        script.src = expectedSrc;
-        script.async = true;
-
-        script.onload = () => {
-          if (isMountedRef.current) renderButtons();
-        };
-
-        script.onerror = () => {
-          if (isMountedRef.current) {
-            setScriptError(t.sdkError);
-            setIsLoading(false);
-          }
-        };
-
-        document.body.appendChild(script);
-      }
-    } else {
-      const script = document.createElement("script");
+    if (!script) {
+      script = document.createElement("script");
       script.id = scriptId;
       script.src = expectedSrc;
       script.async = true;
 
       script.onload = () => {
-        if (isMountedRef.current) renderButtons();
+        if (isMountedRef.current) {
+          renderButtons();
+        }
       };
 
       script.onerror = () => {
@@ -429,6 +403,37 @@ export default function PayPalButton({
       };
 
       document.body.appendChild(script);
+    } else {
+      // Skrypt już istnieje w dokumencie
+      if (script.src !== expectedSrc) {
+        script.remove();
+        (window as any).paypal = undefined;
+
+        const newScript = document.createElement("script");
+        newScript.id = scriptId;
+        newScript.src = expectedSrc;
+        newScript.async = true;
+
+        newScript.onload = () => {
+          if (isMountedRef.current) renderButtons();
+        };
+
+        newScript.onerror = () => {
+          if (isMountedRef.current) {
+            setScriptError(t.sdkError);
+            setIsLoading(false);
+          }
+        };
+
+        document.body.appendChild(newScript);
+      } else if (window.paypal && window.paypal.Buttons) {
+        renderButtons();
+      } else {
+        // Skrypt jest jeszcze w trakcie ładowania – podpinamy się pod zdarzenie
+        script.addEventListener("load", () => {
+          if (isMountedRef.current) renderButtons();
+        });
+      }
     }
 
     return () => {
@@ -446,7 +451,7 @@ export default function PayPalButton({
     const current = propsRef.current;
     const simulatedDetails = {
       id: `TEST-PAYPAL-${Date.now()}`,
-      orderId: `ROSZADA-2026-${Math.floor(100 + Math.random() * 900)}`,
+      orderId: `TEST-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
       status: "COMPLETED",
       simulated: true,
       amount: current.amount,
@@ -456,8 +461,8 @@ export default function PayPalButton({
       donorNote: current.donorNote || current.note || "",
       payer: {
         name: {
-          given_name: current.donorName || current.patronName || "Mecenas",
-          surname: "Testowy",
+          given_name: current.donorName || current.patronName || "Test",
+          surname: "Donor",
         },
         email_address: "test-donor@example.com",
       },
@@ -482,7 +487,7 @@ export default function PayPalButton({
       {/* Kontener przycisków PayPal, BLIK, Przelewy24 i Karty */}
       <div ref={buttonContainerRef} className="w-full min-h-[44px]" />
 
-      {/* Bezpośredni przycisk anulowania dla użytkownika w interfejsie */}
+      {/* Przycisk rezygnacji dla użytkownika w interfejsie aplikacji */}
       {onCancel && (
         <button
           type="button"
