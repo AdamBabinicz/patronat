@@ -1,7 +1,7 @@
 // components/PublicLedger.tsx
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   ShieldCheck,
@@ -41,6 +41,10 @@ export default function PublicLedger({
   const [selectedEntry, setSelectedEntry] = useState<LedgerEntry | null>(null);
   const [selectedAuditEntry, setSelectedAuditEntry] =
     useState<LedgerEntry | null>(null);
+
+  // Stan alokacji pobranych z bazy Neon PostgreSQL
+  const [dbEntries, setDbEntries] = useState<LedgerEntry[] | null>(null);
+  const [isLoadingDb, setIsLoadingDb] = useState(true);
 
   // Stan wgrywania własnej faktury przez użytkownika / mecenasa (Live Demo)
   const [customAuditData, setCustomAuditData] =
@@ -90,11 +94,56 @@ export default function PublicLedger({
     close: language === "pl" ? "Zamknij audyt" : "Close Audit",
   };
 
-  // Połączenie nowych wpisów na żywo z historycznymi wpisami z bazy
-  const allEntries: LedgerEntry[] = [
-    ...extraEntries,
-    ...(tLedger.entries as readonly LedgerEntry[]),
-  ];
+  // Pobranie danych z bazy Neon PostgreSQL
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchLedgerFromNeon() {
+      try {
+        const response = await fetch("/api/ledger");
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+
+        if (isMounted && data.success && Array.isArray(data.allocations)) {
+          const mapped: LedgerEntry[] = data.allocations.map((item: any) => {
+            const patronName = item.is_anonymous
+              ? language === "pl"
+                ? "Anonimowy Darczyńca"
+                : "Anonymous Supporter"
+              : item.patron_name;
+
+            const formattedAmount = `${Number(item.amount).toFixed(0)} ${item.currency || "PLN"}`;
+            return [patronName, item.goal, formattedAmount, item.id];
+          });
+
+          setDbEntries(mapped);
+        }
+      } catch (err) {
+        console.warn(
+          "Pobieranie alokacji z Neon DB nie powiodło się, używam danych lokalnych:",
+          err,
+        );
+      } finally {
+        if (isMounted) {
+          setIsLoadingDb(false);
+        }
+      }
+    }
+
+    fetchLedgerFromNeon();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [language]);
+
+  // Połączenie wpisów: preferujemy dane z bazy Neon, z fallbackiem na wpisy statyczne
+  const allEntries: LedgerEntry[] =
+    dbEntries && dbEntries.length > 0
+      ? dbEntries
+      : [...extraEntries, ...(tLedger.entries as readonly LedgerEntry[])];
 
   const handlePrint = () => {
     if (typeof window !== "undefined") {

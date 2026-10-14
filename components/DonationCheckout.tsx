@@ -140,23 +140,44 @@ export default function DonationCheckout({
     setIsAwaitingReturn(false);
   };
 
-  const handlePaymentSuccess = (details: any) => {
+  const handlePaymentSuccess = async (details: any) => {
     setPaymentSuccess(details);
     setPaymentError(null);
     setIsAwaitingReturn(false);
 
-    // Dynamiczny zapis do publicznego rejestru (localStorage)
+    const orderId =
+      details?.orderId ||
+      details?.id ||
+      `ROSZADA-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
+
+    const effectivePatron = isAnonymous
+      ? t.defaultAnonymous
+      : donorName.trim() || t.defaultAnonymous;
+
+    // 1. TRWAŁY ZAPIS DO BAZY NEON POSTGRESQL (Serverless)
+    try {
+      await fetch("/api/ledger", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: orderId,
+          patronName: effectivePatron,
+          goal: currentGoal,
+          amount: currentEffectiveAmount,
+          currency,
+          isAnonymous,
+          donorNote: message || undefined,
+          clubName,
+          status: "VERIFIED",
+        }),
+      });
+    } catch (err) {
+      console.warn("Błąd asynchronicznego zapisu do bazy Neon:", err);
+    }
+
+    // 2. Lokalny zapis pomocniczy w przeglądarce (LocalStorage)
     if (typeof window !== "undefined") {
       try {
-        const orderId =
-          details?.orderId ||
-          details?.id ||
-          `ROSZADA-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
-
-        const effectivePatron = isAnonymous
-          ? t.defaultAnonymous
-          : donorName.trim() || t.defaultAnonymous;
-
         const newEntry: [string, string, string, string] = [
           effectivePatron,
           currentGoal,

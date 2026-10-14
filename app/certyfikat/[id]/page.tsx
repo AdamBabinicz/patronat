@@ -40,6 +40,15 @@ export default function CertificateVerificationPage() {
     [string, string, string, string][]
   >([]);
 
+  // Stan certyfikatu pobranego bezpośrednio z bazy Neon PostgreSQL
+  const [dbAllocation, setDbAllocation] = useState<{
+    patronName: string;
+    goal: string;
+    amount: string;
+    id: string;
+    sha256Hash?: string;
+  } | null>(null);
+
   // Stan modułu AI Voice na stronie weryfikacji
   const [isPlayingVoice, setIsPlayingVoice] = useState(false);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
@@ -65,7 +74,7 @@ export default function CertificateVerificationPage() {
       setLanguage(savedLang);
     }
 
-    // 3. Wczytanie dynamicznych certyfikatów z bieżących transakcji
+    // 3. Wczytanie awaryjnych wpisów z localStorage
     try {
       const stored = JSON.parse(
         window.localStorage.getItem("patronai_live_entries") || "[]",
@@ -77,12 +86,46 @@ export default function CertificateVerificationPage() {
       // Ignoruj błędy
     }
 
+    // 4. Asynchroniczne pobranie danych certyfikatu z bazy Neon PostgreSQL
+    let isMounted = true;
+    async function fetchCertificateFromDb() {
+      try {
+        const response = await fetch(
+          `/api/certificate/${encodeURIComponent(certIdParam)}`,
+        );
+        if (response.ok) {
+          const data = await response.json();
+          if (isMounted && data.success && data.allocation) {
+            const alloc = data.allocation;
+            const patron = alloc.is_anonymous
+              ? language === "pl"
+                ? "Anonimowy Darczyńca"
+                : "Anonymous Supporter"
+              : alloc.patron_name;
+
+            setDbAllocation({
+              patronName: patron,
+              goal: alloc.goal,
+              amount: `${Number(alloc.amount).toFixed(0)} ${alloc.currency || "PLN"}`,
+              id: alloc.id,
+              sha256Hash: alloc.sha256_hash,
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("Nie udało się pobrać certyfikatu z bazy danych:", err);
+      }
+    }
+
+    fetchCertificateFromDb();
+
     return () => {
+      isMounted = false;
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
         window.speechSynthesis.cancel();
       }
     };
-  }, []);
+  }, [certIdParam, language]);
 
   const toggleTheme = () => {
     const next = !dark;
@@ -97,7 +140,7 @@ export default function CertificateVerificationPage() {
     window.localStorage.setItem("patronai_lang", newLang);
   };
 
-  // 1. Szukamy najpierw w transakcjach na żywo (localStorage), a potem w bazie domyślnej
+  // Dopasowanie: 1. Baza Neon -> 2. localStorage -> 3. Słownik statyczny
   const dynamicMatch = liveEntries.find(
     ([, , , id]) => id && id.toUpperCase() === certIdParam.toUpperCase(),
   );
@@ -108,9 +151,16 @@ export default function CertificateVerificationPage() {
       ([, , , id]) => id && id.toUpperCase() === certIdParam.toUpperCase(),
     );
 
-  const patronName = matchedEntry ? matchedEntry[0] : t.agent.defaultPatron;
-  const goalTitle = matchedEntry ? matchedEntry[1] : t.agent.purpose;
-  const amountFormatted = matchedEntry ? matchedEntry[2] : t.agent.amount;
+  const patronName =
+    dbAllocation?.patronName ||
+    (matchedEntry ? matchedEntry[0] : t.agent.defaultPatron);
+
+  const goalTitle =
+    dbAllocation?.goal || (matchedEntry ? matchedEntry[1] : t.agent.purpose);
+
+  const amountFormatted =
+    dbAllocation?.amount || (matchedEntry ? matchedEntry[2] : t.agent.amount);
+
   const formattedCertId = certIdParam.startsWith("ID:")
     ? certIdParam
     : `ID: ${certIdParam.toUpperCase()} · ${new Date().getFullYear()}`;
@@ -127,7 +177,9 @@ export default function CertificateVerificationPage() {
   // Dynamiczny generator danych faktury dopasowany ściśle do kwoty i celu certyfikatu
   const generateAuditInvoiceData = () => {
     const cleanCert = certIdParam.replace(/[^a-zA-Z0-9-]/g, "");
-    const hash = `0x7f8a${cleanCert.toLowerCase().replace(/[^a-z0-9]/g, "")}94e2b1c8`;
+    const hash =
+      dbAllocation?.sha256Hash ||
+      `0x7f8a${cleanCert.toLowerCase().replace(/[^a-z0-9]/g, "")}94e2b1c8`;
     const lowerGoal = (goalTitle || "").toLowerCase();
 
     // 1. Puchary i trofea
@@ -308,7 +360,7 @@ export default function CertificateVerificationPage() {
     }
   };
 
-  // Eksport certyfikatu do wysokiej jakości pliku PNG ze złotą odznaką, podpisami i KODEM QR
+  // Eksport certyfikatu do pliku PNG ze złotą odznaką, podpisami i KODEM QR
   const handleDownloadPng = () => {
     const isLight = !dark;
     const canvas = document.createElement("canvas");
@@ -417,7 +469,6 @@ export default function CertificateVerificationPage() {
 
     // 9. Podpisy oficjalne
     ctx.textAlign = "center";
-    // Podpis Klubu
     ctx.strokeStyle = isLight ? "#cbd5e1" : "#334155";
     ctx.lineWidth = 1.5;
     ctx.beginPath();
@@ -439,12 +490,11 @@ export default function CertificateVerificationPage() {
     ctx.font = "bold 12px sans-serif";
     ctx.fillText(t.checkout.signatureAgent, 490, 750);
 
-    // 10. KOD QR (prawa strona certyfikatu)
+    // 10. KOD QR
     const qrImg = new Image();
     qrImg.crossOrigin = "anonymous";
 
     qrImg.onload = () => {
-      // Biała ramka pod kod QR
       ctx.fillStyle = "#ffffff";
       ctx.beginPath();
       ctx.roundRect(900, 610, 160, 155, 12);
@@ -453,10 +503,8 @@ export default function CertificateVerificationPage() {
       ctx.lineWidth = 1;
       ctx.stroke();
 
-      // Wrysowanie obrazu QR
       ctx.drawImage(qrImg, 925, 620, 110, 110);
 
-      // Etykieta pod kodem QR
       ctx.textAlign = "center";
       ctx.fillStyle = "#047857";
       ctx.font = "bold 10px sans-serif";
@@ -466,7 +514,6 @@ export default function CertificateVerificationPage() {
     };
 
     qrImg.onerror = () => {
-      // Bezpieczny fallback jeśli obrazek QR zablokuje sieć
       finalizeAndSave();
     };
 
