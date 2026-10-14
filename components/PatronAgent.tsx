@@ -579,48 +579,63 @@ export default function PatronAgent({
           {/* Wynik dopasowania alokacji */}
           {matchedGoal && !isAnalyzing && (
             <div className="mt-5 rounded-2xl border-2 border-amber-500/40 bg-gradient-to-b from-amber-500/5 via-card to-card p-4 sm:p-6 shadow-md transition-all">
-              <div className="flex flex-wrap items-center justify-between gap-2 pb-3.5 border-b border-border/70">
-                <div className="flex items-center gap-2">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-500/40">
+              {/* Zoptymalizowany nagłówek karty z eleganckim przełącznikiem w jednej linii */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3.5 border-b border-border/70">
+                <div className="flex items-center justify-between sm:justify-start gap-2">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-500/40 shrink-0">
                     <span>✓</span>
                     <span>{tAi.verifiedNeed}</span>
                   </div>
 
-                  {/* Interaktywny przełącznik typu: Finansowy ↔ Rzeczowy / Barter */}
-                  <div className="inline-flex rounded-full bg-muted p-0.5 text-[10px] font-bold border border-border">
+                  <div className="sm:hidden text-xs font-bold text-muted-foreground">
+                    {tAi.confidenceScore}:{" "}
+                    <span className="text-emerald-800 dark:text-emerald-400 font-black">
+                      {matchedGoal.confidence}%
+                    </span>
+                  </div>
+                </div>
+
+                {/* Przełącznik typu: Finansowy ↔ Rzeczowy / Barter - zawsze w jednym poziomym rzędzie */}
+                <div className="flex items-center justify-between sm:justify-end gap-3">
+                  <div className="inline-flex items-center rounded-xl bg-muted p-1 text-xs font-bold border border-border shrink-0">
                     <button
                       type="button"
                       onClick={() => toggleSponsorshipType("financial")}
-                      className={`px-2 py-0.5 rounded-full transition-all cursor-pointer ${
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap transition-all cursor-pointer text-xs ${
                         matchedGoal.sponsorshipType !== "in_kind"
                           ? "bg-emerald-600 text-white shadow-xs font-black"
                           : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      💰 {language === "pl" ? "Finansowy" : "Financial"}
+                      <span className="text-sm leading-none">💰</span>
+                      <span>
+                        {language === "pl" ? "Finansowy" : "Financial"}
+                      </span>
                     </button>
                     <button
                       type="button"
                       onClick={() => toggleSponsorshipType("in_kind")}
-                      className={`px-2 py-0.5 rounded-full transition-all cursor-pointer ${
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap transition-all cursor-pointer text-xs ${
                         matchedGoal.sponsorshipType === "in_kind"
                           ? "bg-purple-600 text-white shadow-xs font-black"
                           : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      🎁{" "}
-                      {language === "pl"
-                        ? "Rzeczowy / Barter"
-                        : "In-Kind / Barter"}
+                      <span className="text-sm leading-none">🎁</span>
+                      <span>
+                        {language === "pl"
+                          ? "Rzeczowy / Barter"
+                          : "In-Kind / Barter"}
+                      </span>
                     </button>
                   </div>
-                </div>
 
-                <div className="text-xs font-bold text-muted-foreground">
-                  {tAi.confidenceScore}:{" "}
-                  <span className="text-emerald-800 dark:text-emerald-400 font-black">
-                    {matchedGoal.confidence}%
-                  </span>
+                  <div className="hidden sm:block text-xs font-bold text-muted-foreground shrink-0">
+                    {tAi.confidenceScore}:{" "}
+                    <span className="text-emerald-800 dark:text-emerald-400 font-black">
+                      {matchedGoal.confidence}%
+                    </span>
+                  </div>
                 </div>
               </div>
 
