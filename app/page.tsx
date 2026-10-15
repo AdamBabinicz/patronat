@@ -60,7 +60,6 @@ export default function Page() {
       } else if (typeof data.totalAmount === "number") {
         total = data.totalAmount;
       } else if (Array.isArray(data.allocations)) {
-        // Fallback: suma kwot z pobranej listy alokacji
         total = data.allocations.reduce(
           (sum: number, item: { amount?: number | string }) =>
             sum + (Number(item.amount) || 0),
@@ -255,8 +254,8 @@ export default function Page() {
   return (
     <>
       <main className="min-h-screen bg-slate-50 text-neutral-900 transition-colors duration-200 dark:bg-neutral-950 dark:text-neutral-100">
-        {/* HEADER / NAWIGACJA */}
-        <header className="sticky top-0 z-30 border-b border-neutral-200 bg-slate-50/95 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/95">
+        {/* PRZYKLEJONY HEADER / NAWIGACJA (FIXED TOP Z EFEKTEM SZKŁA BACKDROP-BLUR) */}
+        <header className="fixed top-0 left-0 right-0 z-40 border-b border-neutral-200/80 bg-slate-50/90 backdrop-blur-md dark:border-neutral-800/80 dark:bg-neutral-950/90 transition-colors">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3.5 sm:py-4">
             <a href="#top" className="flex items-center gap-3 font-semibold">
               <span className="grid size-9 place-items-center rounded-xl bg-lime-400 text-neutral-950 shadow-sm">
@@ -285,7 +284,7 @@ export default function Page() {
                 )}
               </button>
 
-              {/* Segmentowy, czytelny przełącznik języka [ PL | EN ] */}
+              {/* Segmentowy przełącznik języka [ PL | EN ] */}
               <div className="flex items-center rounded-full border border-neutral-300 bg-white p-0.5 text-xs font-bold dark:border-neutral-700 dark:bg-neutral-900">
                 <button
                   type="button"
@@ -323,10 +322,10 @@ export default function Page() {
           </div>
         </header>
 
-        {/* HERO SECTION + STATYSTYKI ZE ZBALANSOWANYM RYTMEM PIONOWYM */}
+        {/* HERO SECTION - ODPOWIEDNI MARGINES GÓRNY (PT-24 SM:PT-28), ABY TREŚĆ NIE CHOWAŁA SIĘ POD NAVBAR */}
         <section
           id="top"
-          className="mx-auto grid max-w-7xl gap-8 px-5 py-10 sm:py-14 lg:grid-cols-2 lg:gap-12 lg:py-16"
+          className="mx-auto grid max-w-7xl gap-8 px-5 pt-24 pb-10 sm:pt-28 sm:pb-14 lg:grid-cols-2 lg:gap-12 lg:pt-32 lg:pb-16"
         >
           <div>
             <p className="mb-3 text-xs font-bold uppercase tracking-widest text-lime-600 dark:text-lime-400">
@@ -434,7 +433,7 @@ export default function Page() {
           extraEntries={liveEntries}
         />
 
-        {/* 4. KARTY WPŁYWU (IMPACT CARDS) ZE ZMNIEJSZONĄ PUSTKĄ */}
+        {/* 4. KARTY WPŁYWU (IMPACT CARDS) */}
         <section className="mx-auto max-w-7xl px-5 py-10 sm:py-14">
           <div className="grid gap-6 md:grid-cols-3">
             {t.impact.cards.map((card, i) => (
@@ -456,7 +455,7 @@ export default function Page() {
           </div>
         </section>
 
-        {/* FOOTER - ZWIĘKSZONY KONTRAST DLA WCAG AA ORAZ ZWARTY PADDING */}
+        {/* FOOTER */}
         <footer className="border-t border-neutral-300 dark:border-neutral-800 bg-slate-100 dark:bg-neutral-950">
           <div className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-8 sm:py-10 text-sm text-neutral-700 dark:text-neutral-300 sm:flex-row sm:items-end sm:justify-between">
             <div>
