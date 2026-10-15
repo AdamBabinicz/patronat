@@ -1,16 +1,8 @@
 // app/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  ArrowRight,
-  ChevronUp,
-  Cookie,
-  Moon,
-  Sun,
-  WalletCards,
-  X,
-} from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { ArrowRight, Cookie, Moon, Sun, WalletCards, X } from "lucide-react";
 import {
   type Language,
   type Messages,
@@ -21,6 +13,9 @@ import DonationCheckout from "@/components/DonationCheckout";
 import PublicLedger, { type LedgerEntry } from "@/components/PublicLedger";
 import type { Currency } from "@/components/checkout/types";
 
+// Standardowy kurs przeliczeniowy spójny z tabelą rejestru (1 EUR ≈ 4.30 PLN)
+const EUR_EXCHANGE_RATE = 4.3;
+
 export default function Page() {
   const [language, setLanguage] = useState<Language>("pl");
   const [dark, setDark] = useState(true);
@@ -30,7 +25,13 @@ export default function Page() {
   const [selectedAllocation, setSelectedAllocation] =
     useState<AllocationPayload | null>(null);
 
-  // Dynamiczny stan licznika i rejestru w czasie rzeczywistym
+  // Dynamiczny stan licznika pobierany na żywo z bazy Neon PostgreSQL
+  const [dbStats, setDbStats] = useState<{
+    totalAmount: number;
+    count: number;
+  } | null>(null);
+
+  // Dynamiczny stan sesyjny w czasie rzeczywistym (optimistic UI)
   const [extraRaisedAmount, setExtraRaisedAmount] = useState<number>(0);
   const [extraVerifiedCount, setExtraVerifiedCount] = useState<number>(0);
   const [liveEntries, setLiveEntries] = useState<LedgerEntry[]>([]);
@@ -40,9 +41,52 @@ export default function Page() {
   const [showSettings, setShowSettings] = useState(false);
   const [analytics, setAnalytics] = useState(false);
   const [marketing, setMarketing] = useState(false);
-  const [showTop, setShowTop] = useState(false);
 
   const t: Messages = getTranslations(language);
+
+  // Funkcja pobierająca zagregowane sumy bezpośrednio z bazy Neon PostgreSQL
+  const fetchLiveDatabaseStats = useCallback(async () => {
+    try {
+      const res = await fetch("/api/ledger");
+      if (!res.ok) return;
+
+      const data = await res.json();
+      let total = 0;
+      let count = 0;
+
+      // 1. Priorytet: odczyt z obiektu stats zwracanego przez Neon DB
+      if (data.stats && typeof data.stats.totalAmount === "number") {
+        total = data.stats.totalAmount;
+      } else if (typeof data.totalAmount === "number") {
+        total = data.totalAmount;
+      } else if (Array.isArray(data.allocations)) {
+        // Fallback: suma kwot z pobranej listy alokacji
+        total = data.allocations.reduce(
+          (sum: number, item: { amount?: number | string }) =>
+            sum + (Number(item.amount) || 0),
+          0,
+        );
+      }
+
+      // 2. Liczba zweryfikowanych alokacji z Neon DB
+      if (data.stats && typeof data.stats.totalCount === "number") {
+        count = data.stats.totalCount;
+      } else if (
+        typeof data.totalCount === "number" ||
+        typeof data.count === "number"
+      ) {
+        count = data.totalCount ?? data.count;
+      } else if (Array.isArray(data.allocations)) {
+        count = data.allocations.length;
+      }
+
+      if (count > 0 || total > 0) {
+        setDbStats({ totalAmount: total, count });
+      }
+    } catch {
+      // W razie chwilowego braku sieci zachowaj stan fallback
+    }
+  }, []);
 
   useEffect(() => {
     // 1. Motyw
@@ -82,10 +126,9 @@ export default function Page() {
       // Ignoruj błędy parsowania
     }
 
-    const onScroll = () => setShowTop(window.scrollY > 500);
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    // 5. Pobranie rzeczywistych danych statystycznych z bazy Neon
+    fetchLiveDatabaseStats();
+  }, [fetchLiveDatabaseStats]);
 
   const toggleTheme = () => {
     const next = !dark;
@@ -163,14 +206,34 @@ export default function Page() {
     } catch {
       // Ignoruj
     }
+
+    // Odśwież dane bezpośrednio z bazy Neon
+    fetchLiveDatabaseStats();
   };
 
-  // Dynamiczne formatowanie statystyk
-  const baseRaised = parseInt(t.stats.amount.replace(/\s+/g, ""), 10) || 18420;
-  const currentTotalAmount = (baseRaised + extraRaisedAmount).toLocaleString(
+  // 100% Dynamiczne formatowanie statystyk z bazy Neon (w PLN)
+  const baseRaisedPln =
+    dbStats !== null
+      ? dbStats.totalAmount
+      : parseInt(t.stats.amount.replace(/\s+/g, ""), 10) || 19945;
+
+  const totalPln = baseRaisedPln + extraRaisedAmount;
+
+  // Przeliczenie kwoty na walutę interfejsu (EUR w wersji EN)
+  const isEurMode = language === "en" || t.stats.currency === "EUR";
+  const displayAmount = isEurMode
+    ? Math.round(totalPln / EUR_EXCHANGE_RATE)
+    : totalPln;
+
+  const currentTotalAmount = displayAmount.toLocaleString(
     language === "pl" ? "pl-PL" : "en-US",
   );
-  const baseCount = parseInt(t.stats.verifiedCount, 10) || 126;
+
+  const baseCount =
+    dbStats !== null
+      ? dbStats.count
+      : parseInt(t.stats.verifiedCount, 10) || 130;
+
   const currentTotalCount = baseCount + extraVerifiedCount;
 
   const saveConsent = (a: boolean, m: boolean) => {
@@ -540,18 +603,6 @@ export default function Page() {
             </button>
           </div>
         </div>
-      )}
-
-      {/* PRZYCISK SCROLL DO GÓRY */}
-      {showTop && (
-        <button
-          type="button"
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          aria-label={t.scrollTop}
-          className="fixed bottom-6 right-6 z-30 grid size-12 place-items-center rounded-full bg-lime-400 text-neutral-950 shadow-xl transition-transform hover:scale-110 cursor-pointer"
-        >
-          <ChevronUp className="size-6" />
-        </button>
       )}
     </>
   );

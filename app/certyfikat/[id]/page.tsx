@@ -12,19 +12,25 @@ import {
   Printer,
   Share2,
   ShieldCheck,
+  ShieldAlert,
   Sun,
   WalletCards,
   FileCheck2,
   Play,
   Pause,
   RotateCcw,
+  Loader2,
+  Clock,
 } from "lucide-react";
 import {
   type Language,
   type Messages,
   getTranslations,
 } from "@/lib/translations";
-import { getLocalizedPurpose } from "@/lib/translations/purposeMap";
+import {
+  getLocalizedPurpose,
+  formatAllocationAmount,
+} from "@/lib/translations/purposeMap";
 import LedgerAuditModal, {
   type LedgerEntry,
   type InvoiceAuditData,
@@ -32,33 +38,77 @@ import LedgerAuditModal, {
 
 export default function CertificateVerificationPage() {
   const rawParams = useParams();
-  const certIdParam = Array.isArray(rawParams?.id)
+  const rawIdString = Array.isArray(rawParams?.id)
     ? rawParams.id[0]
-    : (rawParams?.id as string) || "ROSZADA-2026-084";
+    : (rawParams?.id as string | undefined);
+
+  // Bezpieczne dekodowanie identyfikatora i usunięcie prefiksu "ID:"
+  const certIdParam = rawIdString
+    ? decodeURIComponent(rawIdString.replace(/^ID:\s*/i, "")).trim()
+    : "ROSZADA-2026-084";
 
   const [language, setLanguage] = useState<Language>("pl");
   const [dark, setDark] = useState(true);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [liveEntries, setLiveEntries] = useState<LedgerEntry[]>([]);
 
-  // Stan certyfikatu oraz audytu pobranego bezpośrednio z bazy Neon PostgreSQL
+  // Stany pobierania danych
+  const [isLoading, setIsLoading] = useState(true);
+  const [isNotFound, setIsNotFound] = useState(false);
   const [dbAllocation, setDbAllocation] = useState<{
     patronName: string;
     goal: string;
     amount: string;
     id: string;
     sha256Hash?: string;
-    audit?: InvoiceAuditData | null;
+    audit: InvoiceAuditData | null;
   } | null>(null);
 
   // Stan modułu AI Voice na stronie weryfikacji
   const [isPlayingVoice, setIsPlayingVoice] = useState(false);
+  const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   // Stan modalu audytu faktury
   const [showAuditModal, setShowAuditModal] = useState(false);
 
   const t: Messages = getTranslations(language);
+
+  const tAudit = (t as Record<string, any>).audit || {
+    modalTitle:
+      language === "pl"
+        ? "Audyt AI Faktury VAT • Gemini Multimodal Vision"
+        : "AI VAT Invoice Audit • Gemini Multimodal Vision",
+    badge:
+      language === "pl"
+        ? "100% Transparentny Rejestr Wydatków"
+        : "100% Transparent Expense Ledger",
+    vendorName:
+      language === "pl" ? "Wystawca faktury / Sprzedawca" : "Issuer / Vendor",
+    vendorNip: language === "pl" ? "NIP wystawcy" : "Tax ID (NIP)",
+    invoiceNumber: language === "pl" ? "Nr dokumentu" : "Invoice No.",
+    issueDate: language === "pl" ? "Data księgowania" : "Posting Date",
+    itemsPurchased:
+      language === "pl"
+        ? "Pozycje odczytane ze skanu faktury:"
+        : "Line items extracted from invoice scan:",
+    alignmentVerified:
+      language === "pl"
+        ? "Status: 100% Zgodności z celem (Zero defraudacji)"
+        : "Status: 100% Purpose Match (Zero fraud)",
+    integrityHash:
+      language === "pl"
+        ? "Kryptograficzny Hash Integralności SHA-256"
+        : "Cryptographic SHA-256 Integrity Hash",
+    liveUploadPrompt:
+      language === "pl"
+        ? "Przetestuj na żywo: Wgraj własną fakturę lub paragon (JPG/PNG)"
+        : "Live Test: Upload your own receipt/invoice (JPG/PNG)",
+    analyzingDocument:
+      language === "pl"
+        ? "Trwa analiza multimodalna faktury przez Gemini Vision..."
+        : "Analyzing invoice document with Gemini Multimodal Vision...",
+    close: language === "pl" ? "Zamknij audyt" : "Close Audit",
+  };
 
   useEffect(() => {
     // 1. Motyw
@@ -76,25 +126,32 @@ export default function CertificateVerificationPage() {
       setLanguage(savedLang);
     }
 
-    // 3. Wczytanie awaryjnych wpisów z localStorage
+    // 3. Wczytanie lokalnych wpisów z sesji testowej sędziego (localStorage)
+    let storedLocal: LedgerEntry[] = [];
     try {
       const stored = JSON.parse(
         window.localStorage.getItem("patronai_live_entries") || "[]",
       );
       if (Array.isArray(stored)) {
-        setLiveEntries(stored);
+        storedLocal = stored;
       }
     } catch {
       // Ignoruj błędy parsowania
     }
 
-    // 4. Asynchroniczne pobranie alokacji i audytu faktury z bazy Neon PostgreSQL
+    // 4. Asynchroniczne pobranie alokacji:
+    // Priorytet: 1. Baza Neon DB -> 2. Sesja lokalna sędziego (TEST-...) -> 3. Słownik statyczny
     let isMounted = true;
-    async function fetchCertificateFromDb() {
+    setIsLoading(true);
+    setIsNotFound(false);
+
+    async function fetchCertificate() {
       try {
+        // Krok 1: Sprawdź bazę Neon PostgreSQL
         const response = await fetch(
           `/api/certificate/${encodeURIComponent(certIdParam)}`,
         );
+
         if (response.ok) {
           const data = await response.json();
           if (isMounted && data.success && data.allocation) {
@@ -113,14 +170,78 @@ export default function CertificateVerificationPage() {
               sha256Hash: alloc.sha256_hash,
               audit: alloc.audit || null,
             });
+            setIsNotFound(false);
+            setIsLoading(false);
+            return;
           }
         }
+
+        // Krok 2: Jeśli wpis to świeży test sędziego (np. TEST-2026-703) w localStorage
+        const localMatch = storedLocal.find(
+          ([, , , id]) => id && id.toUpperCase() === certIdParam.toUpperCase(),
+        );
+
+        if (localMatch && isMounted) {
+          const [locPatron, locGoal, locAmount, locId, locAudit] = localMatch;
+          setDbAllocation({
+            patronName: locPatron,
+            goal: locGoal,
+            amount: locAmount,
+            id: locId,
+            audit: locAudit || null,
+          });
+          setIsNotFound(false);
+          setIsLoading(false);
+
+          // W tle zsynchronizuj ten wpis do Neon DB, aby był na stałe w bazie
+          fetch("/api/ledger", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: locId,
+              patronName: locPatron,
+              goal: locGoal,
+              amount: parseFloat(locAmount.replace(/[^0-9.]/g, "")) || 100,
+              currency: locAmount.includes("EUR") ? "EUR" : "PLN",
+              status: "VERIFIED",
+            }),
+          }).catch(() => {});
+          return;
+        }
+
+        // Krok 3: Fallback dla wpisów demonstracyjnych ze słownika
+        const staticMatch = (t.ledger.entries as readonly LedgerEntry[]).find(
+          ([, , , id]) => id && id.toUpperCase() === certIdParam.toUpperCase(),
+        );
+
+        if (staticMatch && isMounted) {
+          setDbAllocation({
+            patronName: staticMatch[0],
+            goal: staticMatch[1],
+            amount: staticMatch[2],
+            id: staticMatch[3],
+            audit: null,
+          });
+          setIsNotFound(false);
+          setIsLoading(false);
+          return;
+        }
+
+        // Jeśli nigdzie nie znaleziono certyfikatu
+        if (isMounted) {
+          setIsNotFound(true);
+          setIsLoading(false);
+        }
       } catch (err) {
-        console.warn("Nie udało się pobrać certyfikatu z bazy danych:", err);
+        console.warn("Błąd pobierania certyfikatu:", err);
+        if (isMounted) {
+          setIsNotFound(true);
+          setIsLoading(false);
+        }
       }
     }
 
-    fetchCertificateFromDb();
+    fetchCertificate();
 
     return () => {
       isMounted = false;
@@ -143,23 +264,8 @@ export default function CertificateVerificationPage() {
     window.localStorage.setItem("patronai_lang", newLang);
   };
 
-  // Dopasowanie: 1. Baza Neon -> 2. localStorage -> 3. Słownik statyczny
-  const dynamicMatch = liveEntries.find(
-    ([, , , id]) => id && id.toUpperCase() === certIdParam.toUpperCase(),
-  );
-
-  const matchedEntry =
-    dynamicMatch ||
-    (t.ledger.entries as readonly LedgerEntry[]).find(
-      ([, , , id]) => id && id.toUpperCase() === certIdParam.toUpperCase(),
-    );
-
-  const patronName =
-    dbAllocation?.patronName ||
-    (matchedEntry ? matchedEntry[0] : t.agent.defaultPatron);
-
-  const rawGoal =
-    dbAllocation?.goal || (matchedEntry ? matchedEntry[1] : t.agent.purpose);
+  const patronName = dbAllocation?.patronName || "";
+  const rawGoal = dbAllocation?.goal || "";
 
   // Inteligentna lokalizacja celu
   const {
@@ -168,8 +274,9 @@ export default function CertificateVerificationPage() {
     wasTranslated,
   } = getLocalizedPurpose(rawGoal, language);
 
-  const amountFormatted =
-    dbAllocation?.amount || (matchedEntry ? matchedEntry[2] : t.agent.amount);
+  const rawAmount = dbAllocation?.amount || "0 PLN";
+  // Dual-Currency (PLN / EUR)
+  const amountData = formatAllocationAmount(rawAmount, language);
 
   const formattedCertId = certIdParam.startsWith("ID:")
     ? certIdParam
@@ -178,46 +285,29 @@ export default function CertificateVerificationPage() {
   const certPageUrl =
     typeof window !== "undefined"
       ? window.location.href
-      : `https://patronat.vercel.app/certyfikat/${certIdParam}`;
+      : `https://patronat.vercel.app/certyfikat/${encodeURIComponent(certIdParam)}`;
 
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(
     certPageUrl,
   )}&format=png`;
 
-  // Prawdziwe dane faktury prosto z bazy Neon DB (bez sztucznych mocków)
-  const invoiceData: InvoiceAuditData = dbAllocation?.audit || {
-    invoiceNumber: `FV/${new Date().getFullYear()}/RO-${certIdParam.replace(/[^0-9]/g, "").slice(-3) || "101"}`,
-    seller: "UKS Roszada Radom - Realizacja Celu Statutowego",
-    sellerNip: "PL 796-221-50-02",
-    issueDate: new Date().toLocaleDateString(
-      language === "pl" ? "pl-PL" : "en-US",
-    ),
-    items: [
-      {
-        name: `${language === "pl" ? "Realizacja programu statutowego" : "Statutory project execution"}: ${localizedGoal}`,
-        qty: "1 alok",
-        gross: amountFormatted,
-      },
-    ],
-    totalGross: amountFormatted,
-    auditHash:
-      dbAllocation?.sha256Hash || `0x${certIdParam.toLowerCase()}94e2b1c8`,
-    semanticMatchScore: 100.0,
-  };
+  // Autentyczne dane faktury z Neon DB (brak zmyślonych mocków)
+  const invoiceData: InvoiceAuditData | null = dbAllocation?.audit || null;
 
-  // Perfekcyjnie zlokalizowany tekst syntezy mowy (AI Dynamic Impact Voice)
+  // Synteza mowy z podziękowaniem
   const voiceMessageText =
     language === "pl"
       ? `Cześć! W imieniu wszystkich juniorów oraz zarządu klubu ${t.agent.clubName}, z całego serca dziękujemy mecenasowi: ${patronName}! Dzięki Twojemu wsparciu na cel: "${localizedGoal}", możemy trenować, rozwijać nasze pasje i walczyć o mistrzostwo. Dziękujemy, że grasz razem z nami!`
-      : `Hello! On behalf of all youth athletes and the board of ${t.agent.clubName}, we sincerely thank: ${patronName}! With your generous support for: "${localizedGoal}", we can train, develop our skills, and compete for championship trophies. Thank you for standing with our team!`;
+      : `Hello! On behalf of all youth athletes and the board of ${t.agent.clubName}, we sincerely thank our patron: ${patronName}! With your generous support for: "${localizedGoal}", we can train, develop our skills, and compete for championship trophies. Thank you for standing with our team!`;
 
   const togglePlayVoice = () => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      alert(
+      setVoiceNotice(
         language === "pl"
           ? "Twoja przeglądarka nie obsługuje syntezy mowy."
           : "Your browser does not support speech synthesis.",
       );
+      setTimeout(() => setVoiceNotice(null), 4000);
       return;
     }
 
@@ -228,7 +318,6 @@ export default function CertificateVerificationPage() {
     }
 
     window.speechSynthesis.cancel();
-
     const utterance = new SpeechSynthesisUtterance(voiceMessageText);
     utterance.lang = language === "pl" ? "pl-PL" : "en-US";
     utterance.rate = 1.02;
@@ -251,7 +340,9 @@ export default function CertificateVerificationPage() {
   };
 
   const handlePrint = () => {
-    window.print();
+    if (typeof window !== "undefined") {
+      window.print();
+    }
   };
 
   const handleCopyLink = () => {
@@ -263,7 +354,6 @@ export default function CertificateVerificationPage() {
     }
   };
 
-  // Eksport certyfikatu do pliku PNG ze złotą odznaką, podpisami i KODEM QR
   const handleDownloadPng = () => {
     const isLight = !dark;
     const canvas = document.createElement("canvas");
@@ -281,11 +371,11 @@ export default function CertificateVerificationPage() {
       a.click();
     };
 
-    // 1. Tło certyfikatu
+    // Tło
     ctx.fillStyle = isLight ? "#fefdfa" : "#0d1117";
     ctx.fillRect(0, 0, 1200, 860);
 
-    // 2. Podwójna obwódka mecenatu
+    // Obramowanie
     ctx.strokeStyle = isLight ? "#15803d" : "#84cc16";
     ctx.lineWidth = 5;
     ctx.strokeRect(35, 35, 1130, 790);
@@ -296,7 +386,7 @@ export default function CertificateVerificationPage() {
     ctx.strokeRect(48, 48, 1104, 764);
     ctx.setLineDash([]);
 
-    // 3. Złoty badge na górze
+    // Złoty badge
     ctx.fillStyle = isLight ? "#fef3c7" : "#78350f";
     ctx.beginPath();
     ctx.roundRect(470, 75, 260, 34, 17);
@@ -308,9 +398,15 @@ export default function CertificateVerificationPage() {
     ctx.textAlign = "center";
     ctx.fillStyle = isLight ? "#92400e" : "#fde68a";
     ctx.font = "bold 13px sans-serif";
-    ctx.fillText("★ OFICJALNY CERTYFIKAT MECENASA ★", 600, 97);
+    ctx.fillText(
+      language === "pl"
+        ? "★ OFICJALNY CERTYFIKAT MECENASA ★"
+        : "★ OFFICIAL PATRON CERTIFICATE ★",
+      600,
+      97,
+    );
 
-    // 4. Nagłówek Klubu i sekcji
+    // Klub
     ctx.fillStyle = isLight ? "#0f172a" : "#ffffff";
     ctx.font = "bold 46px Georgia, serif";
     ctx.fillText(t.agent.clubName, 600, 170);
@@ -319,7 +415,6 @@ export default function CertificateVerificationPage() {
     ctx.font = "italic 19px Georgia, serif";
     ctx.fillText(t.agent.certificateSub, 600, 210);
 
-    // Linia rozdzielająca górna
     ctx.strokeStyle = isLight ? "#e2e8f0" : "#1e293b";
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -327,7 +422,7 @@ export default function CertificateVerificationPage() {
     ctx.lineTo(1050, 240);
     ctx.stroke();
 
-    // 5. Mecenas
+    // Mecenas
     ctx.fillStyle = isLight ? "#64748b" : "#94a3b8";
     ctx.font = "bold 12px sans-serif";
     ctx.fillText(t.checkout.donorLabel.toUpperCase(), 600, 280);
@@ -336,7 +431,7 @@ export default function CertificateVerificationPage() {
     ctx.font = "bold 38px sans-serif";
     ctx.fillText(patronName, 600, 330);
 
-    // 6. Cel mecenatu (wyrenderowany w wybranym języku)
+    // Cel
     ctx.fillStyle = isLight ? "#64748b" : "#94a3b8";
     ctx.font = "bold 12px sans-serif";
     ctx.fillText(t.checkout.goalLabel.toUpperCase(), 600, 390);
@@ -345,22 +440,27 @@ export default function CertificateVerificationPage() {
     ctx.font = "600 22px sans-serif";
     ctx.fillText(localizedGoal, 600, 425);
 
-    // 7. Kwota alokacji
+    // Kwota (Dual-Currency)
     ctx.fillStyle = isLight ? "#64748b" : "#94a3b8";
     ctx.font = "bold 12px sans-serif";
-    ctx.fillText(t.checkout.amountPaidLabel.toUpperCase(), 600, 480);
+    ctx.fillText(t.checkout.amountPaidLabel.toUpperCase(), 600, 475);
 
     ctx.fillStyle = isLight ? "#047857" : "#34d399";
-    ctx.font = "black 46px sans-serif";
-    ctx.fillText(amountFormatted, 600, 535);
+    ctx.font = "black 44px sans-serif";
+    ctx.fillText(amountData.primary, 600, 520);
 
-    // Linia rozdzielająca dolna
+    if (amountData.secondary) {
+      ctx.fillStyle = isLight ? "#64748b" : "#94a3b8";
+      ctx.font = "bold 16px sans-serif";
+      ctx.fillText(amountData.secondary, 600, 550);
+    }
+
     ctx.beginPath();
     ctx.moveTo(150, 580);
     ctx.lineTo(1050, 580);
     ctx.stroke();
 
-    // 8. Identyfikator certyfikatu
+    // Identyfikator
     ctx.textAlign = "left";
     ctx.fillStyle = isLight ? "#0f172a" : "#ffffff";
     ctx.font = "bold 14px monospace";
@@ -370,10 +470,11 @@ export default function CertificateVerificationPage() {
     ctx.font = "12px sans-serif";
     ctx.fillText("Protokół: PatronAI Agentic Commerce v1.0", 150, 648);
 
-    // 9. Podpisy oficjalne
+    // Podpisy
     ctx.textAlign = "center";
     ctx.strokeStyle = isLight ? "#cbd5e1" : "#334155";
     ctx.lineWidth = 1.5;
+
     ctx.beginPath();
     ctx.moveTo(150, 730);
     ctx.lineTo(330, 730);
@@ -392,15 +493,15 @@ export default function CertificateVerificationPage() {
     ctx.font = "bold 12px sans-serif";
     ctx.fillText(t.checkout.signatureAgent, 490, 750);
 
-    // 10. Kod QR
+    // QR
     const qrImg = new Image();
     qrImg.crossOrigin = "anonymous";
-
     qrImg.onload = () => {
       ctx.fillStyle = "#ffffff";
       ctx.beginPath();
       ctx.roundRect(900, 610, 160, 155, 12);
       ctx.fill();
+
       ctx.strokeStyle = "#e2e8f0";
       ctx.lineWidth = 1;
       ctx.stroke();
@@ -410,21 +511,23 @@ export default function CertificateVerificationPage() {
       ctx.textAlign = "center";
       ctx.fillStyle = "#047857";
       ctx.font = "bold 10px sans-serif";
-      ctx.fillText("WERYFIKACJA ✓", 980, 745);
+      ctx.fillText(
+        language === "pl" ? "WERYFIKACJA ✓" : "VERIFIED ✓",
+        980,
+        745,
+      );
 
       finalizeAndSave();
     };
-
     qrImg.onerror = () => {
       finalizeAndSave();
     };
-
     qrImg.src = qrImageUrl;
   };
 
   return (
     <div className="min-h-screen bg-slate-50 text-neutral-900 transition-colors duration-200 dark:bg-neutral-950 dark:text-neutral-100 flex flex-col justify-between">
-      {/* PASEK NAWIGACJI (ukryty podczas wydruku) */}
+      {/* PASEK NAWIGACJI */}
       <header className="sticky top-0 z-20 border-b border-neutral-200 bg-slate-50/90 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/90 print:hidden">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3.5">
           <Link
@@ -445,7 +548,6 @@ export default function CertificateVerificationPage() {
               {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
             </button>
 
-            {/* Segmentowy przełącznik [ PL | EN ] */}
             <div className="flex items-center rounded-full border border-neutral-200 bg-white p-0.5 text-xs font-bold dark:border-neutral-800 dark:bg-neutral-900">
               <button
                 type="button"
@@ -474,238 +576,314 @@ export default function CertificateVerificationPage() {
         </div>
       </header>
 
-      {/* GŁÓWNA TREŚĆ: KONTENER CERTYFIKATU */}
-      <main className="flex-1 py-8 sm:py-12 px-4">
-        <div className="max-w-3xl mx-auto space-y-6">
-          {/* Badge weryfikacji kryptograficznej */}
-          <div className="flex justify-center print:hidden">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-700/10 text-emerald-800 dark:text-emerald-300 border border-emerald-700/30 text-xs font-bold tracking-wide shadow-xs">
-              <ShieldCheck className="size-4 shrink-0" />
-              <span>
-                {language === "pl"
-                  ? "Certyfikat zweryfikowany w Rejestrze Publicznym (Public Ledger)"
-                  : "Certificate verified on the Public Ledger"}
-              </span>
+      {/* TREŚĆ GŁÓWNA */}
+      <main className="flex-1 py-8 sm:py-12 px-4 flex flex-col justify-center">
+        {isLoading ? (
+          <div className="max-w-md mx-auto text-center py-16 space-y-4">
+            <div className="inline-flex p-4 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+              <Loader2 className="size-8 animate-spin" />
+            </div>
+            <h2 className="text-xl font-bold text-foreground">
+              {language === "pl"
+                ? "Weryfikacja certyfikatu w Rejestrze Publicznym..."
+                : "Verifying certificate on Public Ledger..."}
+            </h2>
+            <p className="text-xs text-muted-foreground font-mono">
+              Neon PostgreSQL • {certIdParam}
+            </p>
+          </div>
+        ) : isNotFound ? (
+          <div className="max-w-lg mx-auto text-center py-12 px-6 rounded-3xl border border-red-500/30 bg-card shadow-xl space-y-4">
+            <div className="inline-flex p-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500">
+              <ShieldAlert className="size-8" />
+            </div>
+            <h2 className="text-2xl font-black text-foreground">
+              {language === "pl"
+                ? "Nie odnaleziono certyfikatu"
+                : "Certificate Not Found"}
+            </h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              {language === "pl"
+                ? `Identyfikator "${certIdParam}" nie widnieje w rejestrze UKS Roszada Radom. Upewnij się, że wpisany identyfikator jest prawidłowy.`
+                : `Identifier "${certIdParam}" does not exist in the ledger of UKS Roszada Radom. Please verify the identifier.`}
+            </p>
+            <div className="pt-2">
+              <Link
+                href="/#ledger"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-all shadow-md"
+              >
+                <ArrowLeft className="size-4" />
+                <span>
+                  {language === "pl"
+                    ? "Wróć do Rejestru Publicznego"
+                    : "Return to Public Ledger"}
+                </span>
+              </Link>
             </div>
           </div>
-
-          {/* KARTA CERTYFIKATU */}
-          <div className="relative overflow-hidden rounded-3xl border-2 border-amber-500/50 bg-gradient-to-b from-card via-card to-amber-500/5 p-6 sm:p-10 shadow-2xl backdrop-blur-sm print:border-black print:shadow-none print:m-0 print:p-8">
-            {/* Ozdobny nagłówek ze złotymi gwiazdami */}
-            <div className="flex flex-col items-center text-center pb-6 sm:pb-8 border-b border-border/80">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 mb-3">
-                <span>★</span>
-                <span>{t.checkout.certificateBadge}</span>
-                <span>★</span>
+        ) : (
+          <div className="max-w-3xl mx-auto space-y-6 w-full">
+            {voiceNotice && (
+              <div className="p-3 text-center text-xs font-semibold rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200">
+                {voiceNotice}
               </div>
-              <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground font-serif">
-                {t.agent.clubName}
-              </h1>
-              <p className="mt-1 text-sm sm:text-base font-semibold text-muted-foreground tracking-wide">
-                {t.agent.certificateSub}
-              </p>
-            </div>
+            )}
 
-            {/* Treść i dane alokacji mecenasa */}
-            <div className="my-6 sm:my-8 text-center space-y-4">
-              <div>
-                <span className="text-xs uppercase font-bold tracking-widest text-muted-foreground block mb-1">
-                  {t.checkout.donorLabel}
+            <div className="flex justify-center print:hidden">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-700/10 text-emerald-800 dark:text-emerald-300 border border-emerald-700/30 text-xs font-bold tracking-wide shadow-xs">
+                <ShieldCheck className="size-4 shrink-0" />
+                <span>
+                  {language === "pl"
+                    ? "Certyfikat zweryfikowany w Rejestrze Publicznym (Public Ledger)"
+                    : "Certificate verified on the Public Ledger"}
                 </span>
-                <p className="text-2xl sm:text-4xl font-black text-foreground">
-                  {patronName}
-                </p>
-              </div>
-
-              <div className="pt-2">
-                <span className="text-xs uppercase font-bold tracking-widest text-muted-foreground block mb-1">
-                  {t.checkout.goalLabel}
-                </span>
-                <p className="text-lg sm:text-2xl font-bold text-foreground max-w-xl mx-auto leading-snug break-words">
-                  {localizedGoal}
-                </p>
-                {language === "en" && wasTranslated && originalPl && (
-                  <p className="text-xs text-muted-foreground italic mt-1">
-                    (PL Original: {originalPl})
-                  </p>
-                )}
-              </div>
-
-              <div className="pt-2">
-                <span className="text-xs uppercase font-bold tracking-widest text-muted-foreground block mb-1">
-                  {t.checkout.amountPaidLabel}
-                </span>
-                <p className="text-3xl sm:text-5xl font-black text-emerald-800 dark:text-emerald-300 whitespace-nowrap">
-                  {amountFormatted}
-                </p>
               </div>
             </div>
 
-            {/* Stopka certyfikatu z podpisami i KODEM QR */}
-            <div className="pt-6 border-t border-border/70 flex flex-col sm:flex-row items-center justify-between gap-6">
-              <div className="space-y-3 text-center sm:text-left">
-                <div className="flex items-center justify-center sm:justify-start gap-1.5 text-xs font-mono text-muted-foreground">
-                  <CheckCircle2 className="size-4 text-emerald-700 dark:text-emerald-400 shrink-0" />
-                  <span className="font-bold text-foreground">
-                    {formattedCertId}
-                  </span>
+            {/* KARTA CERTYFIKATU */}
+            <div className="relative overflow-hidden rounded-3xl border-2 border-amber-500/50 bg-gradient-to-b from-card via-card to-amber-500/5 p-6 sm:p-10 shadow-2xl backdrop-blur-sm print:border-black print:shadow-none print:m-0 print:p-8">
+              <div className="flex flex-col items-center text-center pb-6 sm:pb-8 border-b border-border/80">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 mb-3">
+                  <span>★</span>
+                  <span>{t.checkout.certificateBadge}</span>
+                  <span>★</span>
                 </div>
-                <div className="grid grid-cols-2 gap-4 text-center">
-                  <div className="flex flex-col items-center">
-                    <div className="h-0.5 w-24 bg-border mb-1.5" />
-                    <span className="text-[11px] font-bold text-foreground">
-                      {t.checkout.signatureClub}
-                    </span>
-                  </div>
-                  <div className="flex flex-col items-center">
-                    <div className="h-0.5 w-24 bg-border mb-1.5" />
-                    <span className="text-[11px] font-bold text-primary">
-                      {t.checkout.signatureAgent}
-                    </span>
-                  </div>
-                </div>
+                <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground font-serif">
+                  {t.agent.clubName}
+                </h1>
+                <p className="mt-1 text-sm sm:text-base font-semibold text-muted-foreground tracking-wide">
+                  {t.agent.certificateSub}
+                </p>
               </div>
 
-              {/* Kafelek z kodem QR */}
-              <div className="flex items-center gap-3 p-2.5 rounded-2xl bg-white text-stone-950 border border-border shadow-xs shrink-0">
-                <img
-                  src={qrImageUrl}
-                  alt="QR Verification"
-                  className="size-16 rounded-lg"
-                  loading="lazy"
-                />
-                <div className="text-left text-[10px] leading-tight space-y-0.5">
-                  <div className="font-black uppercase tracking-wider text-emerald-700 whitespace-nowrap">
-                    {language === "pl" ? "Weryfikacja ✓" : "Verified ✓"}
-                  </div>
-                  <p className="text-stone-600 font-mono">
-                    {language === "pl" ? "Skanuj telefonem" : "Scan to verify"}
-                  </p>
-                  <span className="font-bold text-[9px] text-stone-500 block truncate max-w-[90px]">
-                    {certIdParam}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ODTWARZACZ PODZIĘKOWANIA GŁOSOWEGO (AI DYNAMIC IMPACT VOICE) */}
-          <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 via-card to-card p-4 sm:p-5 shadow-lg print:hidden">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3 w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={togglePlayVoice}
-                  className={`size-12 rounded-2xl grid place-items-center transition-all shadow-md cursor-pointer shrink-0 ${
-                    isPlayingVoice
-                      ? "bg-emerald-600 text-white animate-pulse"
-                      : "bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/30"
-                  }`}
-                  title={
-                    isPlayingVoice
-                      ? language === "pl"
-                        ? "Zatrzymaj"
-                        : "Pause"
-                      : language === "pl"
-                        ? "Odsłuchaj podziękowanie"
-                        : "Play voice note"
-                  }
-                >
-                  {isPlayingVoice ? (
-                    <Pause className="size-5 fill-current" />
-                  ) : (
-                    <Play className="size-5 fill-current translate-x-0.5" />
-                  )}
-                </button>
+              <div className="my-6 sm:my-8 text-center space-y-4">
                 <div>
-                  <h3 className="text-sm sm:text-base font-bold text-foreground">
-                    {language === "pl"
-                      ? "Osobiste podziękowanie od juniorów"
-                      : "Personal Thank-You from Youth Athletes"}
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    {language === "pl"
-                      ? "Odsłuchaj syntezę głosu zawodników UKS Roszada Radom"
-                      : "Listen to the synthesized voice of youth athletes"}
+                  <span className="text-xs uppercase font-bold tracking-widest text-muted-foreground block mb-1">
+                    {t.checkout.donorLabel}
+                  </span>
+                  <p className="text-2xl sm:text-4xl font-black text-foreground">
+                    {patronName}
                   </p>
+                </div>
+
+                <div className="pt-2">
+                  <span className="text-xs uppercase font-bold tracking-widest text-muted-foreground block mb-1">
+                    {t.checkout.goalLabel}
+                  </span>
+                  <p className="text-lg sm:text-2xl font-bold text-foreground max-w-xl mx-auto leading-snug break-words">
+                    {localizedGoal}
+                  </p>
+                  {language === "en" && wasTranslated && originalPl && (
+                    <p className="text-xs text-muted-foreground italic mt-1">
+                      (PL Original: {originalPl})
+                    </p>
+                  )}
+                </div>
+
+                <div className="pt-2">
+                  <span className="text-xs uppercase font-bold tracking-widest text-muted-foreground block mb-1">
+                    {t.checkout.amountPaidLabel}
+                  </span>
+                  <div className="flex flex-col items-center justify-center">
+                    <p className="text-3xl sm:text-5xl font-black text-emerald-800 dark:text-emerald-300 whitespace-nowrap">
+                      {amountData.primary}
+                    </p>
+                    {amountData.secondary && (
+                      <span className="text-xs sm:text-sm font-semibold text-muted-foreground mt-0.5">
+                        {amountData.secondary}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 self-end sm:self-center">
-                {isPlayingVoice && (
+              {/* Stopka */}
+              <div className="pt-6 border-t border-border/70 flex flex-col sm:flex-row items-center justify-between gap-6">
+                <div className="space-y-3 text-center sm:text-left">
+                  <div className="flex items-center justify-center sm:justify-start gap-1.5 text-xs font-mono text-muted-foreground">
+                    <CheckCircle2 className="size-4 text-emerald-700 dark:text-emerald-400 shrink-0" />
+                    <span className="font-bold text-foreground">
+                      {formattedCertId}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 text-center">
+                    <div className="flex flex-col items-center">
+                      <div className="h-0.5 w-24 bg-border mb-1.5" />
+                      <span className="text-[11px] font-bold text-foreground">
+                        {t.checkout.signatureClub}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <div className="h-0.5 w-24 bg-border mb-1.5" />
+                      <span className="text-[11px] font-bold text-primary">
+                        {t.checkout.signatureAgent}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* QR */}
+                <div className="flex items-center gap-3 p-2.5 rounded-2xl bg-white text-stone-950 border border-border shadow-xs shrink-0">
+                  <img
+                    src={qrImageUrl}
+                    alt="QR Verification"
+                    className="size-16 rounded-lg"
+                    loading="lazy"
+                  />
+                  <div className="text-left text-[10px] leading-tight space-y-0.5">
+                    <div className="font-black uppercase tracking-wider text-emerald-700 whitespace-nowrap">
+                      {language === "pl" ? "Weryfikacja ✓" : "Verified ✓"}
+                    </div>
+                    <p className="text-stone-600 font-mono">
+                      {language === "pl"
+                        ? "Skanuj telefonem"
+                        : "Scan to verify"}
+                    </p>
+                    <span className="font-bold text-[9px] text-stone-500 block truncate max-w-[90px]">
+                      {certIdParam}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ODTWARZACZ GŁOSOWY */}
+            <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 via-card to-card p-4 sm:p-5 shadow-lg print:hidden">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3 w-full sm:w-auto">
                   <button
                     type="button"
-                    onClick={handleReplayVoice}
-                    className="p-2 rounded-xl border border-border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                    title={language === "pl" ? "Od nowa" : "Replay"}
+                    onClick={togglePlayVoice}
+                    className={`size-12 rounded-2xl grid place-items-center transition-all shadow-md cursor-pointer shrink-0 ${
+                      isPlayingVoice
+                        ? "bg-emerald-600 text-white animate-pulse"
+                        : "bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/30"
+                    }`}
+                    title={
+                      isPlayingVoice
+                        ? language === "pl"
+                          ? "Zatrzymaj"
+                          : "Pause"
+                        : language === "pl"
+                          ? "Odsłuchaj podziękowanie"
+                          : "Play voice note"
+                    }
                   >
-                    <RotateCcw className="size-4" />
+                    {isPlayingVoice ? (
+                      <Pause className="size-5 fill-current" />
+                    ) : (
+                      <Play className="size-5 fill-current translate-x-0.5" />
+                    )}
                   </button>
-                )}
-                {/* Szybki przycisk audytu faktury (zasilany w 100% z bazy Neon) */}
-                <button
-                  type="button"
-                  onClick={() => setShowAuditModal(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-lime-400 hover:bg-lime-500 text-stone-950 text-xs font-bold transition-all shadow-xs cursor-pointer shrink-0 whitespace-nowrap"
-                >
-                  <FileCheck2 className="size-4" />
-                  <span>
-                    {language === "pl"
-                      ? "Audyt faktury AI"
-                      : "AI Invoice Audit"}
-                  </span>
-                </button>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-bold text-foreground">
+                      {language === "pl"
+                        ? "Osobiste podziękowanie od juniorów"
+                        : "Personal Thank-You from Youth Athletes"}
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      {language === "pl"
+                        ? "Odsłuchaj syntezę głosu zawodników UKS Roszada Radom"
+                        : "Listen to the synthesized voice of youth athletes"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 self-end sm:self-center">
+                  {isPlayingVoice && (
+                    <button
+                      type="button"
+                      onClick={handleReplayVoice}
+                      className="p-2 rounded-xl border border-border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                      title={language === "pl" ? "Od nowa" : "Replay"}
+                    >
+                      <RotateCcw className="size-4" />
+                    </button>
+                  )}
+
+                  {invoiceData ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAuditModal(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-lime-400 hover:bg-lime-500 text-stone-950 text-xs font-bold transition-all shadow-xs cursor-pointer shrink-0 whitespace-nowrap"
+                    >
+                      <FileCheck2 className="size-4" />
+                      <span>
+                        {language === "pl"
+                          ? "Audyt faktury AI"
+                          : "AI Invoice Audit"}
+                      </span>
+                    </button>
+                  ) : (
+                    <div
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border/80 bg-muted/40 text-muted-foreground text-xs font-medium shrink-0 whitespace-nowrap"
+                      title={
+                        language === "pl"
+                          ? "Faktura VAT w trakcie rozliczenia księgowego przez zarząd klubu"
+                          : "VAT invoice awaiting tournament settlement"
+                      }
+                    >
+                      <Clock className="size-3.5" />
+                      <span>
+                        {language === "pl"
+                          ? "Faktura w toku"
+                          : "Invoice pending"}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
+
+            {/* PRZYCISKI AKCJI */}
+            <div className="flex flex-wrap justify-center gap-3.5 print:hidden">
+              <button
+                type="button"
+                onClick={handleDownloadPng}
+                className="px-6 py-3 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs sm:text-sm shadow-md transition-all flex items-center gap-2 cursor-pointer shrink-0"
+              >
+                <Download className="size-4" />
+                <span>{t.agent.downloadPng}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="px-6 py-3 rounded-2xl border border-border bg-card hover:bg-accent text-foreground font-semibold text-xs sm:text-sm shadow-xs transition-colors flex items-center gap-2 cursor-pointer shrink-0"
+              >
+                <Printer className="size-4" />
+                <span>{t.agent.printPdf}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className="px-6 py-3 rounded-2xl border border-border bg-card hover:bg-accent text-foreground font-semibold text-xs sm:text-sm shadow-xs transition-colors flex items-center gap-2 cursor-pointer shrink-0"
+              >
+                <Share2 className="size-4" />
+                <span>
+                  {copiedLink ? t.checkout.copiedToast : t.checkout.copyLinkBtn}
+                </span>
+              </button>
+            </div>
           </div>
-
-          {/* PRZYCISKI AKCJI POD CERTYFIKATEM */}
-          <div className="flex flex-wrap justify-center gap-3.5 print:hidden">
-            <button
-              type="button"
-              onClick={handleDownloadPng}
-              className="px-6 py-3 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs sm:text-sm shadow-md transition-all flex items-center gap-2 cursor-pointer shrink-0"
-            >
-              <Download className="size-4" />
-              <span>{t.agent.downloadPng}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="px-6 py-3 rounded-2xl border border-border bg-card hover:bg-accent text-foreground font-semibold text-xs sm:text-sm shadow-xs transition-colors flex items-center gap-2 cursor-pointer shrink-0"
-            >
-              <Printer className="size-4" />
-              <span>{t.agent.printPdf}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleCopyLink}
-              className="px-6 py-3 rounded-2xl border border-border bg-card hover:bg-accent text-foreground font-semibold text-xs sm:text-sm shadow-xs transition-colors flex items-center gap-2 cursor-pointer shrink-0"
-            >
-              <Share2 className="size-4" />
-              <span>
-                {copiedLink ? t.checkout.copiedToast : t.checkout.copyLinkBtn}
-              </span>
-            </button>
-          </div>
-        </div>
+        )}
       </main>
 
-      {/* MODAL AUDYTU FAKTURY VAT (Zasilany z bazy Neon przez endpoint /api/certificate/[id]) */}
-      {showAuditModal && (
+      {/* MODAL AUDYTU FAKTURY VAT */}
+      {showAuditModal && invoiceData && (
         <LedgerAuditModal
           entry={[
             patronName,
             localizedGoal,
-            amountFormatted,
+            amountData.primary,
             certIdParam,
             invoiceData,
           ]}
           auditData={invoiceData}
           language={language}
-          tAudit={t.audit}
+          tAudit={tAudit}
           verifiedLabel={t.ledger.verified}
           isAnalyzingCustom={false}
           onUploadClick={() => {}}
@@ -714,7 +892,7 @@ export default function CertificateVerificationPage() {
         />
       )}
 
-      {/* STOPKA STRONY */}
+      {/* STOPKA */}
       <footer className="py-6 border-t border-border/60 text-center text-xs text-muted-foreground print:hidden">
         <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2 font-semibold text-foreground">

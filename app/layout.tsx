@@ -1,5 +1,7 @@
+// app/layout.tsx
 import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
+import ScrollToTop from "@/components/ScrollToTop";
 import "./globals.css";
 
 // Dynamiczne ustalanie adresu URL (Vercel, zmienna środowiskowa lub domena własna)
@@ -152,6 +154,7 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         {children}
+        <ScrollToTop />
         {process.env.NODE_ENV === "production" && <Analytics />}
       </body>
     </html>
