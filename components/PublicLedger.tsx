@@ -1,9 +1,19 @@
 // components/PublicLedger.tsx
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { ShieldCheck, FileCheck2, Upload } from "lucide-react";
+import {
+  ShieldCheck,
+  FileCheck2,
+  Upload,
+  Search,
+  X,
+  Loader2,
+  Sparkles,
+  Calendar,
+  Archive,
+} from "lucide-react";
 import type { Language, Messages } from "@/lib/translations";
 import { formatAllocationAmount } from "@/lib/translations/purposeMap";
 import LedgerPurposeCell from "./ledger/LedgerPurposeCell";
@@ -32,7 +42,25 @@ export default function PublicLedger({
 
   // Stan alokacji pobranych z bazy Neon PostgreSQL
   const [dbEntries, setDbEntries] = useState<LedgerEntry[] | null>(null);
-  const [, setIsLoadingDb] = useState(true);
+  const [patronCounts, setPatronCounts] = useState<Record<string, number>>({});
+  const [isLoadingDb, setIsLoadingDb] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  // Stan wybranego widoku archiwizacji (current / all / archive) oraz liczników
+  const [selectedScope, setSelectedScope] = useState<
+    "current" | "all" | "archive"
+  >("current");
+  const [scopeCounts, setScopeCounts] = useState({
+    all: 0,
+    current: 0,
+    archive: 0,
+  });
+
+  // Stan paginacji i wyszukiwarki
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [totalItems, setTotalItems] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Stan wgrywania własnej faktury przez sędziego w trybie Live OCR Demo
   const [customAuditData, setCustomAuditData] =
@@ -82,19 +110,41 @@ export default function PublicLedger({
     close: language === "pl" ? "Zamknij audyt" : "Close Audit",
   };
 
-  // Pobranie danych z bazy Neon PostgreSQL (wraz z relacyjnymi danymi audytu)
-  useEffect(() => {
-    let isMounted = true;
+  // Funkcja pobierająca alokacje z endpointu Neon PostgreSQL z obsługą paginacji, szukania i scope
+  const fetchLedgerFromNeon = useCallback(
+    async (
+      targetPage: number,
+      search: string,
+      scope: "current" | "all" | "archive",
+      isAppend = false,
+    ) => {
+      if (isAppend) {
+        setIsLoadingMore(true);
+      } else {
+        setIsLoadingDb(true);
+      }
 
-    async function fetchLedgerFromNeon() {
       try {
-        const response = await fetch(`/api/ledger?locale=${language}`);
+        const queryParams = new URLSearchParams({
+          locale: language,
+          page: String(targetPage),
+          limit: "8",
+          scope,
+        });
+
+        if (search.trim()) {
+          queryParams.set("search", search.trim());
+        }
+
+        const response = await fetch(`/api/ledger?${queryParams.toString()}`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
 
-        if (isMounted && data.success && Array.isArray(data.allocations)) {
+        if (data.success && Array.isArray(data.allocations)) {
+          const countsMap: Record<string, number> = {};
+
           const mapped: LedgerEntry[] = data.allocations.map((item: any) => {
             const patronName = item.is_anonymous
               ? language === "pl"
@@ -103,7 +153,11 @@ export default function PublicLedger({
               : item.patron_name;
 
             const formattedAmount = `${Number(item.amount).toFixed(0)} ${item.currency || "PLN"}`;
-            // Przekazujemy prawdziwy obiekt audytu prosto z tabeli audit_reports z bazy Neon
+
+            if (item.patron_donation_count && !item.is_anonymous) {
+              countsMap[item.id] = item.patron_donation_count;
+            }
+
             return [
               patronName,
               item.goal,
@@ -113,7 +167,27 @@ export default function PublicLedger({
             ];
           });
 
-          setDbEntries(mapped);
+          setPatronCounts((prev) =>
+            isAppend ? { ...prev, ...countsMap } : countsMap,
+          );
+
+          setDbEntries((prev) =>
+            isAppend && prev ? [...prev, ...mapped] : mapped,
+          );
+
+          if (data.scopes) {
+            setScopeCounts(data.scopes);
+          }
+
+          if (data.pagination) {
+            setHasMore(Boolean(data.pagination.hasMore));
+            setTotalItems(Number(data.pagination.totalItems) || mapped.length);
+          } else {
+            setHasMore(false);
+            setTotalItems(mapped.length);
+          }
+
+          setPage(targetPage);
         }
       } catch (err) {
         console.warn(
@@ -121,23 +195,43 @@ export default function PublicLedger({
           err,
         );
       } finally {
-        if (isMounted) {
-          setIsLoadingDb(false);
-        }
+        setIsLoadingDb(false);
+        setIsLoadingMore(false);
       }
+    },
+    [language],
+  );
+
+  // Wczytanie alokacji przy zmianie języka, frazy wyszukiwania lub wybranego scope
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchLedgerFromNeon(1, searchQuery, selectedScope, false);
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [fetchLedgerFromNeon, searchQuery, selectedScope]);
+
+  // Zmiana zakładki (Bieżący sezon / Wszystkie / Archiwum)
+  const handleScopeChange = (newScope: "current" | "all" | "archive") => {
+    setSelectedScope(newScope);
+    setPage(1);
+  };
+
+  // Obsługa kliknięcia "Pokaż więcej alokacji"
+  const handleLoadMore = () => {
+    if (!isLoadingMore && hasMore) {
+      fetchLedgerFromNeon(page + 1, searchQuery, selectedScope, true);
     }
+  };
 
-    fetchLedgerFromNeon();
+  // Połączenie wpisów: preferujemy dane z bazy Neon, z optymistycznymi wpisami sesyjnymi
+  const liveNewEntries = extraEntries.filter(
+    (extra) => !dbEntries?.some((db) => db[3] === extra[3]),
+  );
 
-    return () => {
-      isMounted = false;
-    };
-  }, [language]);
-
-  // Połączenie wpisów: preferujemy dane z bazy Neon, z fallbackiem na wpisy statyczne
   const allEntries: LedgerEntry[] =
-    dbEntries && dbEntries.length > 0
-      ? dbEntries
+    dbEntries !== null
+      ? [...liveNewEntries, ...dbEntries]
       : [...extraEntries, ...(tLedger.entries as readonly LedgerEntry[])];
 
   // Obsługa interaktywnego testu sędziego: wgranie własnego pliku do testu OCR
@@ -272,218 +366,391 @@ export default function PublicLedger({
           </div>
         </div>
 
-        {/* Tabela Desktop: w-full, zero suwaka, perfekcyjnie zbalansowane proporcje */}
-        <div className="hidden sm:block rounded-3xl border border-border bg-card shadow-lg overflow-hidden">
-          <table className="w-full table-fixed text-left border-collapse text-xs sm:text-sm">
-            <colgroup>
-              <col className="w-[18%]" />
-              <col className="w-[35%]" />
-              <col className="w-[12%]" />
-              <col className="w-[11%]" />
-              <col className="w-[24%]" />
-            </colgroup>
-            <thead>
-              <tr className="border-b border-border bg-muted/50 text-[11px] uppercase tracking-wider font-bold text-muted-foreground">
-                <th className="py-3 px-3.5">{tLedger.patron}</th>
-                <th className="py-3 px-3">{tLedger.purpose}</th>
-                <th className="py-3 px-3">{tLedger.amount}</th>
-                <th className="py-3 px-2 text-center">{tLedger.status}</th>
-                <th className="py-3 px-3.5 text-right whitespace-nowrap">
-                  {language === "pl"
-                    ? "Certyfikat i audyt"
-                    : "Certificate & Audit"}
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/60 font-medium">
-              {allEntries.map((entry, idx) => {
-                const [patron, purpose, amount, certId] = entry;
-                const isLive = idx < extraEntries.length;
-                const amountData = formatAllocationAmount(amount, language);
-                // Skracamy zarówno ROSZADA- jak i TEST- dla zachowania idealnej równości w kolumnie
-                const shortCertId = certId.replace(/^(ROSZADA|TEST)-/, "");
-
-                return (
-                  <tr
-                    key={`${certId}-${idx}`}
-                    className={`transition-colors ${
-                      isLive
-                        ? "bg-emerald-500/10 hover:bg-emerald-500/15"
-                        : "hover:bg-muted/40"
-                    }`}
-                  >
-                    {/* 1. Mecenas */}
-                    <td className="py-3 px-3.5 font-bold text-foreground truncate">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        {isLive && (
-                          <span className="size-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
-                        )}
-                        <span className="truncate" title={patron}>
-                          {patron}
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* 2. Cel (zabezpieczony w LedgerPurposeCell) */}
-                    <td className="py-3 px-3">
-                      <LedgerPurposeCell
-                        purpose={purpose}
-                        language={language}
-                      />
-                    </td>
-
-                    {/* 3. Kwota (Dwuwalutowy zapis) */}
-                    <td className="py-3 px-3 whitespace-nowrap">
-                      <div className="flex flex-col">
-                        <span className="font-black text-emerald-800 dark:text-emerald-300 text-sm">
-                          {amountData.primary}
-                        </span>
-                        {amountData.secondary && (
-                          <span className="text-[10px] font-semibold text-muted-foreground/80 font-mono">
-                            {amountData.secondary}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* 4. Status */}
-                    <td className="py-3 px-2 text-center">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-700/10 text-emerald-800 dark:text-emerald-300 border border-emerald-700/25 shrink-0 whitespace-nowrap">
-                        {tLedger.verified}
-                      </span>
-                    </td>
-
-                    {/* 5. Certyfikat i audyt z bezpieczną przestrzenią (brak stykania się) */}
-                    <td className="py-3 px-3.5 text-right">
-                      <div className="inline-flex items-center justify-end gap-1.5 shrink-0">
-                        {/* Przycisk Audytu Faktury AI */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCustomAuditData(null);
-                            setSelectedAuditEntry(entry);
-                          }}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-lime-500/40 bg-lime-400/10 hover:bg-lime-400/20 text-[11px] font-bold text-lime-800 dark:text-lime-300 transition-all cursor-pointer shrink-0"
-                          title={
-                            language === "pl"
-                              ? "Zobacz audyt faktury VAT z bazy Neon"
-                              : "View VAT invoice audit from Neon DB"
-                          }
-                        >
-                          <FileCheck2 className="size-3 shrink-0" />
-                          <span>{language === "pl" ? "Audyt" : "Audit"}</span>
-                        </button>
-
-                        {/* Podgląd Certyfikatu */}
-                        <button
-                          type="button"
-                          onClick={() => setSelectedEntry(entry)}
-                          className="px-2 py-1 rounded-lg border border-border bg-background hover:bg-accent text-[11px] font-mono font-bold text-foreground transition-all shadow-xs cursor-pointer shrink-0"
-                          title={`Podgląd certyfikatu ${certId}`}
-                        >
-                          {shortCertId}
-                        </button>
-
-                        {/* Bezpośredni link */}
-                        <Link
-                          href={`/certyfikat/${encodeURIComponent(certId)}`}
-                          className="size-7 rounded-lg border border-border/80 bg-background hover:bg-muted text-xs font-bold text-muted-foreground hover:text-foreground transition-colors shrink-0 flex items-center justify-center"
-                          title={
-                            language === "pl"
-                              ? "Otwórz stronę weryfikacji"
-                              : "Open verification page"
-                          }
-                        >
-                          ↗
-                        </Link>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Karty Mobile */}
-        <div className="sm:hidden space-y-2.5">
-          {allEntries.map((entry, idx) => {
-            const [patron, purpose, amount, certId] = entry;
-            const isLive = idx < extraEntries.length;
-            const amountData = formatAllocationAmount(amount, language);
-            const shortCertId = certId.replace(/^(ROSZADA|TEST)-/, "");
-
-            return (
-              <div
-                key={`${certId}-${idx}`}
-                className={`p-3.5 sm:p-4 rounded-2xl border border-border shadow-sm space-y-2 ${
-                  isLive ? "bg-emerald-500/10 border-emerald-500/40" : "bg-card"
+        {/* Pasek narzędzi: Segmentowy filtr sezonów/archiwum + Wyszukiwarka + Licznik */}
+        <div className="mb-4 flex flex-col gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            {/* Przełącznik zakładek Sezon / Wszystkie / Archiwum */}
+            <div className="inline-flex items-center rounded-2xl border border-border bg-card p-1 text-xs font-bold shadow-xs self-start">
+              <button
+                type="button"
+                onClick={() => handleScopeChange("current")}
+                className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 transition-all cursor-pointer ${
+                  selectedScope === "current"
+                    ? "bg-lime-400 text-neutral-950 font-black shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <div className="flex justify-between items-start gap-2.5">
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-foreground text-sm flex items-center gap-1.5">
-                      {isLive && (
-                        <span className="size-2 rounded-full bg-emerald-500 shrink-0" />
+                <Calendar className="size-3.5" />
+                <span>{tLedger.tabCurrent}</span>
+                <span className="opacity-70 font-mono text-[10px]">
+                  ({scopeCounts.current})
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleScopeChange("all")}
+                className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 transition-all cursor-pointer ${
+                  selectedScope === "all"
+                    ? "bg-lime-400 text-neutral-950 font-black shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <span>{tLedger.tabAll}</span>
+                <span className="opacity-70 font-mono text-[10px]">
+                  ({scopeCounts.all})
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleScopeChange("archive")}
+                className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 transition-all cursor-pointer ${
+                  selectedScope === "archive"
+                    ? "bg-lime-400 text-neutral-950 font-black shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Archive className="size-3.5" />
+                <span>{tLedger.tabArchive}</span>
+                <span className="opacity-70 font-mono text-[10px]">
+                  ({scopeCounts.archive})
+                </span>
+              </button>
+            </div>
+
+            {/* Licznik wyświetlanych wpisów */}
+            <div className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5 self-end sm:self-center">
+              {isLoadingDb ? (
+                <span className="inline-flex items-center gap-1">
+                  <Loader2 className="size-3.5 animate-spin" />
+                  <span>{tLedger.loadingMore}</span>
+                </span>
+              ) : (
+                <span>
+                  {tLedger.showing}{" "}
+                  <strong className="text-foreground font-bold">
+                    {allEntries.length}
+                  </strong>{" "}
+                  {tLedger.of}{" "}
+                  <strong className="text-foreground font-bold">
+                    {totalItems || allEntries.length}
+                  </strong>
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Input wyszukiwarki na pełną szerokość lub dopasowany */}
+          <div className="relative w-full">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={tLedger.searchPlaceholder}
+              className="w-full pl-9.5 pr-8 py-2 rounded-2xl border border-border bg-card text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-lime-400 dark:focus:ring-lime-500 transition-all shadow-xs"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                aria-label={tLedger.clearSearch}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Stan braku wyników (dla wyszukiwania lub pustego archiwum) */}
+        {allEntries.length === 0 && !isLoadingDb && (
+          <div className="rounded-3xl border border-border bg-card p-8 sm:p-12 text-center shadow-sm">
+            <p className="text-sm font-semibold text-muted-foreground">
+              {selectedScope === "archive"
+                ? tLedger.noArchiveResults
+                : tLedger.noResults}
+            </p>
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted hover:bg-accent text-xs font-bold text-foreground transition-colors cursor-pointer"
+              >
+                <X className="size-3.5" />
+                <span>{tLedger.clearSearch}</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Tabela Desktop: w-full, zero suwaka, perfekcyjnie zbalansowane proporcje */}
+        {allEntries.length > 0 && (
+          <div className="hidden sm:block rounded-3xl border border-border bg-card shadow-lg overflow-hidden">
+            <table className="w-full table-fixed text-left border-collapse text-xs sm:text-sm">
+              <colgroup>
+                <col className="w-[20%]" />
+                <col className="w-[33%]" />
+                <col className="w-[12%]" />
+                <col className="w-[11%]" />
+                <col className="w-[24%]" />
+              </colgroup>
+              <thead>
+                <tr className="border-b border-border bg-muted/50 text-[11px] uppercase tracking-wider font-bold text-muted-foreground">
+                  <th className="py-3 px-3.5">{tLedger.patron}</th>
+                  <th className="py-3 px-3">{tLedger.purpose}</th>
+                  <th className="py-3 px-3">{tLedger.amount}</th>
+                  <th className="py-3 px-2 text-center">{tLedger.status}</th>
+                  <th className="py-3 px-3.5 text-right whitespace-nowrap">
+                    {language === "pl"
+                      ? "Certyfikat i audyt"
+                      : "Certificate & Audit"}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60 font-medium">
+                {allEntries.map((entry, idx) => {
+                  const [patron, purpose, amount, certId] = entry;
+                  const isLive = idx < liveNewEntries.length;
+                  const amountData = formatAllocationAmount(amount, language);
+                  const shortCertId = certId.replace(/^(ROSZADA|TEST)-/, "");
+                  const donationCount = patronCounts[certId] || 1;
+
+                  return (
+                    <tr
+                      key={`${certId}-${idx}`}
+                      className={`transition-colors ${
+                        isLive
+                          ? "bg-emerald-500/10 hover:bg-emerald-500/15"
+                          : "hover:bg-muted/40"
+                      }`}
+                    >
+                      {/* 1. Mecenas z ewentualnym wyróżnieniem Stałego Mecenasa */}
+                      <td className="py-3 px-3.5 font-bold text-foreground truncate">
+                        <div className="flex flex-col gap-0.5 min-w-0">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            {isLive && (
+                              <span className="size-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
+                            )}
+                            <span className="truncate" title={patron}>
+                              {patron}
+                            </span>
+                          </div>
+
+                          {/* Wyróżnienie mecenasów z wielokrotnymi wpłatami */}
+                          {donationCount > 1 && (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9.5px] font-bold bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                                <Sparkles className="size-2.5 text-amber-500" />
+                                <span>{tLedger.recurringBadge}</span>
+                                <span className="font-mono opacity-80">
+                                  ({donationCount})
+                                </span>
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* 2. Cel (zabezpieczony w LedgerPurposeCell) */}
+                      <td className="py-3 px-3">
+                        <LedgerPurposeCell
+                          purpose={purpose}
+                          language={language}
+                        />
+                      </td>
+
+                      {/* 3. Kwota (Dwuwalutowy zapis) */}
+                      <td className="py-3 px-3 whitespace-nowrap">
+                        <div className="flex flex-col">
+                          <span className="font-black text-emerald-800 dark:text-emerald-300 text-sm">
+                            {amountData.primary}
+                          </span>
+                          {amountData.secondary && (
+                            <span className="text-[10px] font-semibold text-muted-foreground/80 font-mono">
+                              {amountData.secondary}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* 4. Status */}
+                      <td className="py-3 px-2 text-center">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-700/10 text-emerald-800 dark:text-emerald-300 border border-emerald-700/25 shrink-0 whitespace-nowrap">
+                          {tLedger.verified}
+                        </span>
+                      </td>
+
+                      {/* 5. Certyfikat i audyt */}
+                      <td className="py-3 px-3.5 text-right">
+                        <div className="inline-flex items-center justify-end gap-1.5 shrink-0">
+                          {/* Przycisk Audytu Faktury AI */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCustomAuditData(null);
+                              setSelectedAuditEntry(entry);
+                            }}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-lime-500/40 bg-lime-400/10 hover:bg-lime-400/20 text-[11px] font-bold text-lime-800 dark:text-lime-300 transition-all cursor-pointer shrink-0"
+                            title={
+                              language === "pl"
+                                ? "Zobacz audyt faktury VAT z bazy Neon"
+                                : "View VAT invoice audit from Neon DB"
+                            }
+                          >
+                            <FileCheck2 className="size-3 shrink-0" />
+                            <span>{language === "pl" ? "Audyt" : "Audit"}</span>
+                          </button>
+
+                          {/* Podgląd Certyfikatu */}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedEntry(entry)}
+                            className="px-2 py-1 rounded-lg border border-border bg-background hover:bg-accent text-[11px] font-mono font-bold text-foreground transition-all shadow-xs cursor-pointer shrink-0"
+                            title={`Podgląd certyfikatu ${certId}`}
+                          >
+                            {shortCertId}
+                          </button>
+
+                          {/* Bezpośredni link */}
+                          <Link
+                            href={`/certyfikat/${encodeURIComponent(certId)}`}
+                            className="size-7 rounded-lg border border-border/80 bg-background hover:bg-muted text-xs font-bold text-muted-foreground hover:text-foreground transition-colors shrink-0 flex items-center justify-center"
+                            title={
+                              language === "pl"
+                                ? "Otwórz stronę weryfikacji"
+                                : "Open verification page"
+                            }
+                          >
+                            ↗
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Karty Mobile */}
+        {allEntries.length > 0 && (
+          <div className="sm:hidden space-y-2.5">
+            {allEntries.map((entry, idx) => {
+              const [patron, purpose, amount, certId] = entry;
+              const isLive = idx < liveNewEntries.length;
+              const amountData = formatAllocationAmount(amount, language);
+              const shortCertId = certId.replace(/^(ROSZADA|TEST)-/, "");
+              const donationCount = patronCounts[certId] || 1;
+
+              return (
+                <div
+                  key={`${certId}-${idx}`}
+                  className={`p-3.5 sm:p-4 rounded-2xl border border-border shadow-sm space-y-2 ${
+                    isLive
+                      ? "bg-emerald-500/10 border-emerald-500/40"
+                      : "bg-card"
+                  }`}
+                >
+                  <div className="flex justify-between items-start gap-2.5">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-bold text-foreground text-sm flex items-center gap-1.5 flex-wrap">
+                        {isLive && (
+                          <span className="size-2 rounded-full bg-emerald-500 shrink-0" />
+                        )}
+                        <span className="truncate">{patron}</span>
+                        {donationCount > 1 && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                            ⭐ {tLedger.recurringBadge} ({donationCount})
+                          </span>
+                        )}
+                      </h3>
+                      <div className="mt-0.5">
+                        <LedgerPurposeCell
+                          purpose={purpose}
+                          language={language}
+                          compact
+                        />
+                      </div>
+                    </div>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-700/10 text-emerald-800 dark:text-emerald-300 border border-emerald-700/25 shrink-0 whitespace-nowrap">
+                      {tLedger.verified}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center pt-2 border-t border-border/60">
+                    <div className="flex flex-col">
+                      <span className="font-black text-emerald-800 dark:text-emerald-300 text-sm whitespace-nowrap">
+                        {amountData.primary}
+                      </span>
+                      {amountData.secondary && (
+                        <span className="text-[9.5px] font-semibold text-muted-foreground/80 font-mono">
+                          {amountData.secondary}
+                        </span>
                       )}
-                      <span className="truncate">{patron}</span>
-                    </h3>
-                    <div className="mt-0.5">
-                      <LedgerPurposeCell
-                        purpose={purpose}
-                        language={language}
-                        compact
-                      />
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomAuditData(null);
+                          setSelectedAuditEntry(entry);
+                        }}
+                        className="px-2 py-1 rounded-lg border border-lime-500/40 bg-lime-400/10 text-[10px] font-bold text-lime-800 dark:text-lime-300 cursor-pointer flex items-center gap-1 shrink-0 whitespace-nowrap"
+                      >
+                        <FileCheck2 className="size-3" />
+                        <span>{language === "pl" ? "Audyt" : "Audit"}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedEntry(entry)}
+                        className="px-2 py-1 rounded-lg border border-border bg-background text-[11px] font-mono font-bold text-foreground cursor-pointer shrink-0 whitespace-nowrap"
+                      >
+                        {shortCertId}
+                      </button>
+                      <Link
+                        href={`/certyfikat/${encodeURIComponent(certId)}`}
+                        className="px-2 py-1 rounded-lg border border-border bg-background text-[11px] font-bold text-muted-foreground shrink-0"
+                      >
+                        ↗
+                      </Link>
                     </div>
                   </div>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-700/10 text-emerald-800 dark:text-emerald-300 border border-emerald-700/25 shrink-0 whitespace-nowrap">
-                    {tLedger.verified}
-                  </span>
                 </div>
+              );
+            })}
+          </div>
+        )}
 
-                <div className="flex justify-between items-center pt-2 border-t border-border/60">
-                  <div className="flex flex-col">
-                    <span className="font-black text-emerald-800 dark:text-emerald-300 text-sm whitespace-nowrap">
-                      {amountData.primary}
-                    </span>
-                    {amountData.secondary && (
-                      <span className="text-[9.5px] font-semibold text-muted-foreground/80 font-mono">
-                        {amountData.secondary}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCustomAuditData(null);
-                        setSelectedAuditEntry(entry);
-                      }}
-                      className="px-2 py-1 rounded-lg border border-lime-500/40 bg-lime-400/10 text-[10px] font-bold text-lime-800 dark:text-lime-300 cursor-pointer flex items-center gap-1 shrink-0 whitespace-nowrap"
-                    >
-                      <FileCheck2 className="size-3" />
-                      <span>{language === "pl" ? "Audyt" : "Audit"}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedEntry(entry)}
-                      className="px-2 py-1 rounded-lg border border-border bg-background text-[11px] font-mono font-bold text-foreground cursor-pointer shrink-0 whitespace-nowrap"
-                    >
-                      {shortCertId}
-                    </button>
-                    <Link
-                      href={`/certyfikat/${encodeURIComponent(certId)}`}
-                      className="px-2 py-1 rounded-lg border border-border bg-background text-[11px] font-bold text-muted-foreground shrink-0"
-                    >
-                      ↗
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        {/* Sekcja doczytywania (Paginacja / Przycisk Pokaż więcej) */}
+        {allEntries.length > 0 && (
+          <div className="mt-5 sm:mt-6 text-center">
+            {hasMore ? (
+              <button
+                type="button"
+                onClick={handleLoadMore}
+                disabled={isLoadingMore}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-border bg-card hover:bg-muted text-xs sm:text-sm font-bold text-foreground transition-all shadow-xs hover:shadow-sm cursor-pointer disabled:opacity-60"
+              >
+                {isLoadingMore ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin text-lime-600 dark:text-lime-400" />
+                    <span>{tLedger.loadingMore}</span>
+                  </>
+                ) : (
+                  <span>{tLedger.loadMore}</span>
+                )}
+              </button>
+            ) : (
+              <p className="text-xs text-muted-foreground font-medium">
+                {tLedger.allLoaded}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Ukryty input do wgrywania plików */}
         <input

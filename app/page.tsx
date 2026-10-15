@@ -25,7 +25,7 @@ export default function Page() {
   const [selectedAllocation, setSelectedAllocation] =
     useState<AllocationPayload | null>(null);
 
-  // Dynamiczny stan licznika pobierany na żywo z bazy Neon PostgreSQL
+  // Dynamiczny stan licznika pobierany na żywo z bazy Neon PostgreSQL (Zero-Hardcoding)
   const [dbStats, setDbStats] = useState<{
     totalAmount: number;
     count: number;
@@ -54,13 +54,12 @@ export default function Page() {
       let total = 0;
       let count = 0;
 
-      // 1. Priorytet: odczyt z obiektu stats zwracanego przez Neon DB
+      // 1. Odczyt z bazy Neon PostgreSQL
       if (data.stats && typeof data.stats.totalAmount === "number") {
         total = data.stats.totalAmount;
       } else if (typeof data.totalAmount === "number") {
         total = data.totalAmount;
       } else if (Array.isArray(data.allocations)) {
-        // Fallback: suma kwot z pobranej listy alokacji
         total = data.allocations.reduce(
           (sum: number, item: { amount?: number | string }) =>
             sum + (Number(item.amount) || 0),
@@ -68,7 +67,7 @@ export default function Page() {
         );
       }
 
-      // 2. Liczba zweryfikowanych alokacji z Neon DB
+      // 2. Rzeczywista liczba zweryfikowanych alokacji z Neon DB
       if (data.stats && typeof data.stats.totalCount === "number") {
         count = data.stats.totalCount;
       } else if (
@@ -80,11 +79,9 @@ export default function Page() {
         count = data.allocations.length;
       }
 
-      if (count > 0 || total > 0) {
-        setDbStats({ totalAmount: total, count });
-      }
+      setDbStats({ totalAmount: total, count });
     } catch {
-      // W razie chwilowego braku sieci zachowaj stan fallback
+      // W razie chwilowego braku sieci zachowaj poprzedni stan
     }
   }, []);
 
@@ -192,7 +189,7 @@ export default function Page() {
     setExtraVerifiedCount(updatedCount);
     setLiveEntries(updatedEntries);
 
-    // Zapis do localStorage dla utrwalenia efektu po przeładowaniu
+    // Zapis do localStorage dla optymistycznego podtrzymania widoku
     try {
       window.localStorage.setItem(
         "patronai_extra_amount",
@@ -211,12 +208,8 @@ export default function Page() {
     fetchLiveDatabaseStats();
   };
 
-  // 100% Dynamiczne formatowanie statystyk z bazy Neon (w PLN)
-  const baseRaisedPln =
-    dbStats !== null
-      ? dbStats.totalAmount
-      : parseInt(t.stats.amount.replace(/\s+/g, ""), 10) || 19945;
-
+  // Rzeczywista kwota zebrana z bazy Neon (Single Source of Truth)
+  const baseRaisedPln = dbStats !== null ? dbStats.totalAmount : 0;
   const totalPln = baseRaisedPln + extraRaisedAmount;
 
   // Przeliczenie kwoty na walutę interfejsu (EUR w wersji EN)
@@ -225,15 +218,14 @@ export default function Page() {
     ? Math.round(totalPln / EUR_EXCHANGE_RATE)
     : totalPln;
 
-  const currentTotalAmount = displayAmount.toLocaleString(
-    language === "pl" ? "pl-PL" : "en-US",
-  );
+  // Poprawne formatowanie typograficzne: w języku polskim spacja tysięcy, w angielskim przecinek
+  const currentTotalAmount =
+    language === "pl"
+      ? displayAmount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")
+      : displayAmount.toLocaleString("en-US");
 
-  const baseCount =
-    dbStats !== null
-      ? dbStats.count
-      : parseInt(t.stats.verifiedCount, 10) || 130;
-
+  // Rzeczywista liczba alokacji z bazy Neon
+  const baseCount = dbStats !== null ? dbStats.count : 0;
   const currentTotalCount = baseCount + extraVerifiedCount;
 
   const saveConsent = (a: boolean, m: boolean) => {
@@ -352,12 +344,26 @@ export default function Page() {
             <p className="text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
               {t.stats.raised}
             </p>
-            <p className="mt-2.5 sm:mt-3 text-4xl sm:text-5xl font-black tracking-tight text-neutral-900 dark:text-white transition-all">
-              {currentTotalAmount}{" "}
-              <span className="text-lg font-medium text-neutral-600 dark:text-neutral-400">
-                {t.stats.currency}
-              </span>
+
+            {/* Identyczna typografia i rozmiar dla walut PL i EN */}
+            <p className="mt-2.5 sm:mt-3 text-4xl sm:text-5xl font-black tracking-tight text-neutral-900 dark:text-white transition-all flex items-baseline gap-2">
+              {isEurMode ? (
+                <>
+                  <span className="text-lg font-medium text-neutral-600 dark:text-neutral-400">
+                    {t.stats.currency}
+                  </span>
+                  <span>{currentTotalAmount}</span>
+                </>
+              ) : (
+                <>
+                  <span>{currentTotalAmount}</span>
+                  <span className="text-lg font-medium text-neutral-600 dark:text-neutral-400">
+                    {t.stats.currency}
+                  </span>
+                </>
+              )}
             </p>
+
             <div className="mt-6 h-2.5 rounded-full bg-neutral-200 dark:bg-neutral-800 overflow-hidden">
               <div className="h-full w-3/4 rounded-full bg-lime-400" />
             </div>

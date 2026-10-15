@@ -12,13 +12,13 @@ export interface LocalizedPurposeResult {
 }
 
 export interface LocalizedAmountResult {
-  /** Główna kwota do wyświetlenia (np. "105 EUR" w EN lub "450 PLN" w PL) */
+  /** Główna kwota do wyświetlenia (np. "EUR 105" w EN lub "450 PLN" w PL) */
   primary: string;
   /** Opcjonalna waluta transakcyjna (np. "(450 PLN)" pod spodem) */
   secondary?: string;
 }
 
-/** Kursy przeliczeniowe demonstracyjne dla widoku jury (spójne z nagłówkiem 4 640 EUR) */
+/** Kursy przeliczeniowe demonstracyjne dla widoku jury */
 const FX_EUR = 4.3;
 const FX_USD = 4.0;
 
@@ -233,7 +233,6 @@ export function getLocalizedPurpose(
   for (const value of Object.values(KNOWN_PURPOSE_DICTIONARY)) {
     if (value.en.toLowerCase() === lowerTrimmed) {
       if (language === "en") {
-        // Tekst jest już w EN – zero badge'a PL Original!
         return {
           text: value.en,
           wasTranslated: false,
@@ -313,16 +312,16 @@ export function getLocalizedPurpose(
 }
 
 /**
- * Formatuje kwotę alokacji w standardzie Dual-Currency (prezentacja w walucie widza + waluta bazowa).
- * Przykład w EN: "105 EUR", pod spodem "(450 PLN)".
- * Przykład w PL: "450 PLN".
+ * Formatuje kwotę alokacji w standardzie Dual-Currency.
+ * Dla EUR/USD kod waluty ZAWSZE z przodu (np. "EUR 25", "EUR 93", "USD 100").
+ * Dla PLN kod waluty na końcu (np. "450 PLN").
  */
 export function formatAllocationAmount(
   amountStr: string,
   language: Language,
 ): LocalizedAmountResult {
   if (!amountStr) {
-    return { primary: language === "pl" ? "0 PLN" : "0 EUR" };
+    return { primary: language === "pl" ? "0 PLN" : "EUR 0" };
   }
 
   const clean = amountStr.trim();
@@ -339,32 +338,44 @@ export function formatAllocationAmount(
     return { primary: clean };
   }
 
-  // Tryb polski: zawsze pokazujemy natywną walutę
+  const rounded = Math.round(rawNumber);
+
+  // Tryb polski:
   if (language === "pl") {
+    const formattedAmount = rounded
+      .toString()
+      .replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+
     if (currency === "PLN") {
-      return { primary: `${Math.round(rawNumber)} PLN` };
+      return { primary: `${formattedAmount} PLN` };
     }
-    // Jeśli była wpłata w EUR, pokazujemy EUR z przelicznikiem w PLN
-    const plnEquiv = Math.round(rawNumber * FX_EUR);
+
+    // Dla wpłat w EUR/USD kod waluty ZAWSZE z przodu: EUR 25
+    const plnEquiv = Math.round(rawNumber * FX_EUR)
+      .toString()
+      .replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+
     return {
-      primary: `${Math.round(rawNumber)} ${currency}`,
+      primary: `${currency} ${formattedAmount}`,
       secondary: `(~${plnEquiv} PLN)`,
     };
   }
 
-  // Tryb angielski (EN) - dostosowany do sędziego
+  // Tryb angielski (EN): kod waluty ZAWSZE z przodu
   if (currency === "EUR") {
-    return { primary: `${Math.round(rawNumber)} EUR` };
+    return { primary: `EUR ${rounded.toLocaleString("en-US")}` };
   }
 
   if (currency === "USD") {
-    return { primary: `${Math.round(rawNumber)} USD` };
+    return { primary: `USD ${rounded.toLocaleString("en-US")}` };
   }
 
-  // Jeśli w bazie jest PLN: przeliczamy na EUR (spójność z nagłówkiem "4,640 EUR")
+  // Jeśli w bazie jest PLN: przeliczamy na EUR (kod waluty ZAWSZE z przodu: EUR 93)
   const eurVal = Math.round(rawNumber / FX_EUR);
+  const formattedPln = rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+
   return {
-    primary: `${eurVal} EUR`,
-    secondary: `(${Math.round(rawNumber)} PLN)`,
+    primary: `EUR ${eurVal.toLocaleString("en-US")}`,
+    secondary: `(${formattedPln} PLN)`,
   };
 }
