@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PatronAI × Neon Serverless PostgreSQL — Integration Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          base: '#070d0d',
+          panel: '#0b1414',
+          neon: '#00e599',
+          cyan1: '#00ffff'
+        },
+        fontFamily: {
+          sans: ['Inter', 'system-ui', 'sans-serif'],
+          mono: ['JetBrains Mono', 'ui-monospace', 'monospace']
+        }
+      }
+    }
+  };
+</script>
+<style>
+  html, body { background-color: #070d0d; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background-image:
+      radial-gradient(900px 480px at 12% -6%, rgba(0, 229, 153, 0.10), transparent 62%),
+      radial-gradient(820px 460px at 92% 4%, rgba(0, 255, 255, 0.08), transparent 60%);
+    background-repeat: no-repeat;
+  }
+  .grid-lines {
+    background-image:
+      linear-gradient(rgba(0, 229, 153, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 255, 255, 0.045) 1px, transparent 1px);
+    background-size: 46px 46px;
+  }
+  .panel {
+    background: linear-gradient(180deg, rgba(11, 20, 20, 0.96) 0%, rgba(7, 13, 13, 0.96) 100%);
+    border: 1px solid rgba(0, 229, 153, 0.20);
+    box-shadow: 0 18px 44px -22px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+  .panel-cyan { border-color: rgba(0, 255, 255, 0.22); }
+  .rail { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
+  .chip {
+    font-family: 'JetBrains Mono', monospace;
+    border: 1px solid rgba(0, 255, 255, 0.28);
+    background: rgba(0, 255, 255, 0.05);
+    color: #7ff3ff;
+  }
+  .chip-green {
+    border: 1px solid rgba(0, 229, 153, 0.30);
+    background: rgba(0, 229, 153, 0.06);
+    color: #6ff0c0;
+  }
+  .neon-text { color: #00e599; text-shadow: 0 0 22px rgba(0, 229, 153, 0.35); }
+  .cyan-text { color: #00ffff; text-shadow: 0 0 20px rgba(0, 255, 255, 0.28); }
+  .dot-live {
+    width: 8px; height: 8px; border-radius: 999px; background: #00e599;
+    box-shadow: 0 0 0 0 rgba(0, 229, 153, 0.7); animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(0, 229, 153, 0.55); }
+    70% { box-shadow: 0 0 0 10px rgba(0, 229, 153, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(0, 229, 153, 0); }
+  }
+  .flow-arrow { color: rgba(0, 229, 153, 0.45); }
+  .secnum {
+    font-family: 'JetBrains Mono', monospace;
+    border: 1px solid rgba(0, 229, 153, 0.35);
+    background: rgba(0, 229, 153, 0.07);
+  }
+</style>
+</head>
+<body class="text-slate-200 antialiased">
+
+<div class="min-h-screen w-full grid-lines">
+  <div class="mx-auto max-w-[1240px] px-6 py-12 sm:px-10 lg:py-16">
+
+    <!-- ================= HEADER ================= -->
+    <header class="relative overflow-hidden rounded-2xl panel px-6 py-9 sm:px-10">
+      <div class="rail bg-gradient-to-b from-neon via-cyan1 to-transparent"></div>
+      <div class="flex flex-wrap items-center gap-3">
+        <span class="chip-green inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold tracking-[0.18em] uppercase">
+          <span class="dot-live"></span> Trust &amp; Persistence Layer
+        </span>
+        <span class="chip inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium tracking-wide">
+          @neondatabase/serverless · pooled
+        </span>
+      </div>
+
+      <h1 class="mt-6 text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-4xl lg:text-5xl">
+        PatronAI <span class="cyan-text font-light">×</span> <span class="neon-text">Neon Serverless PostgreSQL</span>
+      </h1>
+
+      <p class="mt-5 max-w-3xl border-l-2 border-neon/40 pl-4 text-base leading-relaxed text-slate-300">
+        Integration Architecture — Immutable persistence of Public Ledger allocations, AI Vision audit reports, and SHA-256 sealed certificates in a relational cloud database.
+      </p>
+
+      <div class="mt-7 flex flex-wrap items-center gap-x-3 gap-y-2 font-mono text-[11px] text-slate-500">
+        <span class="rounded border border-slate-700/60 bg-slate-900/40 px-2.5 py-1">Next.js 15</span>
+        <span class="flow-arrow">→</span>
+        <span class="rounded border border-slate-700/60 bg-slate-900/40 px-2.5 py-1">Route Handlers</span>
+        <span class="flow-arrow">→</span>
+        <span class="rounded border border-slate-700/60 bg-slate-900/40 px-2.5 py-1">lib/db.ts</span>
+        <span class="flow-arrow">→</span>
+        <span class="chip-green rounded px-2.5 py-1 font-semibold">Neon Serverless PostgreSQL</span>
+      </div>
+    </header>
+
+    <!-- ================= SECTION 1 + 2 ================= -->
+    <div class="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-2">
+
+      <!-- SECTION 1 -->
+      <section class="relative rounded-2xl panel px-6 py-7 sm:px-7">
+        <div class="rail bg-gradient-to-b from-neon/80 via-neon/20 to-transparent"></div>
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-3">
+              <span class="secnum rounded px-2 py-0.5 text-[11px] font-bold text-neon">01</span>
+              <h2 class="text-lg font-bold tracking-tight text-white">Presentation Layer</h2>
+            </div>
+            <p class="mt-2 font-mono text-[11px] leading-relaxed text-slate-500">
+              Next.js 15 App Router · React 19 · TypeScript 5 · Tailwind CSS 3.4
+            </p>
+          </div>
+        </div>
+
+        <ul class="mt-6 space-y-5">
+
+          <li class="border-l border-slate-700/50 pl-4 transition hover:border-neon/60">
+            <div class="flex flex-wrap items-baseline gap-2">
+              <span class="text-sm font-semibold text-white">Main App</span>
+              <code class="chip rounded px-2 py-0.5 text-[11px]">app/page.tsx</code>
+            </div>
+            <p class="mt-1.5 text-[13px] leading-relaxed text-slate-400">
+              3-step patronage flow, multi-currency engine (PLN / EUR / USD).
+            </p>
+          </li>
+
+          <li class="border-l border-slate-700/50 pl-4 transition hover:border-neon/60">
+            <div class="flex flex-wrap items-baseline gap-2">
+              <span class="text-sm font-semibold text-white">Public Ledger &amp; AI Audit</span>
+              <code class="chip rounded px-2 py-0.5 text-[11px]">components/PublicLedger.tsx</code>
+              <span class="text-xs text-slate-600">&amp;</span>
+              <code class="chip rounded px-2 py-0.5 text-[11px]">components/ledger/</code>
+            </div>
+            <p class="mt-1.5 text-[13px] leading-relaxed text-slate-400">
+              Live test runner, Gemini Multimodal invoice audit, dual-level purpose localization with
+              <code class="chip-green rounded px-1.5 py-0.5 text-[11px]">PL Original</code> badge.
+            </p>
+          </li>
+
+          <li class="border-l border-slate-700/50 pl-4 transition hover:border-neon/60">
+            <div class="flex flex-wrap items-baseline gap-2">
+              <span class="text-sm font-semibold text-white">PatronAgent Matching</span>
+              <code class="chip rounded px-2 py-0.5 text-[11px]">components/PatronAgent.tsx</code>
+            </div>
+            <p class="mt-1.5 text-[13px] leading-relaxed text-slate-400">
+              Web Speech API voice input, URL intent classification.
+            </p>
+          </li>
+
+          <li class="border-l border-slate-700/50 pl-4 transition hover:border-neon/60">
+            <div class="flex flex-wrap items-baseline gap-2">
+              <span class="text-sm font-semibold text-white">Multi-Currency Checkout</span>
+              <code class="chip rounded px-2 py-0.5 text-[11px]">components/DonationCheckout.tsx</code>
+            </div>
+            <p class="mt-1.5 text-[13px] leading-relaxed text-slate-400">
+              PayPal Commerce Platform sandbox simulation, in-kind barter agreement generator (AVE).
+            </p>
+          </li>
+
+          <li class="border-l border-slate-700/50 pl-4 transition hover:border-neon/60">
+            <div class="flex flex-wrap items-baseline gap-2">
+              <span class="text-sm font-semibold text-white">Standalone Verification</span>
+              <code class="chip rounded px-2 py-0.5 text-[11px]">app/certyfikat/[id]/page.tsx</code>
+            </div>
+            <p class="mt-1.5 text-[13px] leading-relaxed text-slate-400">
+              Dynamic QR verification, PDF export, zero-login context.
+            </p>
+          </li>
+
+        </ul>
+      </section>
+
+      <!-- SECTION 2 -->
+      <section class="relative rounded-2xl panel panel-cyan px-6 py-7 sm:px-7">
+        <div class="rail bg-gradient-to-b from-cyan1/80 via-cyan1/20 to-transparent"></div>
+        <div class="flex items-center gap-3">
+          <span class="secnum rounded px-2 py-0.5 text-[11px] font-bold text-cyan1">02</span>
+          <h2 class="text-lg font-bold tracking-tight text-white">API Layer</h2>
+          <span class="chip-green rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider">Route Handlers</span>
+        </div>
+
+        <ul class="mt-6 space-y-5">
+
+          <li class="border-l border-slate-700/50 pl-4 transition hover:border-cyan1/60">
+            <div class="flex flex-wrap items-baseline gap-2">
+              <span class="text-sm font-semibold text-white">Intent Match</span>
+              <code class="chip rounded px-2 py-0.5 text-[11px]">app/api/agent/match/route.ts</code>
+            </div>
+            <p class="mt-1.5 text-[13px] leading-relaxed text-slate-400">
+              Gemini NLP &amp; domain classification.
+            </p>
+          </li>
+
+          <li class="border-l border-slate-700/50 pl-4 transition hover:border-cyan1/60">
+            <div class="flex flex-wrap items-baseline gap-2">
+              <span class="text-sm font-semibold text-white">Cloud Ledger</span>
+              <code class="chip rounded px-2 py-0.5 text-[11px]">app/api/ledger/route.ts</code>
+            </div>
+            <p class="mt-1.5 text-[13px] leading-relaxed text-slate-400">
+              Live query from <code class="chip-green rounded px-1.5 py-0.5 text-[11px]">v_ledger_totals</code>, canonical SHA-256 audit sealing.
+            </p>
+          </li>
+
+          <li class="border-l border-slate-700/50 pl-4 transition hover:border-cyan1/60">
+            <div class="flex flex-wrap items-baseline gap-2">
+              <span class="text-sm font-semibold text-white">Certificate Verification</span>
+              <code class="chip rounded px-2 py-0.5 text-[11px]">app/api/certificate/[id]/route.ts</code>
+            </div>
+            <p class="mt-1.5 text-[13px] leading-relaxed text-slate-400">
+              Reads from <code class="chip-green rounded px-1.5 py-0.5 text-[11px]">v_certificate_verification</code>.
+            </p>
+          </li>
+
+          <li class="border-l border-slate-700/50 pl-4 transition hover:border-cyan1/60">
+            <div class="flex flex-wrap items-baseline gap-2">
+              <span class="text-sm font-semibold text-white">Payment Capture</span>
+              <code class="chip rounded px-2 py-0.5 text-[11px]">app/api/paypal/capture-order/route.ts</code>
+            </div>
+            <p class="mt-1.5 text-[13px] leading-relaxed text-slate-400">
+              PayPal capture &amp; persistent relational write.
+            </p>
+          </li>
+
+        </ul>
+
+        <div class="mt-7 rounded-xl border border-cyan1/20 bg-cyan1/[0.04] p-4">
+          <p class="font-mono text-[11px] leading-relaxed text-slate-400">
+            every handler <span class="flow-arrow">→</span> <span class="neon-text font-semibold">parameterized SQL</span>
+            <span class="flow-arrow">→</span> pooled Neon endpoint <span class="flow-arrow">→</span> relational durable write
+          </p>
+        </div>
+      </section>
+    </div>
+
+    <!-- ================= SECTION 3 + 6 ================= -->
+    <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+
+      <!-- SECTION 3 -->
+      <section class="relative rounded-2xl panel px-6 py-7 lg:col-span-2">
+        <div class="rail bg-gradient-to-b from-neon/80 via-neon/20 to-transparent"></div>
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="secnum rounded px-2 py-0.5 text-[11px] font-bold text-neon">03</span>
+          <h2 class="text-lg font-bold tracking-tight text-white">Database Client</h2>
+          <code class="chip rounded px-2 py-0.5 text-[11px]">lib/db.ts</code>
+        </div>
+
+        <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+          <div class="rounded-xl border border-slate-700/40 bg-slate-900/30 p-4">
+            <div class="flex items-center gap-2">
+              <span class="h-1.5 w-1.5 rounded-full bg-neon"></span>
+              <h3 class="text-[13px] font-semibold text-white">Serverless Driver</h3>
+            </div>
+            <p class="mt-2 text-[13px] leading-relaxed text-slate-400">
+              <code class="chip-green rounded px-1.5 py-0.5 text-[11px]">@neondatabase/serverless</code> HTTP/WebSocket pooler.
+            </p>
+          </div>
+
+          <div class="rounded-xl border border-slate-700/40 bg-slate-900/30 p-4">
+            <div class="flex items-center gap-2">
+              <span class="h-1.5 w-1.5 rounded-full bg-neon"></span>
+              <h3 class="text-[13px] font-semibold text-white">Parameterized Transactions</h3>
+            </div>
+            <p class="mt-2 text-[13px] leading-relaxed text-slate-400">
+              <code class="chip rounded px-1.5 py-0.5 text-[11px]">sql`...`</code>
+            </p>
+          </div>
+
+          <div class="rounded-xl border border-slate-700/40 bg-slate-900/30 p-4">
+            <div class="flex items-center gap-2">
+              <span class="h-1.5 w-1.5 rounded-full bg-neon"></span>
+              <h3 class="text-[13px] font-semibold text-white">Auto-migrating DDL</h3>
+            </div>
+            <p class="mt-2 text-[13px] leading-relaxed text-slate-400">
+              <code class="chip rounded px-1.5 py-0.5 text-[11px]">CREATE TABLE IF NOT EXISTS</code>
+            </p>
+          </div>
+
+          <div class="rounded-xl border border-slate-700/40 bg-slate-900/30 p-4">
+            <div class="flex items-center gap-2">
+              <span class="h-1.5 w-1.5 rounded-full bg-neon"></span>
+              <h3 class="text-[13px] font-semibold text-white">TypeScript Interfaces</h3>
+            </div>
+            <p class="mt-2 flex flex-wrap gap-2">
+              <code class="chip rounded px-1.5 py-0.5 text-[11px]">DbAllocation</code>
+              <code class="chip rounded px-1.5 py-0.5 text-[11px]">DbAuditReport</code>
+            </p>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- SECTION 6 -->
+      <section class="relative rounded-2xl panel panel-cyan px-6 py-7">
+        <div class="rail bg-gradient-to-b from-cyan1/80 via-cyan1/20 to-transparent"></div>
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="secnum rounded px-2 py-0.5 text-[11px] font-bold text-cyan1">06</span>
+          <h2 class="text-lg font-bold tracking-tight text-white">Migrations Suite</h2>
+        </div>
+        <code class="chip mt-4 inline-block rounded px-2 py-0.5 text-[11px]">migrations/001_ … 006_</code>
+
+        <p class="mt-4 text-[13px] leading-relaxed text-slate-400">
+          Bidirectional rollback schema lifecycle.
+        </p>
+
+        <div class="mt-6 space-y-2">
+          <div class="flex items-center gap-2 font-mono text-[11px] text-slate-500">
+            <span class="text-neon">▲</span><span>apply</span>
+            <span class="ml-auto text-cyan1">▼</span><span>rollback</span>
+          </div>
+          <div class="h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+            <div class="h-full w-full bg-gradient-to-r from-neon via-cyan1 to-neon/20"></div>
+          </div>
+          <div class="flex justify-between font-mono text-[10px] text-slate-600">
+            <span>001_</span><span>002_</span><span>003_</span><span>004_</span><span>005_</span><span>006_</span>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ================= SECTION 4 + 5 ================= -->
+    <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+
+      <!-- SECTION 4 -->
+      <section class="relative rounded-2xl panel px-6 py-7 sm:px-7">
+        <div class="rail bg-gradient-to-b from-neon/80 via-cyan1/40 to-transparent"></div>
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="secnum rounded px-2 py-0.5 text-[11px] font-bold text-neon">04</span>
+          <h2 class="text-lg font-bold tracking-tight text-white">Neon Serverless PostgreSQL</h2>
+        </div>
+        <p class="mt-2 font-mono text-[11px] uppercase tracking-[0.16em] text-cyan1/80">Trust &amp; Persistence Layer</p>
+
+        <div class="mt-6 space-y-4">
+
+          <div class="rounded-xl border border-slate-700/40 bg-slate-900/30 p-4">
+            <h3 class="text-[13px] font-semibold text-white">Pooled Connection String</h3>
+            <p class="mt-2 font-mono text-[11px] leading-relaxed text-slate-400">
+              <code class="chip rounded px-1.5 py-0.5">-pooler</code> endpoint, SSL enabled.
+            </p>
+          </div>
+
+          <div class="rounded-xl border border-slate-700/40 bg-slate-900/30 p-4">
+            <h3 class="text-[13px] font-semibold text-white">Operational Features</h3>
+            <p class="mt-2 text-[13px] leading-relaxed text-slate-400">
+              Serverless scale-to-zero, instant branching for preview environments.
+            </p>
+          </div>
+
+          <div class="rounded-xl border border-slate-700/40 bg-slate-900/30 p-4">
+            <h3 class="text-[13px] font-semibold text-white">ACID Durability</h3>
+            <p class="mt-2 text-[13px] leading-relaxed text-slate-400">
+              Ledger &amp; audit entries survive browser cache clearing, device changes.
+            </p>
+          </div>
+
+          <div class="rounded-xl border border-slate-700/40 bg-slate-900/30 p-4">
+            <h3 class="text-[13px] font-semibold text-white">Cryptographic Security</h3>
+            <p class="mt-2 text-[13px] leading-relaxed text-slate-400">
+              Immutable SHA-256 hex seals
+              <code class="chip-green rounded px-1.5 py-0.5 font-mono text-[11px]">^[0-9a-f]{64}$</code>,
+              strict foreign keys.
+            </p>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- SECTION 5 -->
+      <section class="relative rounded-2xl panel panel-cyan px-6 py-7 sm:px-7">
+        <div class="rail bg-gradient-to-b from-cyan1/80 via-cyan1/20 to-transparent"></div>
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="secnum rounded px-2 py-0.5 text-[11px] font-bold text-cyan1">05</span>
+          <h2 class="text-lg font-bold tracking-tight text-white">Data Schema</h2>
+          <code class="chip rounded px-2 py-0.5 text-[11px]">schema.sql</code>
+        </div>
+
+        <div class="mt-6">
+          <h3 class="font-mono text-[11px] uppercase tracking-[0.18em] text-neon">Tables</h3>
+          <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <code class="rounded-lg border border-neon/20 bg-neon/[0.04] px-3 py-2 font-mono text-[11px] text-neon">schema_migrations</code>
+            <code class="rounded-lg border border-neon/20 bg-neon/[0.04] px-3 py-2 font-mono text-[11px] text-neon">allocations</code>
+            <code class="rounded-lg border border-neon/20 bg-neon/[0.04] px-3 py-2 font-mono text-[11px] text-neon">audit_reports</code>
+            <code class="rounded-lg border border-neon/20 bg-neon/[0.04] px-3 py-2 font-mono text-[11px] text-neon">payment_orders</code>
+          </div>
+        </div>
+
+        <div class="mt-6">
+          <h3 class="font-mono text-[11px] uppercase tracking-[0.18em] text-cyan1">Views</h3>
+          <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <code class="rounded-lg border border-cyan1/25 bg-cyan1/[0.04] px-3 py-2 font-mono text-[11px] text-cyan1">v_public_ledger</code>
+            <code class="rounded-lg border border-cyan1/25 bg-cyan1/[0.04] px-3 py-2 font-mono text-[11px] text-cyan1">v_certificate_verification</code>
+            <code class="rounded-lg border border-cyan1/25 bg-cyan1/[0.04] px-3 py-2 font-mono text-[11px] text-cyan1">v_ledger_totals</code>
+            <code class="rounded-lg border border-cyan1/25 bg-cyan1/[0.04] px-3 py-2 font-mono text-[11px] text-cyan1">v_audit_flag_queue</code>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ================= COUNTERS ================= -->
+    <section class="mt-10">
+      <div class="flex items-center gap-3">
+        <span class="h-px flex-1 bg-gradient-to-r from-neon/50 to-transparent"></span>
+        <span class="font-mono text-[11px] uppercase tracking-[0.28em] text-slate-500">Benchmark Counters</span>
+        <span class="h-px flex-1 bg-gradient-to-l from-cyan1/50 to-transparent"></span>
+      </div>
+
+      <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+
+        <!-- 01 -->
+        <div class="rounded-2xl panel px-5 py-5">
+          <div class="flex items-center justify-between">
+            <span class="font-mono text-[10px] text-slate-600">01</span>
+            <span class="inline-flex items-center gap-1.5 rounded-full border border-neon/30 bg-neon/[0.06] px-2 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-neon">
+              <span class="dot-live"></span> live
+            </span>
+          </div>
+          <p class="mt-4 text-[13px] font-semibold leading-snug text-white">
+            Dynamic Simulated Allocations (Neon Benchmark)
+          </p>
+          <p class="mt-3 font-mono text-[10px] text-slate-600">allocations</p>
+        </div>
+
+        <!-- 02 -->
+        <div class="rounded-2xl panel panel-cyan px-5 py-5">
+          <div class="flex items-center justify-between">
+            <span class="font-mono text-[10px] text-slate-600">02</span>
+            <span class="inline-flex items-center gap-1.5 rounded-full border border-cyan1/30 bg-cyan1/[0.06] px-2 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-cyan1">
+              <span class="h-2 w-2 rounded-full bg-cyan1"></span> live
+            </span>
+          </div>
+          <p class="mt-4 text-[13px] font-semibold leading-snug text-white">
+            Live-Aggregated Ledger Total
+          </p>
+          <p class="mt-3">
+            <code class="chip-green rounded px-1.5 py-0.5 font-mono text-[11px]">v_ledger_totals</code>
+          </p>
+        </div>
+
+        <!-- 03 -->
+        <div class="rounded-2xl panel px-5 py-5">
+          <div class="flex items-center justify-between">
+            <span class="font-mono text-[10px] text-slate-600">03</span>
+          </div>
+          <p class="mt-4 font-mono text-2xl font-bold neon-text">0.00 PLN</p>
+          <p class="mt-3 text-[12px] font-medium leading-snug text-slate-400">
+            Real Funds Collected — PayPal Sandbox
+          </p>
+        </div>
+
+        <!-- 04 -->
+        <div class="rounded-2xl panel px-5 py-5">
+          <div class="flex items-center justify-between">
+            <span class="font-mono text-[10px] text-slate-600">04</span>
+          </div>
+          <p class="mt-4 font-mono text-2xl font-bold cyan-text">4 / 4</p>
+          <p class="mt-3 text-[12px] font-medium leading-snug text-slate-400">
+            Relational Tables / Analytical Views
+          </p>
+        </div>
+
+        <!-- 05 -->
+        <div class="rounded-2xl panel px-5 py-5">
+          <div class="flex items-center justify-between">
+            <span class="font-mono text-[10px] text-slate-600">05</span>
+          </div>
+          <p class="mt-4 font-mono text-2xl font-bold neon-text">SHA-256</p>
+          <p class="mt-3 text-[12px] font-medium leading-snug text-slate-400">
+            Sealed Integrity
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ================= FOOTER ================= -->
+    <footer class="mt-8 rounded-2xl border border-neon/20 bg-neon/[0.035] px-6 py-5">
+      <div class="flex items-start gap-3">
+        <span class="mt-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-neon/40 bg-neon/10 font-mono text-[10px] font-bold text-neon">✓</span>
+        <p class="text-[13px] leading-relaxed text-slate-300">
+          Prototype Status: Integration with Neon PostgreSQL is fully implemented and ACID-persistent.
+          Real funds: 0.00 PLN (developer sandbox).
+        </p>
+      </div>
+    </footer>
+
+  </div>
+</div>
+
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4bc70e2c01a94c73b74392e4234840661791215815920" integrity="sha512-L0ha0OXavK/8okipN9F8BtP84dg9DUhPERbBXzwI6dgTA55d2+yweo3pn5CSFYs45/r8md2+xvUPtTdvTNRfjA==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
+</body>
+</html>
