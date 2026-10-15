@@ -60,6 +60,7 @@ export default function Page() {
       } else if (typeof data.totalAmount === "number") {
         total = data.totalAmount;
       } else if (Array.isArray(data.allocations)) {
+        // Fallback: suma kwot z pobranej listy alokacji
         total = data.allocations.reduce(
           (sum: number, item: { amount?: number | string }) =>
             sum + (Number(item.amount) || 0),
@@ -254,7 +255,7 @@ export default function Page() {
   return (
     <>
       <main className="min-h-screen bg-slate-50 text-neutral-900 transition-colors duration-200 dark:bg-neutral-950 dark:text-neutral-100">
-        {/* PRZYKLEJONY HEADER / NAWIGACJA (FIXED TOP Z EFEKTEM SZKŁA BACKDROP-BLUR) */}
+        {/* PRZYKLEJONY HEADER / NAWIGACJA */}
         <header className="fixed top-0 left-0 right-0 z-40 border-b border-neutral-200/80 bg-slate-50/90 backdrop-blur-md dark:border-neutral-800/80 dark:bg-neutral-950/90 transition-colors">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3.5 sm:py-4">
             <a href="#top" className="flex items-center gap-3 font-semibold">
@@ -322,7 +323,7 @@ export default function Page() {
           </div>
         </header>
 
-        {/* HERO SECTION - ODPOWIEDNI MARGINES GÓRNY (PT-24 SM:PT-28), ABY TREŚĆ NIE CHOWAŁA SIĘ POD NAVBAR */}
+        {/* HERO SECTION */}
         <section
           id="top"
           className="mx-auto grid max-w-7xl gap-8 px-5 pt-24 pb-10 sm:pt-28 sm:pb-14 lg:grid-cols-2 lg:gap-12 lg:pt-32 lg:pb-16"
@@ -426,15 +427,24 @@ export default function Page() {
           </section>
         )}
 
-        {/* 3. PUBLICZNY REJESTR ALOKACJI (PUBLIC LEDGER Z OBSŁUGĄ LIVE ENTRIES) */}
+        {/* 3. PUBLICZNY REJESTR ALOKACJI (PUBLIC LEDGER) */}
         <PublicLedger
           messages={t}
           language={language}
           extraEntries={liveEntries}
         />
 
-        {/* 4. KARTY WPŁYWU (IMPACT CARDS) */}
-        <section className="mx-auto max-w-7xl px-5 py-10 sm:py-14">
+        {/* 4. KARTY WPŁYWU (IMPACT CARDS) Z PEŁNĄ SEMANTYKĄ HTML5 (W3C VALIDATED) */}
+        <section
+          aria-labelledby="impact-heading"
+          className="mx-auto max-w-7xl px-5 py-10 sm:py-14"
+        >
+          <h2 id="impact-heading" className="sr-only">
+            {language === "pl"
+              ? "Filary i zasady mecenatu sportu młodzieżowego"
+              : "Pillars and Impact of Youth Sports Patronage"}
+          </h2>
+
           <div className="grid gap-6 md:grid-cols-3">
             {t.impact.cards.map((card, i) => (
               <article
