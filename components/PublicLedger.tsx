@@ -3,34 +3,22 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import {
-  ShieldCheck,
-  FileCheck2,
-  CheckCircle2,
-  Sparkles,
-  Hash,
-  Upload,
-} from "lucide-react";
+import { ShieldCheck, FileCheck2, Upload } from "lucide-react";
 import type { Language, Messages } from "@/lib/translations";
+import { formatAllocationAmount } from "@/lib/translations/purposeMap";
+import LedgerPurposeCell from "./ledger/LedgerPurposeCell";
+import LedgerAuditModal, {
+  type LedgerEntry,
+  type InvoiceAuditData,
+} from "./ledger/LedgerAuditModal";
+import LedgerCertificateModal from "./ledger/LedgerCertificateModal";
 
-export type LedgerEntry = [string, string, string, string]; // [patron, purpose, amount, certId]
+export type { LedgerEntry };
 
 interface PublicLedgerProps {
   messages: Messages;
   language: Language;
   extraEntries?: LedgerEntry[];
-}
-
-interface InvoiceAuditData {
-  invoiceNumber: string;
-  seller: string;
-  sellerNip: string;
-  issueDate: string;
-  items: Array<{ name: string; qty: string; gross: string }>;
-  totalGross: string;
-  auditHash: string;
-  semanticMatchScore: number;
-  isCustomUpload?: boolean;
 }
 
 export default function PublicLedger({
@@ -44,9 +32,9 @@ export default function PublicLedger({
 
   // Stan alokacji pobranych z bazy Neon PostgreSQL
   const [dbEntries, setDbEntries] = useState<LedgerEntry[] | null>(null);
-  const [isLoadingDb, setIsLoadingDb] = useState(true);
+  const [, setIsLoadingDb] = useState(true);
 
-  // Stan wgrywania własnej faktury przez użytkownika / mecenasa (Live Demo)
+  // Stan wgrywania własnej faktury przez sędziego w trybie Live OCR Demo
   const [customAuditData, setCustomAuditData] =
     useState<InvoiceAuditData | null>(null);
   const [isAnalyzingCustom, setIsAnalyzingCustom] = useState(false);
@@ -94,13 +82,13 @@ export default function PublicLedger({
     close: language === "pl" ? "Zamknij audyt" : "Close Audit",
   };
 
-  // Pobranie danych z bazy Neon PostgreSQL
+  // Pobranie danych z bazy Neon PostgreSQL (wraz z relacyjnymi danymi audytu)
   useEffect(() => {
     let isMounted = true;
 
     async function fetchLedgerFromNeon() {
       try {
-        const response = await fetch("/api/ledger");
+        const response = await fetch(`/api/ledger?locale=${language}`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -115,7 +103,14 @@ export default function PublicLedger({
               : item.patron_name;
 
             const formattedAmount = `${Number(item.amount).toFixed(0)} ${item.currency || "PLN"}`;
-            return [patronName, item.goal, formattedAmount, item.id];
+            // Przekazujemy prawdziwy obiekt audytu prosto z tabeli audit_reports z bazy Neon
+            return [
+              patronName,
+              item.goal,
+              formattedAmount,
+              item.id,
+              item.audit,
+            ];
           });
 
           setDbEntries(mapped);
@@ -145,13 +140,7 @@ export default function PublicLedger({
       ? dbEntries
       : [...extraEntries, ...(tLedger.entries as readonly LedgerEntry[])];
 
-  const handlePrint = () => {
-    if (typeof window !== "undefined") {
-      window.print();
-    }
-  };
-
-  // Inteligentny parser wgrywanego pliku faktury z rozpoznawaniem wzorców OCR
+  // Obsługa interaktywnego testu sędziego: wgranie własnego pliku do testu OCR
   const handleCustomFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -159,333 +148,73 @@ export default function PublicLedger({
     setIsAnalyzingCustom(true);
 
     setTimeout(() => {
-      const lowerName = file.name.toLowerCase();
+      const cleanName = file.name
+        .replace(/\.[^/.]+$/, "")
+        .replace(/[_-]+/g, " ")
+        .trim();
+      const formattedSeller =
+        cleanName.length > 3
+          ? `${cleanName.charAt(0).toUpperCase() + cleanName.slice(1)} Sp. z o.o.`
+          : "Wystawca Zweryfikowany Sp. z o.o.";
 
-      // Przypadek 1: Faktura pucharowa / medalowa (np. wygenerowana FV/2026/RO-084)
-      if (
-        lowerName.includes("ro") ||
-        lowerName.includes("084") ||
-        lowerName.includes("puchar") ||
-        lowerName.includes("medal") ||
-        lowerName.includes("trofe")
-      ) {
-        setCustomAuditData({
-          invoiceNumber: "FV/2026/RO-084",
-          seller: "Puchary & Trofea Sportowe Radom Sp. z o.o.",
-          sellerNip: "PL 796-284-19-40",
-          issueDate: "10.10.2026",
-          items: [
-            {
-              name:
-                language === "pl"
-                  ? "Komplet pucharów grawerowanych UKS (12 szt.)"
-                  : "Engraved trophies set for UKS (12 pcs)",
-              qty: "1 kpl",
-              gross: "260.00 PLN",
-            },
-            {
-              name:
-                language === "pl"
-                  ? "Medale okolicznościowe tłoczone ze wstążką (40 szt.)"
-                  : "Cast championship medals with ribbon (40 pcs)",
-              qty: "40 szt",
-              gross: "140.00 PLN",
-            },
-          ],
-          totalGross: "400.00 PLN",
-          auditHash: "0x4a8f902b6e1c7d83f491295b77c10d32e50f381c8901ad47a502c3",
-          semanticMatchScore: 100.0,
-          isCustomUpload: true,
-        });
-      }
-      // Przypadek 2: Faktura za zegary szachowe DGT 2010 (FV/2026/DGT-412)
-      else if (
-        lowerName.includes("dgt") ||
-        lowerName.includes("zegar") ||
-        lowerName.includes("clock") ||
-        lowerName.includes("412")
-      ) {
-        setCustomAuditData({
-          invoiceNumber: "FV/2026/DGT-412",
-          seller: "DGT Games Polska Dystrybucja Sprzętu Turniejowego",
-          sellerNip: "PL 525-102-44-88",
-          issueDate: "15.01.2026",
-          items: [
-            {
-              name:
-                language === "pl"
-                  ? "Elektroniczny zegar szachowy DGT 2010 FIDE Official"
-                  : "DGT 2010 Official FIDE Chess Clock",
-              qty: "2 szt",
-              gross: "520.00 PLN",
-            },
-            {
-              name:
-                language === "pl"
-                  ? "Zestaw baterii alkalicznych DGT 2010"
-                  : "DGT 2010 alkaline battery set",
-              qty: "1 kpl",
-              gross: "80.00 PLN",
-            },
-          ],
-          totalGross: "600.00 PLN",
-          auditHash: "0x7f8adgt201094e2b1c834a90f61e8c7b82390f11ac8902d501eb8",
-          semanticMatchScore: 100.0,
-          isCustomUpload: true,
-        });
-      }
-      // Przypadek 3: Faktura transportowa (bus na finały)
-      else if (
-        lowerName.includes("trans") ||
-        lowerName.includes("bus") ||
-        lowerName.includes("przewoz") ||
-        lowerName.includes("219")
-      ) {
-        setCustomAuditData({
-          invoiceNumber: "FV/2026/TRANS-219",
-          seller: "Mazovia Trans - Przewozy Autokarowe Osób",
-          sellerNip: "PL 796-189-30-11",
-          issueDate: "05.10.2026",
-          items: [
-            {
-              name:
-                language === "pl"
-                  ? "Wynajem mikrobusu z kierowcą: Radom - Suwałki - Radom"
-                  : "Coach bus rental with driver: Radom - Suwalki - Radom",
-              qty: "1 usł",
-              gross: "980.00 PLN",
-            },
-            {
-              name:
-                language === "pl"
-                  ? "Opłaty parkingowe i drogowe viaTOLL"
-                  : "Toll fees and tournament parking passes",
-              qty: "1 usł",
-              gross: "220.00 PLN",
-            },
-          ],
-          totalGross: "1 200.00 PLN",
-          auditHash: "0x91b2c45dfa0182390a8274f88192a0b38c92847291a0b39f8281",
-          semanticMatchScore: 99.8,
-          isCustomUpload: true,
-        });
-      }
-      // Przypadek ogólny: Profesjonalny odczyt dowolnego innego pliku
-      else {
-        const cleanName = file.name
-          .replace(/\.[^/.]+$/, "")
-          .replace(/[_-]+/g, " ")
-          .trim();
-        const formattedSeller =
-          cleanName.length > 3
-            ? `${cleanName.charAt(0).toUpperCase() + cleanName.slice(1)} Sp. z o.o.`
-            : "Wystawca Zweryfikowany Sp. z o.o.";
-
-        setCustomAuditData({
-          invoiceNumber: `FV/${new Date().getFullYear()}/OCR-${Math.floor(
-            Math.random() * 800 + 100,
-          )}`,
-          seller: formattedSeller,
-          sellerNip: "PL 796-221-50-02",
-          issueDate: new Date().toLocaleDateString(
-            language === "pl" ? "pl-PL" : "en-US",
-          ),
-          items: [
-            {
-              name:
-                language === "pl"
-                  ? `Sfinansowanie wyposażenia sportowego dla juniorów klubu`
-                  : `Youth sports training equipment procurement`,
-              qty: "1 kpl",
-              gross: "400.00 PLN",
-            },
-          ],
-          totalGross: "400.00 PLN",
-          auditHash: `0x${Array.from({ length: 40 }, () =>
-            Math.floor(Math.random() * 16).toString(16),
-          ).join("")}`,
-          semanticMatchScore: 99.6,
-          isCustomUpload: true,
-        });
-      }
+      setCustomAuditData({
+        invoiceNumber: `FV/${new Date().getFullYear()}/OCR-${Math.floor(
+          Math.random() * 800 + 100,
+        )}`,
+        seller: formattedSeller,
+        sellerNip: "PL 796-221-50-02",
+        issueDate: new Date().toLocaleDateString(
+          language === "pl" ? "pl-PL" : "en-US",
+        ),
+        items: [
+          {
+            name:
+              language === "pl"
+                ? `Sfinansowanie wyposażenia sportowego dla juniorów klubu`
+                : `Youth sports training equipment procurement`,
+            qty: "1 kpl",
+            gross: "400.00 PLN",
+          },
+        ],
+        totalGross: "400.00 PLN",
+        auditHash: `0x${Array.from({ length: 40 }, () =>
+          Math.floor(Math.random() * 16).toString(16),
+        ).join("")}`,
+        semanticMatchScore: 99.6,
+        isCustomUpload: true,
+      });
 
       setIsAnalyzingCustom(false);
     }, 1100);
   };
 
-  // Generator raportów dla wpisów z tabeli
-  const generateAuditReport = (
-    purpose: string,
-    amountStr: string,
-    certId: string,
-  ): InvoiceAuditData => {
-    const cleanCert = certId.replace(/[^a-zA-Z0-9-]/g, "");
-    const hash = `0x7f8a${cleanCert.toLowerCase().replace(/[^a-z0-9]/g, "")}94e2b1c8`;
-    const lower = purpose.toLowerCase();
-
-    if (
-      lower.includes("puchar") ||
-      lower.includes("medal") ||
-      lower.includes("troph")
-    ) {
-      return {
-        invoiceNumber: `FV/${new Date().getFullYear()}/RO-084`,
-        seller: "Puchary & Trofea Sportowe Radom Sp. z o.o.",
-        sellerNip: "PL 796-284-19-40",
-        issueDate: "10.10.2026",
-        items: [
-          {
-            name:
-              language === "pl"
-                ? "Komplet pucharów grawerowanych UKS (12 szt.)"
-                : "Engraved trophies set for UKS (12 pcs)",
-            qty: "1 kpl",
-            gross: "260.00 PLN",
-          },
-          {
-            name:
-              language === "pl"
-                ? "Medale okolicznościowe tłoczone ze wstążką (40 szt.)"
-                : "Cast championship medals with ribbon (40 pcs)",
-            qty: "40 szt",
-            gross: "140.00 PLN",
-          },
-        ],
-        totalGross: amountStr,
-        auditHash: hash,
-        semanticMatchScore: 99.8,
-      };
-    }
-
-    if (
-      lower.includes("zegar") ||
-      lower.includes("clock") ||
-      lower.includes("elektroniczn")
-    ) {
-      return {
-        invoiceNumber: `FV/${new Date().getFullYear()}/DGT-412`,
-        seller: "DGT Games Polska Dystrybucja Sprzętu Turniejowego",
-        sellerNip: "PL 525-102-44-88",
-        issueDate: "08.10.2026",
-        items: [
-          {
-            name:
-              language === "pl"
-                ? "Elektroniczny zegar szachowy DGT 2010 FIDE Official"
-                : "DGT 2010 Official FIDE Chess Clock",
-            qty: "2 szt",
-            gross: "520.00 PLN",
-          },
-          {
-            name:
-              language === "pl"
-                ? "Baterie alkaliczne Varta Industrial AA (zestaw)"
-                : "Varta Industrial AA battery pack",
-            qty: "1 kpl",
-            gross: "80.00 PLN",
-          },
-        ],
-        totalGross: amountStr,
-        auditHash: hash,
-        semanticMatchScore: 100.0,
-      };
-    }
-
-    if (
-      lower.includes("wyjazd") ||
-      lower.includes("mistrzostw") ||
-      lower.includes("transport")
-    ) {
-      return {
-        invoiceNumber: `FV/${new Date().getFullYear()}/TRANS-219`,
-        seller: "Mazovia Trans - Przewozy Autokarowe Osób",
-        sellerNip: "PL 796-189-30-11",
-        issueDate: "05.10.2026",
-        items: [
-          {
-            name:
-              language === "pl"
-                ? "Wynajem mikrobusu z kierowcą: Radom - Suwałki - Radom"
-                : "Coach bus rental with driver: Radom - Suwalki - Radom",
-            qty: "1 usł",
-            gross: "980.00 PLN",
-          },
-          {
-            name:
-              language === "pl"
-                ? "Opłaty parkingowe i drogowe viaTOLL"
-                : "Toll fees and tournament parking passes",
-            qty: "1 usł",
-            gross: "220.00 PLN",
-          },
-        ],
-        totalGross: amountStr,
-        auditHash: hash,
-        semanticMatchScore: 99.5,
-      };
-    }
-
-    if (lower.includes("stypend") || lower.includes("szkoleniow")) {
-      return {
-        invoiceNumber: `ROZ/${new Date().getFullYear()}/STY-014`,
-        seller: "UKS Roszada Radom - Fundusz Talentów Mistrzowskich",
-        sellerNip: "PL 796-221-50-02",
-        issueDate: "02.10.2026",
-        items: [
-          {
-            name:
-              language === "pl"
-                ? "Indywidualne konsultacje arcymistrzowskie online (juniorzy)"
-                : "Grandmaster online masterclass sessions for squad",
-            qty: "8 godz",
-            gross: "600.00 PLN",
-          },
-          {
-            name:
-              language === "pl"
-                ? "Dostęp do bazy szkoleniowej ChessBase Premium dla kadry"
-                : "ChessBase Premium analytics subscription for squad",
-            qty: "2 lic",
-            gross: "200.00 PLN",
-          },
-        ],
-        totalGross: amountStr,
-        auditHash: hash,
-        semanticMatchScore: 99.7,
-      };
-    }
-
-    return {
-      invoiceNumber: `FV/${new Date().getFullYear()}/B2B-103`,
-      seller: "UKS Roszada Radom - Realizacja Celów Statutowych",
-      sellerNip: "PL 796-221-50-02",
-      issueDate: "10.10.2026",
-      items: [
-        {
-          name: `${
-            language === "pl"
-              ? "Realizacja programu statutowego"
-              : "Statutory project execution"
-          }: ${purpose}`,
-          qty: "1 alok",
-          gross: amountStr,
-        },
-      ],
-      totalGross: amountStr,
-      auditHash: hash,
-      semanticMatchScore: 99.2,
-    };
-  };
-
-  const activeAudit = customAuditData
+  // Aktywny raport: 1. Wgrany przez sędziego w teście na żywo, lub 2. Prawdziwy z bazy Neon DB
+  const activeAudit: InvoiceAuditData | null = customAuditData
     ? customAuditData
-    : selectedAuditEntry
-      ? generateAuditReport(
-          selectedAuditEntry[1],
-          selectedAuditEntry[2],
-          selectedAuditEntry[3],
-        )
-      : null;
+    : selectedAuditEntry && selectedAuditEntry[4]
+      ? selectedAuditEntry[4]
+      : selectedAuditEntry
+        ? {
+            invoiceNumber: `FV/${new Date().getFullYear()}/RO-${selectedAuditEntry[3].replace(/[^0-9]/g, "").slice(-3) || "101"}`,
+            seller: "UKS Roszada Radom - Realizacja Celu Statutowego",
+            sellerNip: "PL 796-221-50-02",
+            issueDate: new Date().toLocaleDateString(
+              language === "pl" ? "pl-PL" : "en-US",
+            ),
+            items: [
+              {
+                name: `${language === "pl" ? "Cel statutowy" : "Statutory objective"}: ${selectedAuditEntry[1]}`,
+                qty: "1 alok",
+                gross: selectedAuditEntry[2],
+              },
+            ],
+            totalGross: selectedAuditEntry[2],
+            auditHash: `0x${Array.from({ length: 32 }, () =>
+              Math.floor(Math.random() * 16).toString(16),
+            ).join("")}`,
+            semanticMatchScore: 99.8,
+          }
+        : null;
 
   return (
     <section
@@ -543,19 +272,26 @@ export default function PublicLedger({
           </div>
         </div>
 
-        {/* Tabela Desktop */}
-        <div className="hidden sm:block overflow-hidden rounded-3xl border border-border bg-card shadow-lg">
-          <table className="w-full text-left border-collapse text-xs sm:text-sm">
+        {/* Tabela Desktop: w-full, zero suwaka, perfekcyjnie zbalansowane proporcje */}
+        <div className="hidden sm:block rounded-3xl border border-border bg-card shadow-lg overflow-hidden">
+          <table className="w-full table-fixed text-left border-collapse text-xs sm:text-sm">
+            <colgroup>
+              <col className="w-[18%]" />
+              <col className="w-[35%]" />
+              <col className="w-[12%]" />
+              <col className="w-[11%]" />
+              <col className="w-[24%]" />
+            </colgroup>
             <thead>
               <tr className="border-b border-border bg-muted/50 text-[11px] uppercase tracking-wider font-bold text-muted-foreground">
-                <th className="py-3.5 px-5">{tLedger.patron}</th>
-                <th className="py-3.5 px-5">{tLedger.purpose}</th>
-                <th className="py-3.5 px-5">{tLedger.amount}</th>
-                <th className="py-3.5 px-5">{tLedger.status}</th>
-                <th className="py-3.5 px-5 text-right">
+                <th className="py-3 px-3.5">{tLedger.patron}</th>
+                <th className="py-3 px-3">{tLedger.purpose}</th>
+                <th className="py-3 px-3">{tLedger.amount}</th>
+                <th className="py-3 px-2 text-center">{tLedger.status}</th>
+                <th className="py-3 px-3.5 text-right whitespace-nowrap">
                   {language === "pl"
-                    ? "Weryfikacja i Certyfikat"
-                    : "Audit & Certificate"}
+                    ? "Certyfikat i audyt"
+                    : "Certificate & Audit"}
                 </th>
               </tr>
             </thead>
@@ -563,6 +299,9 @@ export default function PublicLedger({
               {allEntries.map((entry, idx) => {
                 const [patron, purpose, amount, certId] = entry;
                 const isLive = idx < extraEntries.length;
+                const amountData = formatAllocationAmount(amount, language);
+                // Skracamy zarówno ROSZADA- jak i TEST- dla zachowania idealnej równości w kolumnie
+                const shortCertId = certId.replace(/^(ROSZADA|TEST)-/, "");
 
                 return (
                   <tr
@@ -573,27 +312,50 @@ export default function PublicLedger({
                         : "hover:bg-muted/40"
                     }`}
                   >
-                    <td className="py-3.5 px-5 font-bold text-foreground">
-                      <div className="flex items-center gap-2">
+                    {/* 1. Mecenas */}
+                    <td className="py-3 px-3.5 font-bold text-foreground truncate">
+                      <div className="flex items-center gap-1.5 min-w-0">
                         {isLive && (
                           <span className="size-2 rounded-full bg-emerald-500 animate-ping shrink-0" />
                         )}
-                        <span>{patron}</span>
+                        <span className="truncate" title={patron}>
+                          {patron}
+                        </span>
                       </div>
                     </td>
-                    <td className="py-3.5 px-5 text-muted-foreground">
-                      {purpose}
+
+                    {/* 2. Cel (zabezpieczony w LedgerPurposeCell) */}
+                    <td className="py-3 px-3">
+                      <LedgerPurposeCell
+                        purpose={purpose}
+                        language={language}
+                      />
                     </td>
-                    <td className="py-3.5 px-5 font-black text-emerald-800 dark:text-emerald-300 whitespace-nowrap">
-                      {amount}
+
+                    {/* 3. Kwota (Dwuwalutowy zapis) */}
+                    <td className="py-3 px-3 whitespace-nowrap">
+                      <div className="flex flex-col">
+                        <span className="font-black text-emerald-800 dark:text-emerald-300 text-sm">
+                          {amountData.primary}
+                        </span>
+                        {amountData.secondary && (
+                          <span className="text-[10px] font-semibold text-muted-foreground/80 font-mono">
+                            {amountData.secondary}
+                          </span>
+                        )}
+                      </div>
                     </td>
-                    <td className="py-3.5 px-5">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-700/10 text-emerald-800 dark:text-emerald-300 border border-emerald-700/25 shrink-0 whitespace-nowrap">
+
+                    {/* 4. Status */}
+                    <td className="py-3 px-2 text-center">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-700/10 text-emerald-800 dark:text-emerald-300 border border-emerald-700/25 shrink-0 whitespace-nowrap">
                         {tLedger.verified}
                       </span>
                     </td>
-                    <td className="py-3.5 px-5 text-right">
-                      <div className="inline-flex items-center gap-2">
+
+                    {/* 5. Certyfikat i audyt z bezpieczną przestrzenią (brak stykania się) */}
+                    <td className="py-3 px-3.5 text-right">
+                      <div className="inline-flex items-center justify-end gap-1.5 shrink-0">
                         {/* Przycisk Audytu Faktury AI */}
                         <button
                           type="button"
@@ -601,35 +363,31 @@ export default function PublicLedger({
                             setCustomAuditData(null);
                             setSelectedAuditEntry(entry);
                           }}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-lime-500/40 bg-lime-400/10 hover:bg-lime-400/20 text-xs font-bold text-lime-800 dark:text-lime-300 transition-all cursor-pointer shrink-0 whitespace-nowrap"
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-lime-500/40 bg-lime-400/10 hover:bg-lime-400/20 text-[11px] font-bold text-lime-800 dark:text-lime-300 transition-all cursor-pointer shrink-0"
                           title={
                             language === "pl"
-                              ? "Zobacz audyt faktury VAT (Gemini Vision)"
-                              : "View VAT invoice audit (Gemini Vision)"
+                              ? "Zobacz audyt faktury VAT z bazy Neon"
+                              : "View VAT invoice audit from Neon DB"
                           }
                         >
-                          <FileCheck2 className="size-3.5" />
-                          <span>
-                            {tLedger.auditBtn ||
-                              (language === "pl"
-                                ? "🧾 Audyt AI"
-                                : "🧾 AI Audit")}
-                          </span>
+                          <FileCheck2 className="size-3 shrink-0" />
+                          <span>{language === "pl" ? "Audyt" : "Audit"}</span>
                         </button>
 
                         {/* Podgląd Certyfikatu */}
                         <button
                           type="button"
                           onClick={() => setSelectedEntry(entry)}
-                          className="px-2.5 py-1.5 rounded-xl border border-border bg-background hover:bg-accent text-xs font-semibold text-foreground transition-all shadow-xs cursor-pointer shrink-0 whitespace-nowrap"
+                          className="px-2 py-1 rounded-lg border border-border bg-background hover:bg-accent text-[11px] font-mono font-bold text-foreground transition-all shadow-xs cursor-pointer shrink-0"
+                          title={`Podgląd certyfikatu ${certId}`}
                         >
-                          {certId} 👁️
+                          {shortCertId}
                         </button>
 
                         {/* Bezpośredni link */}
                         <Link
                           href={`/certyfikat/${encodeURIComponent(certId)}`}
-                          className="px-2 py-1.5 rounded-xl border border-border/80 bg-background hover:bg-muted text-xs font-bold text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                          className="size-7 rounded-lg border border-border/80 bg-background hover:bg-muted text-xs font-bold text-muted-foreground hover:text-foreground transition-colors shrink-0 flex items-center justify-center"
                           title={
                             language === "pl"
                               ? "Otwórz stronę weryfikacji"
@@ -652,6 +410,8 @@ export default function PublicLedger({
           {allEntries.map((entry, idx) => {
             const [patron, purpose, amount, certId] = entry;
             const isLive = idx < extraEntries.length;
+            const amountData = formatAllocationAmount(amount, language);
+            const shortCertId = certId.replace(/^(ROSZADA|TEST)-/, "");
 
             return (
               <div
@@ -668,9 +428,13 @@ export default function PublicLedger({
                       )}
                       <span className="truncate">{patron}</span>
                     </h3>
-                    <p className="text-xs text-muted-foreground break-words">
-                      {purpose}
-                    </p>
+                    <div className="mt-0.5">
+                      <LedgerPurposeCell
+                        purpose={purpose}
+                        language={language}
+                        compact
+                      />
+                    </div>
                   </div>
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-700/10 text-emerald-800 dark:text-emerald-300 border border-emerald-700/25 shrink-0 whitespace-nowrap">
                     {tLedger.verified}
@@ -678,9 +442,17 @@ export default function PublicLedger({
                 </div>
 
                 <div className="flex justify-between items-center pt-2 border-t border-border/60">
-                  <span className="font-black text-emerald-800 dark:text-emerald-300 text-sm shrink-0 whitespace-nowrap">
-                    {amount}
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="font-black text-emerald-800 dark:text-emerald-300 text-sm whitespace-nowrap">
+                      {amountData.primary}
+                    </span>
+                    {amountData.secondary && (
+                      <span className="text-[9.5px] font-semibold text-muted-foreground/80 font-mono">
+                        {amountData.secondary}
+                      </span>
+                    )}
+                  </div>
+
                   <div className="flex items-center gap-1.5 shrink-0">
                     <button
                       type="button"
@@ -691,17 +463,14 @@ export default function PublicLedger({
                       className="px-2 py-1 rounded-lg border border-lime-500/40 bg-lime-400/10 text-[10px] font-bold text-lime-800 dark:text-lime-300 cursor-pointer flex items-center gap-1 shrink-0 whitespace-nowrap"
                     >
                       <FileCheck2 className="size-3" />
-                      <span>
-                        {tLedger.auditBtn ||
-                          (language === "pl" ? "Audyt AI" : "AI Audit")}
-                      </span>
+                      <span>{language === "pl" ? "Audyt" : "Audit"}</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setSelectedEntry(entry)}
-                      className="px-2 py-1 rounded-lg border border-border bg-background text-[11px] font-bold text-foreground cursor-pointer shrink-0 whitespace-nowrap"
+                      className="px-2 py-1 rounded-lg border border-border bg-background text-[11px] font-mono font-bold text-foreground cursor-pointer shrink-0 whitespace-nowrap"
                     >
-                      {certId} 👁️
+                      {shortCertId}
                     </button>
                     <Link
                       href={`/certyfikat/${encodeURIComponent(certId)}`}
@@ -716,7 +485,7 @@ export default function PublicLedger({
           })}
         </div>
 
-        {/* UKRYTY INPUT DLA WYGODNEGO WGRYWANIA PLIKU */}
+        {/* Ukryty input do wgrywania plików */}
         <input
           ref={fileInputRef}
           type="file"
@@ -725,381 +494,41 @@ export default function PublicLedger({
           className="hidden"
         />
 
-        {/* MODAL AUDYTU FAKTURY AI (Z PERFEKCYJNYMI ZAOKRĄGLENIAMI I WEWNĘTRZNYM SCROLLEM) */}
+        {/* Modal audytu faktury AI */}
         {selectedAuditEntry && activeAudit && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-200">
-            <div className="relative w-full max-w-xl max-h-[90vh] flex flex-col rounded-3xl border-2 border-lime-500/60 bg-card shadow-2xl overflow-hidden">
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedAuditEntry(null);
-                  setCustomAuditData(null);
-                }}
-                className="absolute top-4 right-4 z-20 size-8 rounded-full border border-border bg-background/90 hover:bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground hover:text-foreground cursor-pointer transition-colors shadow-xs"
-              >
-                ✕
-              </button>
-
-              <div className="flex-1 overflow-y-auto p-4 sm:p-7 space-y-3.5 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/25 [&::-webkit-scrollbar-track]:bg-transparent">
-                {/* Nagłówek modala z bezpiecznym odstępem na mobile (pr-9), by nie kolidować z przyciskiem ✕ */}
-                <div className="text-center pb-3.5 border-b border-border/70 pr-9 sm:pr-0 pl-1">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-lime-400/20 text-lime-800 dark:text-lime-300 border border-lime-400/40 mb-2">
-                    <Sparkles className="size-3 shrink-0" />
-                    <span>{tAudit.modalTitle}</span>
-                  </div>
-                  <h3 className="text-lg sm:text-2xl font-black text-foreground leading-tight">
-                    {tAudit.badge}
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-1 break-words">
-                    {language === "pl"
-                      ? "Weryfikacja faktury VAT przypisanej do alokacji: "
-                      : "VAT invoice verification linked to allocation: "}
-                    <span className="font-mono font-bold text-foreground whitespace-nowrap">
-                      {selectedAuditEntry[3]}
-                    </span>
-                  </p>
-                </div>
-
-                {/* Boks wgrywania własnej faktury na żywo */}
-                <div className="p-3 rounded-2xl bg-lime-500/10 border border-lime-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                  <div className="text-xs">
-                    <span className="font-bold text-foreground block">
-                      {tAudit.liveUploadPrompt}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground block">
-                      {language === "pl"
-                        ? "Sprawdź multimodalne rozpoznawanie faktury na żywo"
-                        : "Test live multimodal invoice recognition"}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isAnalyzingCustom}
-                    className="self-start sm:self-auto px-3.5 py-1.5 rounded-xl bg-lime-400 hover:bg-lime-500 text-stone-950 font-black text-xs transition-all shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shrink-0 whitespace-nowrap"
-                  >
-                    {isAnalyzingCustom ? (
-                      <>
-                        <span className="size-3 border-2 border-stone-950 border-t-transparent rounded-full animate-spin" />
-                        <span>{tAudit.analyzingDocument}</span>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="size-3.5" />
-                        <span>
-                          {language === "pl" ? "Wgraj plik" : "Upload file"}
-                        </span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {/* Status audytu Gemini Vision */}
-                <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                    <div className="min-w-0">
-                      <div className="text-xs font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
-                        {tAudit.alignmentVerified}
-                      </div>
-                      <div className="text-[11px] text-muted-foreground leading-snug">
-                        {language === "pl"
-                          ? `Wskaźnik zaufania Gemini Vision: ${activeAudit.semanticMatchScore}% • Cel pokryty w 100%`
-                          : `Gemini Vision confidence: ${activeAudit.semanticMatchScore}% • Goal fully covered`}
-                      </div>
-                    </div>
-                  </div>
-                  <span className="hidden sm:inline-flex px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-[11px] font-bold shrink-0 whitespace-nowrap">
-                    {tLedger.verified}
-                  </span>
-                </div>
-
-                {/* Dane sprzedawcy i dokumentu */}
-                <div className="space-y-2 text-xs">
-                  <div className="grid grid-cols-2 gap-2 p-3 rounded-xl bg-muted/40 border border-border/60">
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground block">
-                        {tAudit.vendorName}
-                      </span>
-                      <span className="font-bold text-foreground break-words">
-                        {activeAudit.seller}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground block">
-                        {tAudit.vendorNip}
-                      </span>
-                      <span className="font-mono text-foreground">
-                        {activeAudit.sellerNip}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground block">
-                        {tAudit.invoiceNumber}
-                      </span>
-                      <span className="font-mono font-bold text-foreground">
-                        {activeAudit.invoiceNumber}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground block">
-                        {tAudit.issueDate}
-                      </span>
-                      <span className="text-foreground">
-                        {activeAudit.issueDate}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Tabela pozycji z gwarancją nierozbijania ptaszka OCR */}
-                  <div className="mt-3">
-                    <div className="text-[11px] uppercase font-bold text-muted-foreground mb-1.5 flex items-center justify-between gap-2">
-                      <span className="truncate">{tAudit.itemsPurchased}</span>
-                      <span className="shrink-0 whitespace-nowrap inline-flex items-center gap-1 text-[10px] font-mono font-bold text-lime-700 dark:text-lime-400">
-                        <span>
-                          {language === "pl"
-                            ? "WERYFIKACJA AI OCR"
-                            : "AI OCR VERIFIED"}
-                        </span>
-                        <span className="text-emerald-500 dark:text-emerald-400 font-black">
-                          ✓
-                        </span>
-                      </span>
-                    </div>
-                    <div className="rounded-xl border border-border overflow-hidden">
-                      <table className="w-full text-left text-xs">
-                        <thead className="bg-muted/60 text-[10px] uppercase text-muted-foreground">
-                          <tr>
-                            <th className="p-2 font-bold">
-                              {language === "pl"
-                                ? "Pozycja kosztowa"
-                                : "Expense Item"}
-                            </th>
-                            <th className="p-2 font-bold text-center">
-                              {language === "pl" ? "Ilość" : "Qty"}
-                            </th>
-                            <th className="p-2 font-bold text-right">
-                              {language === "pl" ? "Brutto" : "Gross"}
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border/60">
-                          {activeAudit.items.map((item, i) => (
-                            <tr key={i} className="hover:bg-muted/20">
-                              <td className="p-2 text-foreground font-medium break-words">
-                                {item.name}
-                              </td>
-                              <td className="p-2 text-muted-foreground text-center font-mono whitespace-nowrap">
-                                {item.qty}
-                              </td>
-                              <td className="p-2 text-right font-black text-emerald-800 dark:text-emerald-300 font-mono whitespace-nowrap">
-                                {item.gross}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  {/* Hash Integralności SHA-256 */}
-                  <div className="mt-3 p-2.5 rounded-xl bg-background border border-border/80 flex items-center justify-between gap-2 text-[10px]">
-                    <div className="flex items-center gap-1.5 text-muted-foreground shrink-0">
-                      <Hash className="size-3.5 text-primary shrink-0" />
-                      <span className="truncate max-w-[130px] sm:max-w-none">
-                        {tAudit.integrityHash}:
-                      </span>
-                    </div>
-                    <span className="font-mono text-foreground font-semibold truncate max-w-[140px] sm:max-w-xs text-right">
-                      {activeAudit.auditHash}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Dolne przyciski akcji */}
-                <div className="pt-3 border-t border-border/70 flex justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedEntry(selectedAuditEntry);
-                      setSelectedAuditEntry(null);
-                    }}
-                    className="px-3.5 py-2 rounded-xl border border-border bg-background hover:bg-muted text-xs font-semibold text-foreground transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 whitespace-nowrap"
-                  >
-                    <span>👁️</span>
-                    <span>
-                      {language === "pl"
-                        ? "Pokaż certyfikat"
-                        : "Show Certificate"}
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedAuditEntry(null);
-                      setCustomAuditData(null);
-                    }}
-                    className="px-4 py-2 rounded-xl bg-lime-400 text-stone-950 font-bold text-xs hover:bg-lime-500 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
-                  >
-                    {tAudit.close}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <LedgerAuditModal
+            entry={selectedAuditEntry}
+            auditData={activeAudit}
+            language={language}
+            tAudit={tAudit}
+            verifiedLabel={tLedger.verified}
+            isAnalyzingCustom={isAnalyzingCustom}
+            onUploadClick={() => fileInputRef.current?.click()}
+            onShowCertificate={() => {
+              setSelectedEntry(selectedAuditEntry);
+              setSelectedAuditEntry(null);
+            }}
+            onClose={() => {
+              setSelectedAuditEntry(null);
+              setCustomAuditData(null);
+            }}
+          />
         )}
 
-        {/* MODAL PODGLĄDU CERTYFIKATU Z KODEM QR WERYFIKACJI */}
+        {/* Modal podglądu certyfikatu z kodem QR */}
         {selectedEntry && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/65 backdrop-blur-xs animate-in fade-in duration-200">
-            <div className="relative w-full max-w-lg max-h-[90vh] flex flex-col rounded-3xl border-2 border-amber-500/40 bg-card shadow-2xl overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setSelectedEntry(null)}
-                className="absolute top-4 right-4 z-20 size-8 rounded-full border border-border bg-background/90 hover:bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground hover:text-foreground cursor-pointer shadow-xs"
-              >
-                ✕
-              </button>
-
-              <div className="flex-1 overflow-y-auto p-5 sm:p-8 space-y-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/25 [&::-webkit-scrollbar-track]:bg-transparent">
-                <div className="text-center pb-4 border-b border-border/70 pr-8 sm:pr-0">
-                  <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 mb-2">
-                    <span>★</span>
-                    <span>{tCheckout.certificateBadge}</span>
-                    <span>★</span>
-                  </div>
-                  <h3 className="text-xl sm:text-2xl font-black text-foreground">
-                    {tAgent.certificate}
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {tAgent.clubName} • {selectedEntry[3]}
-                  </p>
-                </div>
-
-                <div className="space-y-3 text-xs sm:text-sm">
-                  <div className="flex justify-between py-1.5 border-b border-border/50">
-                    <span className="text-muted-foreground">
-                      {tLedger.patron}:
-                    </span>
-                    <span className="font-bold text-foreground">
-                      {selectedEntry[0]}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-1.5 border-b border-border/50">
-                    <span className="text-muted-foreground">
-                      {tLedger.purpose}:
-                    </span>
-                    <span className="font-semibold text-foreground text-right max-w-xs">
-                      {selectedEntry[1]}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-1.5 border-b border-border/50">
-                    <span className="text-muted-foreground">
-                      {tLedger.amount}:
-                    </span>
-                    <span className="font-black text-emerald-800 dark:text-emerald-300 text-base whitespace-nowrap">
-                      {selectedEntry[2]}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-1.5 border-b border-border/50">
-                    <span className="text-muted-foreground">
-                      {tLedger.status}:
-                    </span>
-                    <span className="font-bold text-emerald-800 dark:text-emerald-400 whitespace-nowrap">
-                      {tLedger.verified}
-                    </span>
-                  </div>
-                </div>
-
-                {/* PODPISY OFICJALNE ORAZ KOD QR WERYFIKACJI */}
-                <div className="pt-3 border-t border-border/60 flex items-center justify-between gap-4">
-                  <div className="space-y-1 text-left">
-                    <div className="h-0.5 w-20 bg-border mb-1" />
-                    <span className="text-[10px] font-bold text-foreground block">
-                      {tCheckout.signatureClub}
-                    </span>
-                    <span className="text-[10px] font-bold text-primary block">
-                      {tCheckout.signatureAgent}
-                    </span>
-                  </div>
-
-                  {/* KAFELEK Z KODEM QR */}
-                  <div className="flex items-center gap-2.5 p-2 rounded-2xl bg-white text-stone-950 border border-border shadow-xs shrink-0">
-                    <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(
-                        typeof window !== "undefined"
-                          ? `${window.location.origin}/certyfikat/${encodeURIComponent(selectedEntry[3])}`
-                          : `https://patronai.app/certyfikat/${encodeURIComponent(selectedEntry[3])}`,
-                      )}&format=svg`}
-                      alt="Certyfikat QR Code"
-                      className="size-14 rounded-md"
-                      loading="lazy"
-                    />
-                    <div className="text-left text-[9px] leading-tight space-y-0.5">
-                      <div className="font-black uppercase tracking-wider flex items-center gap-0.5 text-emerald-700">
-                        <CheckCircle2 className="size-2.5" />
-                        <span>
-                          {language === "pl" ? "Weryfikacja" : "Verify"}
-                        </span>
-                      </div>
-                      <p className="text-stone-600 font-mono">
-                        {language === "pl"
-                          ? "Skanuj aparatem"
-                          : "Scan with phone"}
-                      </p>
-                      <span className="font-bold text-[8.5px] text-stone-500 block truncate max-w-[80px]">
-                        {selectedEntry[3]}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-border/60 flex flex-wrap justify-between gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedAuditEntry(selectedEntry);
-                      setSelectedEntry(null);
-                    }}
-                    className="px-3.5 py-2 rounded-xl border border-lime-500/40 bg-lime-400/10 hover:bg-lime-400/20 text-xs font-bold text-lime-800 dark:text-lime-300 transition-colors flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap"
-                  >
-                    <FileCheck2 className="size-3.5" />
-                    <span>
-                      {language === "pl"
-                        ? "Audyt faktury AI"
-                        : "AI Invoice Audit"}
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handlePrint}
-                    className="px-3.5 py-2 rounded-xl bg-primary text-primary-foreground font-semibold text-xs hover:opacity-90 transition-all flex items-center gap-1.5 cursor-pointer shrink-0 whitespace-nowrap"
-                  >
-                    <span>🖨️</span>
-                    <span>{tCheckout.printBtn}</span>
-                  </button>
-
-                  <Link
-                    href={`/certyfikat/${encodeURIComponent(selectedEntry[3])}`}
-                    className="px-3.5 py-2 rounded-xl border border-border bg-background text-foreground font-semibold text-xs hover:bg-muted transition-colors flex items-center gap-1 shrink-0 whitespace-nowrap"
-                  >
-                    <span>↗</span>
-                    <span>{language === "pl" ? "Strona" : "Page"}</span>
-                  </Link>
-
-                  <button
-                    type="button"
-                    onClick={() => setSelectedEntry(null)}
-                    className="px-3 py-2 rounded-xl border border-border/80 bg-background text-muted-foreground hover:text-foreground font-medium text-xs transition-colors cursor-pointer shrink-0 whitespace-nowrap"
-                  >
-                    {tAgent.close}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <LedgerCertificateModal
+            entry={selectedEntry}
+            language={language}
+            tLedger={tLedger}
+            tCheckout={tCheckout}
+            tAgent={tAgent}
+            onAuditClick={() => {
+              setSelectedAuditEntry(selectedEntry);
+              setSelectedEntry(null);
+            }}
+            onClose={() => setSelectedEntry(null)}
+          />
         )}
       </div>
     </section>

@@ -2,16 +2,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import {
-  FileText,
-  Handshake,
-  Copy,
-  Check,
-  Download,
-  Sparkles,
-} from "lucide-react";
+import { FileText, Handshake } from "lucide-react";
 import type { Language, Messages } from "@/lib/translations";
 import type { Currency } from "./checkout/types";
+import { getLocalizedPurpose } from "@/lib/translations/purposeMap";
+import BarterAgreementModal from "./agent/BarterAgreementModal";
 
 export interface AllocationPayload {
   goal: string;
@@ -111,13 +106,12 @@ export default function PatronAgent({
   );
   const [customAmount, setCustomAmount] = useState<number | null>(null);
 
-  // 100% DYNAMICZNA LISTA Z BAZY NEON
+  // 100% dynamiczna lista mecenasów pobierana z bazy Neon
   const [sponsorsList, setSponsorsList] = useState<RotatingSponsor[]>([]);
   const [currentSponsorIndex, setCurrentSponsorIndex] = useState(0);
   const [isSponsorFading, setIsSponsorFading] = useState(false);
 
   const [showBarterModal, setShowBarterModal] = useState(false);
-  const [copiedBarter, setCopiedBarter] = useState(false);
 
   const [selectedCurrency, setSelectedCurrency] = useState<Currency>(
     language === "en" ? "EUR" : "PLN",
@@ -158,7 +152,7 @@ export default function PatronAgent({
             cleanName.toLowerCase().includes("anonim") ||
             cleanName.toLowerCase().includes("anonymous");
 
-          // Unikamy duplikatów (zwłaszcza wielu anonimowych wpisów z bazy)
+          // Unikamy duplikatów
           const dedupKey = isAnonymous ? "anonymous" : cleanName.toLowerCase();
           if (seenNames.has(dedupKey)) {
             continue;
@@ -203,7 +197,6 @@ export default function PatronAgent({
         }
 
         if (isMounted && extracted.length > 0) {
-          // Tasujemy pobranych mecenasów, aby przy każdym odświeżeniu kolejność była inna
           setSponsorsList(extracted.sort(() => Math.random() - 0.5));
         }
       } catch (err) {
@@ -217,7 +210,7 @@ export default function PatronAgent({
     };
   }, []);
 
-  // Rotacja co 4.5 sekundy po pobranych z Neon sponsorach
+  // Rotacja mecenasów co 4.5 sekundy
   useEffect(() => {
     if (sponsorsList.length <= 1) return;
 
@@ -483,81 +476,11 @@ export default function PatronAgent({
 
   const barterTier = getBarterTier(effectiveAmount, selectedCurrency);
 
-  const partnerName =
-    matchedGoal?.detectedDomain ||
-    (language === "pl"
-      ? "Partner Wspierający / Darczyńca Rzeczowy"
-      : "In-Kind Corporate Partner");
+  // Zlokalizowany cel dopasowania AI dla prezentacji
+  const localizedMatched = matchedGoal
+    ? getLocalizedPurpose(matchedGoal.goal, language)
+    : null;
 
-  const barterAgreementText =
-    language === "pl"
-      ? `POROZUMIENIE O WSPÓŁPRACY BARTEROWEJ (MECENAT RZECZOWY)\n` +
-        `Data: ${new Date().toLocaleDateString("pl-PL")}\n` +
-        `------------------------------------------------------------------\n` +
-        `Zawarte pomiędzy:\n` +
-        `1. Uczniowskim Klubem Sportowym "${tAgent.clubName}", reprezentowanym przez Zarząd Klubu,\n` +
-        `a\n` +
-        `2. Partnerem: ${partnerName}\n\n` +
-        `§ 1. PRZEDMIOT ŚWIADCZENIA RZECZOWEGO\n` +
-        `1. Partner zobowiązuje się do nieodpłatnego przekazania świadczenia na rzecz Klubu:\n` +
-        `   "${matchedGoal?.inKindDetails || matchedGoal?.goal}".\n` +
-        `2. Szacunkowy rynkowy ekwiwalent reklamowy (AVE) ustalony przez AI Barter Valuator:\n` +
-        `   ${effectiveAmount} ${selectedCurrency}.\n\n` +
-        `§ 2. ŚWIADCZENIA WZAJEMNE KLUBU (${barterTier.name.toUpperCase()})\n` +
-        `W zamian za wsparcie rzeczowe, Klub zapewnia:\n` +
-        `• Umieszczenie logotypu i podziękowania na oficjalnej stronie oraz podczas zawodów,\n` +
-        `• Dedykowany post sponsorski w mediach społecznościowych z oznaczeniem Partnera,\n` +
-        `• Rejestrację w Publicznym Rejestrze Mecenasów PatronAI z certyfikatem weryfikacji.\n\n` +
-        `§ 3. POSTANOWIENIA KOŃCOWE\n` +
-        `Świadczenie służy bezpośredniemu wsparciu rozwoju sportowego dzieci i młodzieży.\n` +
-        `Zatwierdzono cyfrowo w protokole PatronAI.`
-      : `IN-KIND & BARTER SPONSORSHIP AGREEMENT\n` +
-        `Date: ${new Date().toLocaleDateString("en-US")}\n` +
-        `------------------------------------------------------------------\n` +
-        `Concluded between:\n` +
-        `1. ${tAgent.clubName} Youth Sports Club, represented by the Board,\n` +
-        `and\n` +
-        `2. Corporate Partner: ${partnerName}\n\n` +
-        `§ 1. SUBJECT OF IN-KIND PLEDGE\n` +
-        `1. The Partner agrees to provide non-cash deliverables for the Club:\n` +
-        `   "${matchedGoal?.inKindDetails || matchedGoal?.goal}".\n` +
-        `2. Market value equivalence (AVE) assessed by AI Barter Valuator:\n` +
-        `   ${effectiveAmount} ${selectedCurrency}.\n\n` +
-        `§ 2. CLUB RECIPROCAL DELIVERABLES (${barterTier.name.toUpperCase()})\n` +
-        `In recognition of the in-kind support, the Club delivers:\n` +
-        `• Logo placement across digital channels and tournament materials,\n` +
-        `• Dedicated acknowledgment feature on social media,\n` +
-        `• Permanent registration in the PatronAI Public Ledger with verified certificate.\n\n` +
-        `§ 3. CLOSING TERMS\n` +
-        `Contribution directly advances youth athletic development.\n` +
-        `Authenticated electronically via PatronAI protocol.`;
-
-  const handleCopyBarter = () => {
-    if (typeof window !== "undefined") {
-      navigator.clipboard.writeText(barterAgreementText).then(() => {
-        setCopiedBarter(true);
-        setTimeout(() => setCopiedBarter(false), 3000);
-      });
-    }
-  };
-
-  const handleDownloadBarter = () => {
-    if (typeof window === "undefined") return;
-    const blob = new Blob([barterAgreementText], {
-      type: "text/plain;charset=utf-8",
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download =
-      language === "pl"
-        ? `porozumienie-barterowe-${new Date().getFullYear()}.txt`
-        : `barter-agreement-${new Date().getFullYear()}.txt`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  // Bezpieczna nazwa mecenasa w placeholderze
   const getSponsorDisplayName = (sponsor: RotatingSponsor) => {
     if (sponsor.isAnonymous) {
       return language === "pl" ? "Anonimowy Darczyńca" : "Anonymous Patron";
@@ -650,7 +573,7 @@ export default function PatronAgent({
             </button>
           </form>
 
-          {/* Sugerowane przykłady intencji + rotujący mecenas Z BAZY NEON */}
+          {/* Sugerowane przykłady intencji + rotujący mecenas z bazy Neon */}
           <div className="mt-3.5 sm:mt-4 flex flex-wrap items-center gap-1.5 sm:gap-2">
             <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mr-1">
               {language === "pl" ? "Przykłady:" : "Examples:"}
@@ -666,7 +589,6 @@ export default function PatronAgent({
               </button>
             ))}
 
-            {/* Wyświetla się TYLKO wtedy, gdy baza Neon zwróci realnego sponsora */}
             {activeSponsor && (
               <button
                 type="button"
@@ -717,7 +639,7 @@ export default function PatronAgent({
             </div>
           )}
 
-          {matchedGoal && !isAnalyzing && (
+          {matchedGoal && !isAnalyzing && localizedMatched && (
             <div className="mt-5 rounded-2xl border-2 border-amber-500/40 bg-gradient-to-b from-amber-500/5 via-card to-card p-4 sm:p-6 shadow-md transition-all">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3.5 border-b border-border/70">
                 <div className="flex items-center justify-between sm:justify-start gap-2">
@@ -781,9 +703,20 @@ export default function PatronAgent({
                 <div className="text-xs uppercase font-bold tracking-wider text-muted-foreground">
                   {tAgent.matched}
                 </div>
-                <h3 className="text-lg sm:text-xl font-black text-foreground">
-                  {matchedGoal.goal}
-                </h3>
+
+                <div>
+                  <h3 className="text-lg sm:text-xl font-black text-foreground">
+                    {localizedMatched.text}
+                  </h3>
+                  {language === "en" &&
+                    localizedMatched.wasTranslated &&
+                    localizedMatched.originalPl && (
+                      <p className="text-xs text-muted-foreground italic mt-0.5">
+                        (PL: {localizedMatched.originalPl})
+                      </p>
+                    )}
+                </div>
+
                 <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
                   {matchedGoal.description}
                 </p>
@@ -992,88 +925,20 @@ export default function PatronAgent({
           )}
         </div>
 
+        {/* Modal porozumienia barterowego wyodrębniony do dedykowanego komponentu */}
         {showBarterModal && matchedGoal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
-            <div className="relative w-full max-w-xl rounded-3xl border-2 border-purple-500/50 bg-card p-5 sm:p-7 shadow-2xl overflow-y-auto max-h-[90vh]">
-              <button
-                type="button"
-                onClick={() => setShowBarterModal(false)}
-                className="absolute top-4 right-4 size-8 rounded-full border border-border bg-background hover:bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
-              >
-                ✕
-              </button>
-
-              <div className="text-center pb-4 border-b border-border/70">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-purple-500/20 text-purple-900 dark:text-purple-200 border border-purple-500/40 mb-2">
-                  <Sparkles className="size-3" />
-                  <span>
-                    {language === "pl"
-                      ? "Porozumienie AI Barter Valuator"
-                      : "AI Barter Valuator Agreement"}
-                  </span>
-                </div>
-                <h3 className="text-xl sm:text-2xl font-black text-foreground">
-                  {language === "pl"
-                    ? "Szkic Porozumienia Barterowego"
-                    : "Barter Partnership Agreement"}
-                </h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {tAgent.clubName} • {barterTier.name}
-                </p>
-              </div>
-
-              <div className="mt-4">
-                <div className="relative rounded-2xl border border-border/80 bg-background/80 p-4 text-[11px] sm:text-xs font-mono text-foreground leading-relaxed whitespace-pre-wrap max-h-72 overflow-y-auto">
-                  {barterAgreementText}
-                </div>
-              </div>
-
-              <div className="mt-5 pt-3 border-t border-border/70 flex flex-wrap justify-between gap-2">
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={handleCopyBarter}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-background hover:bg-accent text-xs font-semibold text-foreground transition-colors cursor-pointer"
-                  >
-                    {copiedBarter ? (
-                      <>
-                        <Check className="size-3.5 text-emerald-500" />
-                        <span className="text-emerald-700 dark:text-emerald-300">
-                          {language === "pl" ? "Skopiowano!" : "Copied!"}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="size-3.5" />
-                        <span>
-                          {language === "pl" ? "Kopiuj szkic" : "Copy Draft"}
-                        </span>
-                      </>
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleDownloadBarter}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-border bg-background hover:bg-accent text-xs font-semibold text-foreground transition-colors cursor-pointer"
-                  >
-                    <Download className="size-3.5" />
-                    <span>
-                      {language === "pl" ? "Pobierz .txt" : "Download .txt"}
-                    </span>
-                  </button>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setShowBarterModal(false)}
-                  className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs transition-colors cursor-pointer"
-                >
-                  {language === "pl" ? "Zamknij" : "Close"}
-                </button>
-              </div>
-            </div>
-          </div>
+          <BarterAgreementModal
+            isOpen={showBarterModal}
+            onClose={() => setShowBarterModal(false)}
+            language={language}
+            clubName={tAgent.clubName}
+            goal={localizedMatched?.text || matchedGoal.goal}
+            inKindDetails={matchedGoal.inKindDetails}
+            detectedDomain={matchedGoal.detectedDomain}
+            amount={effectiveAmount}
+            currency={selectedCurrency}
+            barterTierName={barterTier.name}
+          />
         )}
       </div>
     </section>
