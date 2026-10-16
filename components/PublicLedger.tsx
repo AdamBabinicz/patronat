@@ -103,8 +103,8 @@ export default function PublicLedger({
         : "Line items extracted from invoice scan:",
     alignmentVerified:
       language === "pl"
-        ? "Status: 100% Zgodności z celem (Zero defraudacji)"
-        : "Status: 100% Purpose Match (Zero fraud)",
+        ? "Status: 100% Zgodności z celem"
+        : "Status: 100% Purpose Aligned",
     integrityHash:
       language === "pl"
         ? "Kryptograficzny Hash Integralności SHA-256"
@@ -120,40 +120,11 @@ export default function PublicLedger({
     close: language === "pl" ? "Zamknij audyt" : "Close Audit",
   };
 
-  // Etykiety i18n dla modalnej karty mecenasa
-  const tPatronCard = {
-    title:
-      language === "pl" ? "Karta Mecenasa Klubu" : "Club Patron Impact Profile",
-    subtitle:
-      language === "pl"
-        ? "Profil stałego darczyńcy UKS Roszada Radom"
-        : "Recurring donor profile of UKS Roszada Radom",
-    verifiedBadge:
-      language === "pl" ? "Zweryfikowany Mecenas" : "Verified Patron",
-    totalDonations:
-      language === "pl"
-        ? "Liczba zrealizowanych alokacji"
-        : "Completed Allocations",
-    totalImpact:
-      language === "pl"
-        ? "Zidentyfikowany wkład finansowy"
-        : "Identified Support Total",
-    fundedGoals:
-      language === "pl"
-        ? "Sfinansowane cele w rejestrze:"
-        : "Funded club objectives:",
-    filterByPatron:
-      language === "pl"
-        ? "Filtruj wpisy tego mecenasa w tabeli"
-        : "Filter this patron entries in ledger",
-    close: language === "pl" ? "Zamknij" : "Close",
-  };
-
   const showLessLabel =
     (tLedger as Record<string, any>).showLess ||
     (language === "pl" ? "Pokaż mniej" : "Show less");
 
-  // Funkcja pobierająca alokacje z endpointu Neon PostgreSQL z obsługą paginacji, szukania i scope
+  // Funkcja pobierająca alokacje z endpointu Neon PostgreSQL
   const fetchLedgerFromNeon = useCallback(
     async (
       targetPage: number,
@@ -245,7 +216,6 @@ export default function PublicLedger({
     [language],
   );
 
-  // Wczytanie alokacji przy zmianie języka, frazy wyszukiwania lub wybranego scope
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchLedgerFromNeon(1, searchQuery, selectedScope, false);
@@ -254,20 +224,17 @@ export default function PublicLedger({
     return () => clearTimeout(timer);
   }, [fetchLedgerFromNeon, searchQuery, selectedScope]);
 
-  // Zmiana zakładki (Bieżący sezon / Wszystkie / Archiwum)
   const handleScopeChange = (newScope: "current" | "all" | "archive") => {
     setSelectedScope(newScope);
     setPage(1);
   };
 
-  // Obsługa kliknięcia "Pokaż więcej alokacji"
   const handleLoadMore = () => {
     if (!isLoadingMore && hasMore) {
       fetchLedgerFromNeon(page + 1, searchQuery, selectedScope, true);
     }
   };
 
-  // Obsługa kliknięcia "Pokaż mniej alokacji" (zwinięcie do pierwszych 8)
   const handleCollapse = () => {
     fetchLedgerFromNeon(1, searchQuery, selectedScope, false);
     const sectionEl = document.getElementById("ledger-section");
@@ -276,7 +243,6 @@ export default function PublicLedger({
     }
   };
 
-  // Połączenie wpisów: preferujemy dane z bazy Neon, z optymistycznymi wpisami sesyjnymi
   const liveNewEntries = extraEntries.filter(
     (extra) => !dbEntries?.some((db) => db[3] === extra[3]),
   );
@@ -286,7 +252,6 @@ export default function PublicLedger({
       ? [...liveNewEntries, ...dbEntries]
       : [...extraEntries, ...(tLedger.entries as readonly LedgerEntry[])];
 
-  // Obsługa interaktywnego testu sędziego: wgranie własnego pliku do testu OCR
   const handleCustomFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -334,7 +299,6 @@ export default function PublicLedger({
     }, 1100);
   };
 
-  // Obliczenie powiązanych wpisów dla modalnej karty mecenasa
   const activePatronEntries = selectedPatronSummary
     ? allEntries.filter(
         (entry) =>
@@ -348,7 +312,6 @@ export default function PublicLedger({
     return acc + (isNaN(parsed) ? 0 : parsed);
   }, 0);
 
-  // Aktywny raport: 1. Wgrany przez sędziego w teście na żywo, lub 2. Prawdziwy z bazy Neon DB
   const activeAudit: InvoiceAuditData | null = customAuditData
     ? customAuditData
     : selectedAuditEntry && selectedAuditEntry[4]
@@ -406,7 +369,6 @@ export default function PublicLedger({
               </span>
             </div>
 
-            {/* Szybki przycisk Live Upload */}
             <button
               type="button"
               onClick={() => {
@@ -432,10 +394,9 @@ export default function PublicLedger({
           </div>
         </div>
 
-        {/* Pasek narzędzi: Segmentowy filtr sezonów/archiwum + Wyszukiwarka + Licznik */}
+        {/* Pasek narzędzi: Segmentowy filtr sezonów + Wyszukiwarka + Licznik */}
         <div className="mb-4 flex flex-col gap-3">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            {/* Przełącznik zakładek Sezon / Wszystkie / Archiwum */}
             <div className="inline-flex items-center rounded-2xl border border-border bg-card p-1 text-xs font-bold shadow-xs self-start">
               <button
                 type="button"
@@ -485,7 +446,6 @@ export default function PublicLedger({
               </button>
             </div>
 
-            {/* Licznik wyświetlanych wpisów */}
             <div className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5 self-end sm:self-center">
               {isLoadingDb ? (
                 <span className="inline-flex items-center gap-1">
@@ -507,7 +467,6 @@ export default function PublicLedger({
             </div>
           </div>
 
-          {/* Input wyszukiwarki na pełną szerokość lub dopasowany */}
           <div className="relative w-full">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
             <input
@@ -530,7 +489,6 @@ export default function PublicLedger({
           </div>
         </div>
 
-        {/* Stan braku wyników (dla wyszukiwania lub pustego archiwum) */}
         {allEntries.length === 0 && !isLoadingDb && (
           <div className="rounded-3xl border border-border bg-card p-8 sm:p-12 text-center shadow-sm">
             <p className="text-sm font-semibold text-muted-foreground">
@@ -551,7 +509,7 @@ export default function PublicLedger({
           </div>
         )}
 
-        {/* Tabela Desktop: w-full, zero suwaka, perfekcyjnie zbalansowane proporcje */}
+        {/* Tabela Desktop: Perfekcyjne wyrównanie i stałe szerokości akcji */}
         {allEntries.length > 0 && (
           <div className="hidden sm:block rounded-3xl border border-border bg-card shadow-lg overflow-hidden">
             <table className="w-full table-fixed text-left border-collapse text-xs sm:text-sm">
@@ -607,7 +565,6 @@ export default function PublicLedger({
                             </span>
                           </div>
 
-                          {/* Klikalna odznaka Stałego Mecenasa */}
                           {donationCount > 1 && (
                             <div className="flex items-center gap-1 mt-0.5">
                               <button
@@ -665,17 +622,17 @@ export default function PublicLedger({
                         </span>
                       </td>
 
-                      {/* 5. Certyfikat i audyt */}
+                      {/* 5. Certyfikat i audyt – Stałe szerokości gwarantujące perfekcyjne wyrównanie */}
                       <td className="py-3 px-3.5 text-right">
                         <div className="inline-flex items-center justify-end gap-1.5 shrink-0">
-                          {/* Przycisk Audytu Faktury AI */}
+                          {/* Przycisk Audytu: stałe w-[68px] zapobiega falowaniu kolumny */}
                           <button
                             type="button"
                             onClick={() => {
                               setCustomAuditData(null);
                               setSelectedAuditEntry(entry);
                             }}
-                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-lime-500/40 bg-lime-400/10 hover:bg-lime-400/20 text-[11px] font-bold text-lime-800 dark:text-lime-300 transition-all cursor-pointer shrink-0"
+                            className="inline-flex items-center justify-center gap-1 w-[68px] py-1 rounded-lg border border-lime-500/40 bg-lime-400/10 hover:bg-lime-400/20 text-[11px] font-bold text-lime-800 dark:text-lime-300 transition-all cursor-pointer shrink-0"
                             title={
                               language === "pl"
                                 ? "Zobacz audyt faktury VAT z bazy Neon"
@@ -686,17 +643,17 @@ export default function PublicLedger({
                             <span>{language === "pl" ? "Audyt" : "Audit"}</span>
                           </button>
 
-                          {/* Podgląd Certyfikatu */}
+                          {/* Podgląd Certyfikatu: stałe w-[92px] centrujące ID */}
                           <button
                             type="button"
                             onClick={() => setSelectedEntry(entry)}
-                            className="px-2 py-1 rounded-lg border border-border bg-background hover:bg-accent text-[11px] font-mono font-bold text-foreground transition-all shadow-xs cursor-pointer shrink-0 truncate max-w-[100px]"
+                            className="inline-flex items-center justify-center w-[92px] py-1 rounded-lg border border-border bg-background hover:bg-accent text-[11px] font-mono font-bold text-foreground transition-all shadow-xs cursor-pointer shrink-0 truncate"
                             title={`Podgląd certyfikatu ${certId}`}
                           >
-                            {shortCertId}
+                            <span className="truncate">{shortCertId}</span>
                           </button>
 
-                          {/* Bezpośredni link */}
+                          {/* Bezpośredni link: stały kwadrat 28x28px */}
                           <Link
                             href={`/certyfikat/${encodeURIComponent(certId)}`}
                             className="size-7 rounded-lg border border-border/80 bg-background hover:bg-muted text-xs font-bold text-muted-foreground hover:text-foreground transition-colors shrink-0 flex items-center justify-center"
@@ -794,7 +751,7 @@ export default function PublicLedger({
                           setCustomAuditData(null);
                           setSelectedAuditEntry(entry);
                         }}
-                        className="px-2 py-1 rounded-lg border border-lime-500/40 bg-lime-400/10 text-[10px] font-bold text-lime-800 dark:text-lime-300 cursor-pointer flex items-center gap-1 shrink-0 whitespace-nowrap"
+                        className="w-[64px] justify-center py-1 rounded-lg border border-lime-500/40 bg-lime-400/10 text-[10px] font-bold text-lime-800 dark:text-lime-300 cursor-pointer flex items-center gap-1 shrink-0 whitespace-nowrap"
                       >
                         <FileCheck2 className="size-3" />
                         <span>{language === "pl" ? "Audyt" : "Audit"}</span>
@@ -802,13 +759,13 @@ export default function PublicLedger({
                       <button
                         type="button"
                         onClick={() => setSelectedEntry(entry)}
-                        className="px-2 py-1 rounded-lg border border-border bg-background text-[11px] font-mono font-bold text-foreground cursor-pointer shrink-0 whitespace-nowrap truncate max-w-[90px]"
+                        className="w-[84px] justify-center py-1 rounded-lg border border-border bg-background text-[11px] font-mono font-bold text-foreground cursor-pointer shrink-0 whitespace-nowrap truncate"
                       >
-                        {shortCertId}
+                        <span className="truncate">{shortCertId}</span>
                       </button>
                       <Link
                         href={`/certyfikat/${encodeURIComponent(certId)}`}
-                        className="px-2 py-1 rounded-lg border border-border bg-background text-[11px] font-bold text-muted-foreground shrink-0"
+                        className="size-7 rounded-lg border border-border bg-background text-[11px] font-bold text-muted-foreground flex items-center justify-center shrink-0"
                       >
                         ↗
                       </Link>
@@ -820,7 +777,7 @@ export default function PublicLedger({
           </div>
         )}
 
-        {/* Sekcja doczytywania: Przycisk Pokaż więcej ORAZ Pokaż mniej */}
+        {/* Sekcja paginacji: Pokaż więcej ORAZ Pokaż mniej */}
         {allEntries.length > 0 && (
           <div className="mt-5 sm:mt-6 flex flex-col items-center justify-center gap-2.5">
             <div className="flex flex-wrap items-center justify-center gap-3">
@@ -845,7 +802,6 @@ export default function PublicLedger({
                 </button>
               )}
 
-              {/* Przycisk Zwiń / Pokaż mniej – aktywny, gdy załadowano więcej niż pierwszą stronę 8 rekordów */}
               {allEntries.length > 8 && (
                 <button
                   type="button"
@@ -912,128 +868,182 @@ export default function PublicLedger({
           />
         )}
 
-        {/* Modal podsumowania wkładu powracającego mecenasa (Patron Profile) */}
+        {/* Modal podsumowania wkładu powracającego mecenasa */}
         {selectedPatronSummary && (
-          <div
-            className="fixed inset-0 z-50 bg-neutral-950/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
-            onClick={() => setSelectedPatronSummary(null)}
-          >
-            <div
-              className="bg-card border border-border rounded-3xl max-w-md w-full shadow-2xl p-5 sm:p-6 space-y-4 animate-in zoom-in-95 duration-200"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Nagłówek modala */}
-              <div className="flex items-start justify-between gap-3 border-b border-border/60 pb-3.5">
-                <div className="flex items-center gap-2.5">
-                  <div className="size-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
-                    <Award className="size-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-black text-foreground text-base sm:text-lg leading-tight">
-                      {tPatronCard.title}
-                    </h3>
-                    <p className="text-[11px] text-muted-foreground font-medium">
-                      {tPatronCard.subtitle}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedPatronSummary(null)}
-                  className="size-8 rounded-full border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors cursor-pointer"
-                >
-                  <X className="size-4" />
-                </button>
-              </div>
-
-              {/* Informacje o darczyńcy */}
-              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3.5 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-black text-foreground text-sm sm:text-base">
-                    {selectedPatronSummary.name}
-                  </span>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30">
-                    <Sparkles className="size-3" />
-                    <span>{tPatronCard.verifiedBadge}</span>
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-amber-500/20 text-xs">
-                  <div>
-                    <span className="text-[10px] text-muted-foreground block font-medium">
-                      {tPatronCard.totalDonations}
-                    </span>
-                    <span className="font-mono font-black text-foreground text-base">
-                      {selectedPatronSummary.count}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-muted-foreground block font-medium">
-                      {tPatronCard.totalImpact}
-                    </span>
-                    <span className="font-mono font-black text-emerald-800 dark:text-emerald-300 text-base">
-                      {activePatronTotalAmount > 0
-                        ? `${activePatronTotalAmount.toFixed(0)} PLN`
-                        : `${selectedPatronSummary.count * 600} PLN`}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Lista sfinansowanych celów */}
-              {activePatronEntries.length > 0 && (
-                <div className="space-y-1.5">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block">
-                    {tPatronCard.fundedGoals}
-                  </span>
-                  <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
-                    {activePatronEntries.map((e, i) => (
-                      <div
-                        key={i}
-                        className="p-2 rounded-xl border border-border/70 bg-muted/30 text-xs flex items-center justify-between gap-2"
-                      >
-                        <div className="truncate flex-1 min-w-0">
-                          <span className="truncate block font-medium text-foreground">
-                            {e[1]}
-                          </span>
-                          <span className="text-[10px] font-mono text-muted-foreground">
-                            {e[3]}
-                          </span>
-                        </div>
-                        <span className="font-bold font-mono text-emerald-800 dark:text-emerald-300 shrink-0">
-                          {e[2]}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Akcje modala */}
-              <div className="pt-2 flex flex-col sm:flex-row items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery(selectedPatronSummary.name);
-                    setSelectedPatronSummary(null);
-                  }}
-                  className="w-full sm:flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-lime-400 hover:bg-lime-500 text-neutral-950 text-xs font-black transition-all cursor-pointer shadow-xs"
-                >
-                  <Filter className="size-3.5" />
-                  <span>{tPatronCard.filterByPatron}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedPatronSummary(null)}
-                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-border hover:bg-muted text-xs font-bold text-foreground transition-all cursor-pointer"
-                >
-                  {tPatronCard.close}
-                </button>
-              </div>
-            </div>
-          </div>
+          <PatronSummaryModal
+            summary={selectedPatronSummary}
+            language={language}
+            activeEntries={activePatronEntries}
+            totalAmount={activePatronTotalAmount}
+            onFilter={(name) => {
+              setSearchQuery(name);
+              setSelectedPatronSummary(null);
+            }}
+            onClose={() => setSelectedPatronSummary(null)}
+          />
         )}
       </div>
     </section>
+  );
+}
+
+/**
+ * Zrefaktoryzowany wewnętrzny subkomponent modalnej karty stałego mecenasa
+ */
+function PatronSummaryModal({
+  summary,
+  language,
+  activeEntries,
+  totalAmount,
+  onFilter,
+  onClose,
+}: {
+  summary: { name: string; count: number };
+  language: Language;
+  activeEntries: LedgerEntry[];
+  totalAmount: number;
+  onFilter: (patronName: string) => void;
+  onClose: () => void;
+}) {
+  const t = {
+    title:
+      language === "pl" ? "Karta Mecenasa Klubu" : "Club Patron Impact Profile",
+    subtitle:
+      language === "pl"
+        ? "Profil stałego darczyńcy UKS Roszada Radom"
+        : "Recurring donor profile of UKS Roszada Radom",
+    verifiedBadge:
+      language === "pl" ? "Zweryfikowany Mecenas" : "Verified Patron",
+    totalDonations:
+      language === "pl"
+        ? "Liczba zrealizowanych alokacji"
+        : "Completed Allocations",
+    totalImpact:
+      language === "pl"
+        ? "Zidentyfikowany wkład finansowy"
+        : "Identified Support Total",
+    fundedGoals:
+      language === "pl"
+        ? "Sfinansowane cele w rejestrze:"
+        : "Funded club objectives:",
+    filterByPatron:
+      language === "pl"
+        ? "Filtruj wpisy tego mecenasa w tabeli"
+        : "Filter this patron entries in ledger",
+    close: language === "pl" ? "Zamknij" : "Close",
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-neutral-950/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="bg-card border border-border rounded-3xl max-w-md w-full shadow-2xl p-5 sm:p-6 space-y-4 animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-border/60 pb-3.5">
+          <div className="flex items-center gap-2.5">
+            <div className="size-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
+              <Award className="size-5" />
+            </div>
+            <div>
+              <h3 className="font-black text-foreground text-base sm:text-lg leading-tight">
+                {t.title}
+              </h3>
+              <p className="text-[11px] text-muted-foreground font-medium">
+                {t.subtitle}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="size-8 rounded-full border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors cursor-pointer"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3.5 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-black text-foreground text-sm sm:text-base">
+              {summary.name}
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+              <Sparkles className="size-3" />
+              <span>{t.verifiedBadge}</span>
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-amber-500/20 text-xs">
+            <div>
+              <span className="text-[10px] text-muted-foreground block font-medium">
+                {t.totalDonations}
+              </span>
+              <span className="font-mono font-black text-foreground text-base">
+                {summary.count}
+              </span>
+            </div>
+            <div>
+              <span className="text-[10px] text-muted-foreground block font-medium">
+                {t.totalImpact}
+              </span>
+              <span className="font-mono font-black text-emerald-800 dark:text-emerald-300 text-base">
+                {totalAmount > 0
+                  ? `${totalAmount.toFixed(0)} PLN`
+                  : `${summary.count * 600} PLN`}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {activeEntries.length > 0 && (
+          <div className="space-y-1.5">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground block">
+              {t.fundedGoals}
+            </span>
+            <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+              {activeEntries.map((e, i) => (
+                <div
+                  key={i}
+                  className="p-2 rounded-xl border border-border/70 bg-muted/30 text-xs flex items-center justify-between gap-2"
+                >
+                  <div className="truncate flex-1 min-w-0">
+                    <span className="truncate block font-medium text-foreground">
+                      {e[1]}
+                    </span>
+                    <span className="text-[10px] font-mono text-muted-foreground">
+                      {e[3]}
+                    </span>
+                  </div>
+                  <span className="font-bold font-mono text-emerald-800 dark:text-emerald-300 shrink-0">
+                    {e[2]}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="pt-2 flex flex-col sm:flex-row items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onFilter(summary.name)}
+            className="w-full sm:flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-lime-400 hover:bg-lime-500 text-neutral-950 text-xs font-black transition-all cursor-pointer shadow-xs"
+          >
+            <Filter className="size-3.5" />
+            <span>{t.filterByPatron}</span>
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-border hover:bg-muted text-xs font-bold text-foreground transition-all cursor-pointer"
+          >
+            {t.close}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
