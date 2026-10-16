@@ -121,12 +121,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pl" suppressHydrationWarning>
+    <html
+      lang="pl"
+      className="dark"
+      style={{ colorScheme: "dark", backgroundColor: "#0c0c0c" }}
+      suppressHydrationWarning
+    >
       <head>
-        {/* Preconnect do Google Tag Managera - przyspiesza nawiązanie połączenia TLS */}
-        <link rel="preconnect" href="https://www.googletagmanager.com" />
-        <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
-
         {/* 1. Domyślny stan zgody Google Consent Mode v2 (błyskawiczny, inline) */}
         <script
           dangerouslySetInnerHTML={{
@@ -155,9 +156,11 @@ export default function RootLayout({
                   if (isDark) {
                     document.documentElement.classList.add('dark');
                     document.documentElement.classList.remove('light');
+                    document.documentElement.style.backgroundColor = '#0c0c0c';
                   } else {
                     document.documentElement.classList.remove('dark');
                     document.documentElement.classList.add('light');
+                    document.documentElement.style.backgroundColor = '#f8fafc';
                   }
                 } catch (e) {}
               })();
@@ -173,7 +176,10 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="antialiased">
+      <body
+        className="antialiased bg-background text-foreground"
+        style={{ backgroundColor: "#0c0c0c" }}
+      >
         {/* Google Tag Manager (noscript) */}
         <noscript>
           <iframe
@@ -188,7 +194,7 @@ export default function RootLayout({
         <ScrollToTop />
         {process.env.NODE_ENV === "production" && <Analytics />}
 
-        {/* Ładowanie GTM jako lazyOnload – eliminuje Total Blocking Time i nie konkuruje z procesorem! */}
+        {/* Ładowanie GTM jako lazyOnload – eliminuje Total Blocking Time i nie rywalizuje o CPU */}
         <Script
           id="google-tag-manager"
           strategy="lazyOnload"
