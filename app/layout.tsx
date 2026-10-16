@@ -1,10 +1,8 @@
-// app/layout.tsx
 import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
 import ScrollToTop from "@/components/ScrollToTop";
 import "./globals.css";
 
-// Dynamiczne ustalanie adresu URL (Vercel, zmienna środowiskowa lub domena własna)
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ||
   (process.env.VERCEL_PROJECT_PRODUCTION_URL
@@ -13,12 +11,9 @@ const siteUrl =
       ? `https://${process.env.VERCEL_URL}`
       : "https://patronat.vercel.app");
 
-// Title tag mający DOKŁADNIE 50 ZNAKÓW (ze spacjami)
-const siteTitle = "PatronAI — Transparent AI Sponsorship using PayPal";
-
-// Meta description mający DOKŁADNIE 150 ZNAKÓW (ze spacjami)
+const siteTitle = "PatronAI: Mecenat Klubu UKS Roszada Radom z PayPal";
 const siteDescription =
-  "Platforma mecenatu sportu UKS Roszada Radom. Wybierz cel, wesprzyj klub szachowy przez PayPal i otrzymaj oficjalny, weryfikowalny certyfikat mecenasa.";
+  "Platforma mecenatu sportu UKS Roszada Radom. Wybierz cel, wesprzyj klub szachowy przez PayPal i odbierz oficjalny, weryfikowalny certyfikat mecenasa.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -27,35 +22,19 @@ export const metadata: Metadata = {
   generator: "PatronAI",
   applicationName: "PatronAI",
   authors: [{ name: "UKS Roszada Radom" }],
-  alternates: {
-    canonical: siteUrl,
-  },
   keywords: [
     "PatronAI",
     "UKS Roszada Radom",
-    "PayPal sponsor",
-    "audyt",
-    "potwierdzono",
-    "mecenas",
-    "puchary",
-    "mistrzostwa",
     "mecenat szachowy",
+    "sponsor klubu",
+    "szachy Radom",
+    "mikrodarowizny",
+    "PayPal sponsor",
     "certyfikat mecenasa",
-    "transparent sponsorship",
   ],
   manifest: "/site.webmanifest",
   icons: {
     icon: [
-      {
-        url: "/web-app-manifest-192x192.png",
-        sizes: "192x192",
-        type: "image/png",
-      },
-      {
-        url: "/web-app-manifest-512x512.png",
-        sizes: "512x512",
-        type: "image/png",
-      },
       {
         url: "/favicon-96x96.png",
         sizes: "96x96",
@@ -80,14 +59,14 @@ export const metadata: Metadata = {
     description: siteDescription,
     url: siteUrl,
     siteName: "PatronAI",
-    locale: "en_US",
+    locale: "pl_PL",
     type: "website",
     images: [
       {
         url: "/PatronAI.png",
         width: 1200,
         height: 630,
-        alt: "PatronAI - Transparent AI Sponsorship Platform",
+        alt: "PatronAI - UKS Roszada Radom",
       },
     ],
   },
@@ -116,7 +95,7 @@ const jsonLd = {
       name: "UKS Roszada Radom",
       sport: "Szachy / Chess",
       description:
-        "Youth chess club UKS Roszada Radom - coaching champions and organizing tournaments.",
+        "Klub szachowy UKS Roszada Radom - szkolenie dzieci i młodzieży oraz organizacja turniejów.",
       address: {
         "@type": "PostalAddress",
         addressLocality: "Radom",
@@ -130,7 +109,7 @@ const jsonLd = {
       applicationCategory: "FinanceApplication",
       operatingSystem: "All",
       description:
-        "Agentic micro-sponsorship platform connecting youth clubs with patrons via audited goals and verifiable certificates.",
+        "Platforma agentic commerce łącząca kluby młodzieżowe z mecenasami poprzez weryfikowalne cele i certyfikaty.",
     },
   ],
 };
@@ -143,36 +122,37 @@ export default function RootLayout({
   return (
     <html lang="pl" suppressHydrationWarning>
       <head>
-        {/* Google Tag Manager */}
+        {/* 1. Inicjalizacja domyślnego stanu zgody Google Consent Mode v2 PRZED GTM */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','GTM-N28W64VW');`,
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('consent', 'default', {
+                'analytics_storage': 'denied',
+                'ad_storage': 'denied',
+                'ad_user_data': 'denied',
+                'ad_personalization': 'denied',
+                'wait_for_update': 500
+              });
+            `,
           }}
         />
-        {/* End Google Tag Manager */}
 
-        {/* Canonical URL */}
-        <link rel="canonical" href={siteUrl} />
-
-        {/* Ikony dla Android Chrome i PWA */}
-        <link
-          rel="icon"
-          type="image/png"
-          sizes="192x192"
-          href="/web-app-manifest-192x192.png"
-        />
-        <link
-          rel="icon"
-          type="image/png"
-          sizes="512x512"
-          href="/web-app-manifest-512x512.png"
+        {/* 2. Google Tag Manager */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+              new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+              j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+              'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+              })(window,document,'script','dataLayer','GTM-N28W64VW');
+            `,
+          }}
         />
 
-        {/* Błyskawiczny skrypt motywu zapobiegający mignięciu ekranu */}
+        {/* 3. Błyskawiczny skrypt motywu */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -192,7 +172,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             `,
           }}
         />
-        {/* Dane strukturalne Schema.org */}
+
+        {/* 4. Dane strukturalne Schema.org */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -207,9 +188,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             src="https://www.googletagmanager.com/ns.html?id=GTM-N28W64VW"
             height="0"
             width="0"
+            style={{ display: "none", visibility: "hidden" }}
           />
         </noscript>
-        {/* End Google Tag Manager (noscript) */}
 
         {children}
         <ScrollToTop />

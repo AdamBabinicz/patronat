@@ -7,6 +7,7 @@ import type { Messages } from "@/lib/translations";
 declare global {
   interface Window {
     dataLayer?: any[];
+    gtag?: (...args: any[]) => void;
   }
 }
 
@@ -22,21 +23,29 @@ export default function CookieBanner({ messages }: CookieBannerProps) {
 
   const t = messages.cookie;
 
-  // Pomocnicza funkcja wysyłająca zgody do Google Tag Managera (Google Consent Mode v2)
+  // Oficjalna funkcja aktualizująca zgody w Google Consent Mode v2 dla GTM i GA4
   const pushConsentToGtm = (
     analyticsGranted: boolean,
     marketingGranted: boolean,
   ) => {
     if (typeof window !== "undefined") {
       window.dataLayer = window.dataLayer || [];
+      const gtag =
+        window.gtag ||
+        function () {
+          window.dataLayer?.push(arguments);
+        };
+
+      gtag("consent", "update", {
+        analytics_storage: analyticsGranted ? "granted" : "denied",
+        ad_storage: marketingGranted ? "granted" : "denied",
+        ad_user_data: marketingGranted ? "granted" : "denied",
+        ad_personalization: marketingGranted ? "granted" : "denied",
+      });
+
+      // Zdarzenie pomocnicze do ewentualnych reguł wyzwalających w kontenerze GTM
       window.dataLayer.push({
-        event: "consent_update",
-        consent: {
-          analytics_storage: analyticsGranted ? "granted" : "denied",
-          ad_storage: marketingGranted ? "granted" : "denied",
-          ad_user_data: marketingGranted ? "granted" : "denied",
-          ad_personalization: marketingGranted ? "granted" : "denied",
-        },
+        event: "consent_update_custom",
       });
     }
   };
@@ -48,7 +57,6 @@ export default function CookieBanner({ messages }: CookieBannerProps) {
         const consent = JSON.parse(consentRaw);
         setAnalytics(Boolean(consent.analytics));
         setMarketing(Boolean(consent.marketing));
-        // Przekaż zapamiętaną wcześniej zgodę do GTM przy wejściu na stronę
         pushConsentToGtm(
           Boolean(consent.analytics),
           Boolean(consent.marketing),
@@ -60,7 +68,6 @@ export default function CookieBanner({ messages }: CookieBannerProps) {
       setShowCookies(true);
     }
 
-    // Nasłuchuj zdarzenia wywołanego z przycisku w stopce
     const handleOpenSettings = () => {
       setShowSettings(true);
     };
@@ -89,7 +96,6 @@ export default function CookieBanner({ messages }: CookieBannerProps) {
     setShowCookies(false);
     setShowSettings(false);
 
-    // Zdarzenie do GTM po wyborze użytkownika
     pushConsentToGtm(a, m);
   };
 
