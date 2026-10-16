@@ -127,6 +127,7 @@ export const pl = {
     verified: "Potwierdzono ✓",
     auditBtn: "🧾 Audyt AI",
     loadMore: "Pokaż więcej alokacji",
+    showLess: "Pokaż mniej",
     loadingMore: "Ładowanie kolejnych alokacji...",
     allLoaded: "Wyświetlono wszystkie wpisy z rejestru",
     searchPlaceholder: "Szukaj mecenasa, celu lub ID certyfikatu...",
@@ -179,7 +180,7 @@ export const pl = {
     grossTotal: "Kwota brutto faktury",
     allocatedTotal: "Rozliczono z wpłaty mecenasa",
     alignmentStatus: "Zgodność z celem statutowym",
-    alignmentVerified: "Potwierdzono ✓ (Zero defraudacji)",
+    alignmentVerified: "Potwierdzono ✓ (100% Zgodności Celowej)",
     integrityHash: "Kryptograficzny Hash Integralności SHA-256",
     liveUploadPrompt: "Wgraj własną fakturę do audytu na żywo (PDF / JPG)",
     analyzingDocument: "Trwa analiza multimodalna faktury przez Gemini...",
@@ -252,7 +253,7 @@ export const pl = {
     close: "Zamknij",
   },
   legal: {
-    back: "← PatronAI (Strona główna)",
+    back: "PatronAI (Strona główna)",
   },
   privacy: {
     title: "Polityka Prywatności",

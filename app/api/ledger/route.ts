@@ -11,6 +11,7 @@ import crypto from "crypto";
 export const dynamic = "force-dynamic";
 
 const EUR_RATE = 4.3;
+const USD_RATE = 4.0;
 
 // Generowanie skrótu kryptograficznego SHA-256 dla alokacji
 function generateSha256(id: string, goal: string, amount: number): string {
@@ -200,7 +201,7 @@ export async function GET(request: Request) {
       };
     });
 
-    // 8. Rzeczywiste globalne statystyki finansowe z bazy Neon
+    // 8. Rzeczywiste globalne statystyki finansowe z bazy Neon (obsługa PLN, EUR i USD)
     const statsResult = await sql`
       SELECT
         COUNT(*)::int as total_count,
@@ -208,6 +209,7 @@ export async function GET(request: Request) {
           SUM(
             CASE
               WHEN UPPER(currency) = 'EUR' THEN amount * ${EUR_RATE}
+              WHEN UPPER(currency) = 'USD' THEN amount * ${USD_RATE}
               ELSE amount
             END
           ),

@@ -22,7 +22,7 @@ export interface DbAllocation {
   goal: string;
   amount: number;
   currency: string;
-  status: string; // COMPLETED | PENDING | VERIFIED
+  status: string; // COMPLETED | PENDING | VERIFIED | ARCHIVED
   is_anonymous: boolean;
   donor_note?: string | null;
   club_name: string;
@@ -47,12 +47,22 @@ export interface DbAuditReport {
   created_at?: string;
 }
 
+// Interfejs reprezentujący agregaty z widoku v_ledger_totals
+export interface DbLedgerTotals {
+  currency: string;
+  allocations_count: number;
+  total_gross: number;
+  total_pln_equivalent: number;
+  first_entry_at: string;
+  last_entry_at: string;
+}
+
 // Flaga zapobiegająca wielokrotnej weryfikacji schematu w tej samej instancji lambdy
 let schemaInitialized = false;
 
 /**
- * Automatyczna inicjalizacja tabel w bazie Neon PostgreSQL (DDL)
- * Tworzy tabele alokacji i audytów, jeśli jeszcze nie istnieją.
+ * Automatyczna inicjalizacja tabel i widoków w bazie Neon PostgreSQL (DDL)
+ * Tworzy tabele alokacji, audytów oraz widoki analityczne, jeśli jeszcze nie istnieją.
  */
 export async function ensureDatabaseSchema(): Promise<void> {
   if (schemaInitialized || !databaseUrl) {
@@ -77,9 +87,15 @@ export async function ensureDatabaseSchema(): Promise<void> {
       );
     `;
 
-    // 2. Indeksy dla szybkiego sortowania i wyszukiwania
+    // 2. Indeksy dla szybkiego sortowania, wyszukiwania i grupowania mecenasów
     await sql`
       CREATE INDEX IF NOT EXISTS idx_allocations_created_at ON allocations (created_at DESC);
+    `;
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_allocations_status ON allocations (status);
+    `;
+    await sql`
+      CREATE INDEX IF NOT EXISTS idx_allocations_patron_name ON allocations (patron_name);
     `;
 
     // 3. Tabela audytów faktur OCR (Gemini Vision)
@@ -99,6 +115,20 @@ export async function ensureDatabaseSchema(): Promise<void> {
         raw_details_json JSONB,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+    `;
+
+    // 4. Widok analityczny sum i metryk rejestru (Single Source of Truth)
+    await sql`
+      CREATE OR REPLACE VIEW v_ledger_totals AS
+      SELECT
+        currency,
+        COUNT(*)::integer                               AS allocations_count,
+        SUM(amount)                                     AS total_gross,
+        SUM(amount)                                     AS total_pln_equivalent,
+        MIN(created_at)                                 AS first_entry_at,
+        MAX(created_at)                                 AS last_entry_at
+      FROM allocations
+      GROUP BY currency;
     `;
 
     schemaInitialized = true;

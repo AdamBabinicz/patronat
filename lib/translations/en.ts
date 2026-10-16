@@ -126,6 +126,7 @@ export const en = {
     verified: "Verified ✓",
     auditBtn: "🧾 AI Audit",
     loadMore: "Load more allocations",
+    showLess: "Show less",
     loadingMore: "Loading more allocations...",
     allLoaded: "All ledger records loaded",
     searchPlaceholder: "Search patron, purpose, or certificate ID...",
@@ -163,7 +164,7 @@ export const en = {
     grossTotal: "Invoice Gross Total",
     allocatedTotal: "Settled from patron pledge",
     alignmentStatus: "Statutory Purpose Alignment",
-    alignmentVerified: "Status: 100% Purpose Match (Zero Fraud)",
+    alignmentVerified: "Verified ✓ (100% Purpose Aligned)",
     integrityHash: "Cryptographic SHA-256 Integrity Hash",
     liveUploadPrompt: "Live Test for Judges: Upload your invoice (JPG/PNG)",
     analyzingDocument:
@@ -234,7 +235,7 @@ export const en = {
     close: "Close",
   },
   legal: {
-    back: "← PatronAI (Home)",
+    back: "PatronAI (Home)",
   },
   privacy: {
     title: "Privacy Policy",
