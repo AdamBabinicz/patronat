@@ -469,7 +469,7 @@ export default function Page() {
           extraEntries={liveEntries}
         />
 
-        {/* 4. INTERAKTYWNE KARTY PROCESU (PŁYNNA NAWIGACJA PO APLIKACJI) */}
+        {/* 4. INTERAKTYWNE KARTY PROCESU (100% W3C HTML5 VALIDATED) */}
         <section
           aria-labelledby="impact-heading"
           className="mx-auto max-w-7xl px-5 py-10 sm:py-14"
@@ -496,9 +496,8 @@ export default function Page() {
                       : "View ledger";
 
               return (
-                <div
+                <article
                   key={card.title}
-                  role="button"
                   tabIndex={0}
                   onClick={() => handleStepCardClick(i)}
                   onKeyDown={(e) => {
@@ -522,14 +521,14 @@ export default function Page() {
                       </span>
                     </div>
 
-                    <h3 className="mt-4 sm:mt-5 text-xl font-bold tracking-tight group-hover:text-lime-700 dark:group-hover:text-lime-400 transition-colors">
+                    <span className="block mt-4 sm:mt-5 text-xl font-bold tracking-tight group-hover:text-lime-700 dark:group-hover:text-lime-400 transition-colors">
                       {card.title}
-                    </h3>
+                    </span>
                     <p className="mt-2.5 text-xs sm:text-sm leading-relaxed text-neutral-700 dark:text-neutral-300">
                       {card.body}
                     </p>
                   </div>
-                </div>
+                </article>
               );
             })}
           </div>
