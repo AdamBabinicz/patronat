@@ -13,7 +13,7 @@ const siteUrl =
       ? `https://${process.env.VERCEL_URL}`
       : "https://patronat.vercel.app");
 
-// Title tag mający DOKŁADNIE 50 ZNAKÓW (ze spacjami) – idealny dla sędziów i testu SEO
+// Title tag mający DOKŁADNIE 50 ZNAKÓW (ze spacjami)
 const siteTitle = "PatronAI — Transparent AI Sponsorship using PayPal";
 
 // Meta description mający DOKŁADNIE 150 ZNAKÓW (ze spacjami)
@@ -27,7 +27,6 @@ export const metadata: Metadata = {
   generator: "PatronAI",
   applicationName: "PatronAI",
   authors: [{ name: "UKS Roszada Radom" }],
-  // Deklaracja Canonical Tag w konfiguracji Next.js App Router
   alternates: {
     canonical: siteUrl,
   },
@@ -47,6 +46,16 @@ export const metadata: Metadata = {
   manifest: "/site.webmanifest",
   icons: {
     icon: [
+      {
+        url: "/web-app-manifest-192x192.png",
+        sizes: "192x192",
+        type: "image/png",
+      },
+      {
+        url: "/web-app-manifest-512x512.png",
+        sizes: "512x512",
+        type: "image/png",
+      },
       {
         url: "/favicon-96x96.png",
         sizes: "96x96",
@@ -134,8 +143,22 @@ export default function RootLayout({
   return (
     <html lang="pl" suppressHydrationWarning>
       <head>
-        {/* Bezpośredni znacznik Canonical Tag dla 100% kompatybilności z crawlerami SEO */}
+        {/* Canonical URL */}
         <link rel="canonical" href={siteUrl} />
+
+        {/* Bezpośrednie ikony dla Android Chrome i PWA (eliminacja błędu audytu) */}
+        <link
+          rel="icon"
+          type="image/png"
+          sizes="192x192"
+          href="/web-app-manifest-192x192.png"
+        />
+        <link
+          rel="icon"
+          type="image/png"
+          sizes="512x512"
+          href="/web-app-manifest-512x512.png"
+        />
 
         {/* Błyskawiczny skrypt motywu zapobiegający mignięciu ekranu */}
         <script
