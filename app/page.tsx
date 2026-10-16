@@ -259,9 +259,10 @@ export default function Page() {
 
   return (
     <>
-      <main className="min-h-screen bg-slate-50 text-neutral-900 transition-colors duration-200 dark:bg-neutral-950 dark:text-neutral-100">
+      {/* Usunięto transition-colors duration-200 z root main - likwidacja uncomposed animation blokującej Speed Index */}
+      <main className="min-h-screen bg-slate-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
         {/* HEADER / NAWIGACJA */}
-        <header className="fixed top-0 left-0 right-0 z-40 border-b border-neutral-200/80 bg-slate-50/90 backdrop-blur-md dark:border-neutral-800/80 dark:bg-neutral-950/90 transition-colors">
+        <header className="fixed top-0 left-0 right-0 z-40 border-b border-neutral-200/80 bg-slate-50/90 backdrop-blur-md dark:border-neutral-800/80 dark:bg-neutral-950/90">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3.5 sm:py-4">
             <a href="#top" className="flex items-center gap-3 font-semibold">
               <span className="grid size-9 place-items-center rounded-xl bg-lime-400 text-neutral-950 shadow-sm">
@@ -355,7 +356,7 @@ export default function Page() {
               {t.stats.raised}
             </p>
 
-            <p className="mt-2.5 sm:mt-3 text-4xl sm:text-5xl font-black tracking-tight text-neutral-900 dark:text-white transition-all flex items-baseline gap-2">
+            <p className="mt-2.5 sm:mt-3 text-4xl sm:text-5xl font-black tracking-tight text-neutral-900 dark:text-white flex items-baseline gap-2">
               {isEurMode ? (
                 <>
                   <span className="text-lg font-medium text-neutral-600 dark:text-neutral-400">
