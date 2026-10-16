@@ -2,6 +2,7 @@
 // Zatwierdzenie płatności w PayPal REST API v2 oraz automatyczny, trwały zapis alokacji w bazie Neon PostgreSQL.
 
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { capturePayPalOrder } from "@/lib/paypal";
 import { sql, ensureDatabaseSchema } from "@/lib/db";
 import type { Language } from "@/lib/translations";
@@ -157,6 +158,9 @@ export async function POST(request: Request) {
         )
         ON CONFLICT DO NOTHING;
       `;
+
+      // Wymuszenie odświeżenia danych na stronie głównej w Next.js
+      revalidatePath("/");
     } catch (dbError) {
       // Logujemy błąd bazy, ale nie blokujemy sukcesu płatności PayPal dla klienta
       console.error("Błąd zapisu do Neon PostgreSQL podczas capture:", dbError);

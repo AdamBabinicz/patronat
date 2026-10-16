@@ -2,7 +2,7 @@
 "use client";
 
 // Dwujęzyczny (PL / EN) komponent integrujący PayPal JS SDK.
-// Poprawiona hierarchia: zawsze preferuje backend REST API z cancel_url dla urządzeń mobilnych.
+// Poprawiona hierarchia: zawsze preferuje backend REST API z natywnym przechwyceniem onApprove.
 import React, { useEffect, useRef, useState } from "react";
 
 export type Language = "pl" | "en";
@@ -218,14 +218,8 @@ export default function PayPalButton({
             const currentDonor =
               current.donorName || current.patronName || t.anonymous;
             const currentNote = current.donorNote || current.note || "";
-            const currentOrigin =
-              typeof window !== "undefined"
-                ? window.location.origin + window.location.pathname
-                : "";
 
             // 1. ZALECANY TRYB REST API BACKEND
-            // Tworzy zamówienie przez serwer z application_context (cancel_url i brand_name),
-            // dzięki czemu na ekranie PayPala w telefonie pojawia się link rezygnacji "Anuluj i wróć".
             if (!isTestMode) {
               const response = await fetch("/api/paypal/create-order", {
                 method: "POST",
@@ -239,8 +233,6 @@ export default function PayPalButton({
                   donorNote: currentNote,
                   clubName: current.clubName,
                   locale: current.locale || "pl",
-                  returnUrl: `${currentOrigin}?success=true`,
-                  cancelUrl: `${currentOrigin}?canceled=true`,
                 }),
               });
 
@@ -273,14 +265,22 @@ export default function PayPalButton({
             try {
               let details: any;
 
-              // W trybie produkcyjnym/sandboxowym zatwierdzamy przez backend
+              // W trybie produkcyjnym/sandboxowym zatwierdzamy przez backend z przekazaniem danych alokacji
               if (!isTestMode) {
+                const current = propsRef.current;
                 const response = await fetch("/api/paypal/capture-order", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
                     orderId: data.orderID,
-                    locale: propsRef.current.locale || "pl",
+                    amount: current.amount,
+                    currency: current.currency,
+                    goal: current.goal || current.description,
+                    patronName: current.patronName || current.donorName,
+                    donorName: current.donorName || current.patronName,
+                    donorNote: current.donorNote || current.note,
+                    clubName: current.clubName,
+                    locale: current.locale || "pl",
                   }),
                 });
 

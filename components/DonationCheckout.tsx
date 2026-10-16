@@ -10,6 +10,11 @@ import type { Currency, DonationCheckoutProps } from "./checkout/types";
 import { PRESET_AMOUNTS } from "./checkout/types";
 import { getTranslations, type Language } from "@/lib/translations";
 
+export interface ExtendedDonationCheckoutProps extends DonationCheckoutProps {
+  initialDonorName?: string;
+  donorWebsite?: string;
+}
+
 export default function DonationCheckout({
   initialLocale = "pl",
   initialAmount = 100,
@@ -19,14 +24,42 @@ export default function DonationCheckout({
   clubName = "UKS Roszada Radom",
   messages,
   onSuccessCallback,
-}: DonationCheckoutProps) {
+  initialDonorName,
+  donorWebsite,
+}: ExtendedDonationCheckoutProps) {
   const [locale, setLocale] = useState<Language>(initialLocale);
   const [currency, setCurrency] = useState<Currency>(initialCurrency);
   const [amount, setAmount] = useState<number>(initialAmount);
   const [customAmount, setCustomAmount] = useState<string>("");
   const [isCustom, setIsCustom] = useState<boolean>(false);
   const [goal, setGoal] = useState<string>(initialGoal || "");
-  const [donorName, setDonorName] = useState<string>("");
+
+  // Funkcja pomocnicza do ekstrakcji nazwy firmy z opisu alokacji lub linku
+  const extractFallbackName = (): string => {
+    if (initialDonorName && initialDonorName.trim().length > 0) {
+      return initialDonorName.trim();
+    }
+    if (donorWebsite && donorWebsite.trim().length > 0) {
+      return donorWebsite
+        .replace(/^https?:\/\//i, "")
+        .replace(/^www\./i, "")
+        .replace(/\/$/, "");
+    }
+    if (allocationDescription) {
+      const urlMatch = allocationDescription.match(
+        /(https?:\/\/[^\s)]+|www\.[^\s)]+|[a-zA-Z0-9-]+\.(?:pl|com|eu|org|net|j\.pl)[^\s)]*)/i,
+      );
+      if (urlMatch) {
+        return urlMatch[0]
+          .replace(/^https?:\/\//i, "")
+          .replace(/^www\./i, "")
+          .replace(/\/$/, "");
+      }
+    }
+    return "";
+  };
+
+  const [donorName, setDonorName] = useState<string>(extractFallbackName());
   const [isAnonymous, setIsAnonymous] = useState<boolean>(false);
   const [message, setMessage] = useState<string>("");
   const [paymentSuccess, setPaymentSuccess] = useState<any | null>(null);
@@ -50,12 +83,24 @@ export default function DonationCheckout({
     }
   }, [initialLocale]);
 
-  // Synchronizacja przy wyborze nowego celu z PatronAgenta
+  // Synchronizacja przy wyborze nowego celu lub mecenasa z PatronAgenta
   useEffect(() => {
     if (initialAmount) setAmount(initialAmount);
     if (initialGoal) setGoal(initialGoal);
     if (initialCurrency) setCurrency(initialCurrency);
-  }, [initialAmount, initialGoal, initialCurrency]);
+
+    const resolvedName = extractFallbackName();
+    if (resolvedName && (!donorName || donorName.trim().length === 0)) {
+      setDonorName(resolvedName);
+    }
+  }, [
+    initialAmount,
+    initialGoal,
+    initialCurrency,
+    initialDonorName,
+    donorWebsite,
+    allocationDescription,
+  ]);
 
   // Wykrywanie powrotu z zewnętrznej karty PayPala na telefonie
   useEffect(() => {
@@ -356,10 +401,14 @@ export default function DonationCheckout({
             locale={locale}
             goal={currentGoal}
             patronName={
-              isAnonymous ? t.defaultAnonymous : donorName || t.defaultAnonymous
+              isAnonymous
+                ? t.defaultAnonymous
+                : donorName.trim() || t.defaultAnonymous
             }
             donorName={
-              isAnonymous ? t.defaultAnonymous : donorName || t.defaultAnonymous
+              isAnonymous
+                ? t.defaultAnonymous
+                : donorName.trim() || t.defaultAnonymous
             }
             clubName={clubName}
             donorNote={message || undefined}

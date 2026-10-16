@@ -118,7 +118,7 @@ export async function getPayPalAccessToken(): Promise<string> {
 }
 
 /**
- * Tworzy zamówienie płatności (Order) w standardzie PayPal v2 z obsługą idempotencji i wyjścia mobilnego
+ * Tworzy zamówienie płatności (Order) w standardzie PayPal v2 z obsługą idempotencji i integracją z SDK
  */
 export async function createPayPalOrder(
   params: CreateOrderParams,
@@ -132,11 +132,8 @@ export async function createPayPalOrder(
   );
   const cleanClub = (params.clubName || "").slice(0, 127);
 
-  const fallbackOrigin =
-    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const cancelUrl = params.cancelUrl || `${fallbackOrigin}?canceled=true`;
-  const returnUrl = params.returnUrl || `${fallbackOrigin}?success=true`;
-  const paypalLocale = params.locale === "en" ? "en_US" : "pl_PL";
+  // Zgodność ze standardem BCP-47 wymaganym przez PayPal Orders v2
+  const paypalLocale = params.locale === "en" ? "en-US" : "pl-PL";
 
   const descriptionParts = [cleanClub, cleanGoal].filter(Boolean).join(" - ");
   const orderDescription = (
@@ -176,8 +173,6 @@ export async function createPayPalOrder(
         landing_page: "NO_PREFERENCE",
         shipping_preference: "NO_SHIPPING",
         user_action: "PAY_NOW",
-        return_url: returnUrl,
-        cancel_url: cancelUrl,
       },
     }),
     cache: "no-store",
