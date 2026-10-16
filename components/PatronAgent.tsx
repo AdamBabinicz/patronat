@@ -451,7 +451,7 @@ export default function PatronAgent({
         name:
           language === "pl" ? "Złoty Mecenas Rzeczowy" : "Gold In-Kind Patron",
         color:
-          "text-amber-800 dark:text-amber-300 bg-amber-500/15 border-amber-500/30",
+          "text-amber-900 dark:text-amber-200 bg-amber-500/20 border-amber-500/40 font-black",
       };
     }
     if (plnEquiv >= 500) {
@@ -461,7 +461,7 @@ export default function PatronAgent({
             ? "Srebrny Mecenas Rzeczowy"
             : "Silver In-Kind Patron",
         color:
-          "text-slate-800 dark:text-slate-300 bg-slate-500/15 border-slate-500/30",
+          "text-slate-900 dark:text-slate-100 bg-slate-500/20 border-slate-500/40 font-black",
       };
     }
     return {
@@ -470,7 +470,7 @@ export default function PatronAgent({
           ? "Brązowy Mecenas Rzeczowy"
           : "Bronze In-Kind Patron",
       color:
-        "text-amber-900 dark:text-amber-400 bg-amber-700/15 border-amber-700/30",
+        "text-amber-950 dark:text-amber-100 bg-amber-700/20 border-amber-700/40 font-black",
     };
   };
 
@@ -492,14 +492,14 @@ export default function PatronAgent({
     <section id="agent-section" className="relative py-7 sm:py-11">
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
         <div className="text-center max-w-2xl mx-auto mb-5 sm:mb-7">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest bg-emerald-700/10 text-emerald-800 dark:text-emerald-300 border border-emerald-700/30 mb-2.5">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-widest bg-emerald-700/15 text-emerald-900 dark:text-emerald-200 border border-emerald-700/35 mb-2.5">
             <span>⚡</span>
             <span>{tAgent.eyebrow}</span>
           </div>
           <h2 className="text-2xl sm:text-4xl font-black tracking-tight text-foreground">
             {tAgent.title}
           </h2>
-          <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+          <p className="mt-2 text-xs sm:text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed font-medium">
             {tAgent.body}
           </p>
         </div>
@@ -530,7 +530,7 @@ export default function PatronAgent({
                         ? "Wpisz intencję, budżet lub wklej stronę firmy..."
                         : "Enter intention, budget or paste website..."
                 }
-                className={`w-full px-4 py-2.5 sm:py-3 pr-12 text-sm sm:text-base rounded-2xl border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-700 transition-all ${
+                className={`w-full px-4 py-2.5 sm:py-3 pr-12 text-sm sm:text-base rounded-2xl border bg-background text-foreground placeholder:text-neutral-700 dark:placeholder:text-neutral-300 focus:outline-none focus:ring-2 focus:ring-emerald-700 transition-all font-medium ${
                   isListening
                     ? "border-red-500 ring-2 ring-red-500/30"
                     : "border-border"
@@ -547,7 +547,7 @@ export default function PatronAgent({
                 className={`absolute right-3 top-1/2 -translate-y-1/2 size-8 rounded-xl flex items-center justify-center text-sm transition-all cursor-pointer ${
                   isListening
                     ? "bg-red-500 text-white animate-pulse"
-                    : "bg-muted hover:bg-accent text-muted-foreground hover:text-foreground"
+                    : "bg-muted hover:bg-accent text-neutral-700 dark:text-neutral-300 hover:text-foreground"
                 }`}
               >
                 🎙️
@@ -575,7 +575,7 @@ export default function PatronAgent({
 
           {/* Sugerowane przykłady intencji + rotujący mecenas z bazy Neon */}
           <div className="mt-3.5 sm:mt-4 flex flex-wrap items-center gap-1.5 sm:gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mr-1">
+            <span className="text-[11px] font-black uppercase tracking-wider text-neutral-800 dark:text-neutral-200 mr-1">
               {language === "pl" ? "Przykłady:" : "Examples:"}
             </span>
             {tAgent.examples.map((example, idx) => (
@@ -583,7 +583,7 @@ export default function PatronAgent({
                 key={idx}
                 type="button"
                 onClick={() => handleExampleClick(example)}
-                className="px-2.5 sm:px-3 py-1 rounded-xl text-xs font-medium border border-border/80 bg-background hover:bg-accent hover:text-foreground text-muted-foreground transition-colors cursor-pointer"
+                className="px-2.5 sm:px-3 py-1 rounded-xl text-xs font-semibold border border-border bg-background hover:bg-accent text-neutral-800 hover:text-foreground dark:text-neutral-200 dark:hover:text-white transition-colors cursor-pointer"
               >
                 {example}
               </button>
@@ -604,7 +604,7 @@ export default function PatronAgent({
                     ? "Kliknij, aby przetestować dopasowanie dla tego darczyńcy z bazy"
                     : "Click to simulate matching for this patron from database"
                 }
-                className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-xl text-xs font-bold border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 transition-all duration-300 cursor-pointer ${
+                className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-xl text-xs font-bold border border-emerald-600/40 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-950 dark:text-emerald-100 transition-all duration-300 cursor-pointer ${
                   isSponsorFading
                     ? "opacity-0 scale-95"
                     : "opacity-100 scale-100"
@@ -630,10 +630,10 @@ export default function PatronAgent({
 
           {isAnalyzing && (
             <div className="mt-5 p-3.5 sm:p-4 rounded-2xl bg-muted/60 border border-border text-center space-y-1 animate-pulse">
-              <div className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
+              <div className="text-xs font-black text-emerald-900 dark:text-emerald-200">
                 {tAi.matchingGoal}
               </div>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
                 {tAgent.clubName} • {tAi.confidenceScore}...
               </p>
             </div>
@@ -643,12 +643,12 @@ export default function PatronAgent({
             <div className="mt-5 rounded-2xl border-2 border-amber-500/40 bg-gradient-to-b from-amber-500/5 via-card to-card p-4 sm:p-6 shadow-md transition-all">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3.5 border-b border-border/70">
                 <div className="flex items-center justify-between sm:justify-start gap-2">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-500/40 shrink-0">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-950 dark:text-amber-100 border border-amber-500/40 shrink-0">
                     <span>✓</span>
                     <span>{tAi.verifiedNeed}</span>
                   </div>
 
-                  <div className="sm:hidden text-xs font-bold text-muted-foreground">
+                  <div className="sm:hidden text-xs font-bold text-neutral-700 dark:text-neutral-300">
                     {tAi.confidenceScore}:{" "}
                     <span className="text-emerald-800 dark:text-emerald-400 font-black">
                       {matchedGoal.confidence}%
@@ -664,7 +664,7 @@ export default function PatronAgent({
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap transition-all cursor-pointer text-xs ${
                         matchedGoal.sponsorshipType !== "in_kind"
                           ? "bg-emerald-600 text-white shadow-xs font-black"
-                          : "text-muted-foreground hover:text-foreground"
+                          : "text-neutral-700 hover:text-foreground dark:text-neutral-300 font-semibold"
                       }`}
                     >
                       <span className="text-sm leading-none">💰</span>
@@ -678,7 +678,7 @@ export default function PatronAgent({
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap transition-all cursor-pointer text-xs ${
                         matchedGoal.sponsorshipType === "in_kind"
                           ? "bg-purple-600 text-white shadow-xs font-black"
-                          : "text-muted-foreground hover:text-foreground"
+                          : "text-neutral-700 hover:text-foreground dark:text-neutral-300 font-semibold"
                       }`}
                     >
                       <span className="text-sm leading-none">🎁</span>
@@ -690,7 +690,7 @@ export default function PatronAgent({
                     </button>
                   </div>
 
-                  <div className="hidden sm:block text-xs font-bold text-muted-foreground shrink-0">
+                  <div className="hidden sm:block text-xs font-bold text-neutral-700 dark:text-neutral-300 shrink-0">
                     {tAi.confidenceScore}:{" "}
                     <span className="text-emerald-800 dark:text-emerald-400 font-black">
                       {matchedGoal.confidence}%
@@ -700,7 +700,7 @@ export default function PatronAgent({
               </div>
 
               <div className="mt-3.5 space-y-3">
-                <div className="text-xs uppercase font-bold tracking-wider text-muted-foreground">
+                <div className="text-xs uppercase font-black tracking-wider text-neutral-800 dark:text-neutral-200">
                   {tAgent.matched}
                 </div>
 
@@ -711,13 +711,13 @@ export default function PatronAgent({
                   {language === "en" &&
                     localizedMatched.wasTranslated &&
                     localizedMatched.originalPl && (
-                      <p className="text-xs text-muted-foreground italic mt-0.5">
+                      <p className="text-xs text-neutral-700 dark:text-neutral-300 italic mt-0.5 font-medium">
                         (PL: {localizedMatched.originalPl})
                       </p>
                     )}
                 </div>
 
-                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                <p className="text-xs sm:text-sm text-neutral-800 dark:text-neutral-200 leading-relaxed font-medium">
                   {matchedGoal.description}
                 </p>
 
@@ -726,7 +726,7 @@ export default function PatronAgent({
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <Handshake className="size-4 text-purple-600 dark:text-purple-400" />
-                        <span className="text-xs font-black uppercase tracking-wider text-purple-900 dark:text-purple-200">
+                        <span className="text-xs font-black uppercase tracking-wider text-purple-950 dark:text-purple-100">
                           {language === "pl"
                             ? "AI Barter Valuator • Wycena rynkowa"
                             : "AI Barter Valuator • Market Equivalence"}
@@ -739,33 +739,33 @@ export default function PatronAgent({
                       </span>
                     </div>
 
-                    <p className="text-xs text-purple-950 dark:text-purple-200 leading-relaxed">
+                    <p className="text-xs text-purple-950 dark:text-purple-100 leading-relaxed font-medium">
                       {matchedGoal.inKindDetails ||
                         (language === "pl"
                           ? "Świadczenie usługowe lub dostarczenie sprzętu dla klubu."
                           : "Direct services or physical equipment delivery.")}
                     </p>
 
-                    <div className="pt-2 border-t border-purple-500/20 text-[11px] text-muted-foreground space-y-1">
+                    <div className="pt-2 border-t border-purple-500/20 text-[11px] text-neutral-700 dark:text-neutral-300 space-y-1">
                       <div className="font-bold text-foreground">
                         {language === "pl"
                           ? "Gwarantowane świadczenia promocyjne klubu:"
                           : "Guaranteed club promotion deliverables:"}
                       </div>
                       <div className="flex flex-wrap gap-2 text-[10px]">
-                        <span className="px-2 py-0.5 rounded-md bg-background border border-border">
+                        <span className="px-2 py-0.5 rounded-md bg-background border border-border font-semibold text-neutral-800 dark:text-neutral-200">
                           ✓{" "}
                           {language === "pl"
                             ? "Ekspozycja banera / logo"
                             : "Banner & Logo exposure"}
                         </span>
-                        <span className="px-2 py-0.5 rounded-md bg-background border border-border">
+                        <span className="px-2 py-0.5 rounded-md bg-background border border-border font-semibold text-neutral-800 dark:text-neutral-200">
                           ✓{" "}
                           {language === "pl"
                             ? "Post w mediach społecznościowych"
                             : "Social media feature"}
                         </span>
-                        <span className="px-2 py-0.5 rounded-md bg-background border border-border">
+                        <span className="px-2 py-0.5 rounded-md bg-background border border-border font-semibold text-neutral-800 dark:text-neutral-200">
                           ✓{" "}
                           {language === "pl"
                             ? "Certyfikat w Publicznym Rejestrze"
@@ -792,7 +792,7 @@ export default function PatronAgent({
                 )}
 
                 {matchedGoal.reasoning && (
-                  <p className="text-[11px] text-muted-foreground/90 italic bg-muted/40 p-2.5 rounded-xl border border-border/40">
+                  <p className="text-[11px] text-neutral-800 dark:text-neutral-200 italic bg-muted/50 p-2.5 rounded-xl border border-border/50 font-medium">
                     💡 {matchedGoal.reasoning}
                   </p>
                 )}
@@ -800,7 +800,7 @@ export default function PatronAgent({
                 {matchedGoal.impactForecast && (
                   <div className="p-3 sm:p-3.5 rounded-2xl bg-emerald-500/10 dark:bg-emerald-950/20 border border-emerald-500/30 space-y-2">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+                      <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-emerald-950 dark:text-emerald-100">
                         <span>🌱</span>
                         <span>
                           {language === "pl"
@@ -808,14 +808,14 @@ export default function PatronAgent({
                             : "AI Social Impact Forecast (ESG ROI)"}
                         </span>
                       </div>
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-900 dark:text-emerald-200 border border-emerald-500/40">
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-950 dark:text-emerald-100 border border-emerald-500/40">
                         {matchedGoal.impactForecast.badge}
                       </span>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 text-[11px]">
                       <div className="p-2 rounded-xl bg-background/80 border border-border/60">
-                        <span className="block text-[10px] uppercase font-bold text-muted-foreground">
+                        <span className="block text-[10px] uppercase font-bold text-neutral-700 dark:text-neutral-300">
                           {language === "pl"
                             ? "Beneficjenci:"
                             : "Beneficiaries:"}
@@ -825,7 +825,7 @@ export default function PatronAgent({
                         </span>
                       </div>
                       <div className="p-2 rounded-xl bg-background/80 border border-border/60">
-                        <span className="block text-[10px] uppercase font-bold text-muted-foreground">
+                        <span className="block text-[10px] uppercase font-bold text-neutral-700 dark:text-neutral-300">
                           {language === "pl"
                             ? "Wymierny rezultat:"
                             : "Direct Metric:"}
@@ -835,7 +835,7 @@ export default function PatronAgent({
                         </span>
                       </div>
                       <div className="p-2 rounded-xl bg-background/80 border border-border/60">
-                        <span className="block text-[10px] uppercase font-bold text-muted-foreground">
+                        <span className="block text-[10px] uppercase font-bold text-neutral-700 dark:text-neutral-300">
                           {language === "pl"
                             ? "Wpływ społeczny:"
                             : "Community ROI:"}
@@ -852,7 +852,7 @@ export default function PatronAgent({
                   <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[11px] text-muted-foreground uppercase font-bold tracking-wider">
+                        <span className="text-[11px] text-neutral-800 dark:text-neutral-200 uppercase font-bold tracking-wider">
                           {matchedGoal.sponsorshipType === "in_kind"
                             ? language === "pl"
                               ? "Szacowana wartość świadczenia:"
@@ -869,7 +869,7 @@ export default function PatronAgent({
                               className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${
                                 selectedCurrency === cur
                                   ? "bg-card text-foreground shadow-xs font-black border border-border/60"
-                                  : "text-muted-foreground hover:text-foreground"
+                                  : "text-neutral-700 hover:text-foreground dark:text-neutral-300 font-semibold"
                               }`}
                             >
                               {cur}
@@ -893,7 +893,7 @@ export default function PatronAgent({
                                 className={`px-2 py-0.5 text-[10px] font-bold rounded-lg border transition-all cursor-pointer ${
                                   effectiveAmount === preset
                                     ? "bg-emerald-700 text-white border-emerald-700 shadow-xs"
-                                    : "border-border bg-background text-muted-foreground hover:text-foreground"
+                                    : "border-border bg-background text-neutral-800 hover:text-foreground dark:text-neutral-200 font-semibold"
                                 }`}
                               >
                                 {preset}
