@@ -404,12 +404,18 @@ export default function PublicLedger({
                 className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 transition-all cursor-pointer ${
                   selectedScope === "current"
                     ? "bg-lime-400 text-neutral-950 font-black shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
+                    : "text-neutral-700 hover:text-foreground dark:text-neutral-300"
                 }`}
               >
                 <Calendar className="size-3.5" />
                 <span>{tLedger.tabCurrent}</span>
-                <span className="opacity-70 font-mono text-[10px]">
+                <span
+                  className={`font-mono text-xs font-bold ${
+                    selectedScope === "current"
+                      ? "text-neutral-950 font-black"
+                      : "text-neutral-800 dark:text-neutral-200"
+                  }`}
+                >
                   ({scopeCounts.current})
                 </span>
               </button>
@@ -420,11 +426,17 @@ export default function PublicLedger({
                 className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 transition-all cursor-pointer ${
                   selectedScope === "all"
                     ? "bg-lime-400 text-neutral-950 font-black shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
+                    : "text-neutral-700 hover:text-foreground dark:text-neutral-300"
                 }`}
               >
                 <span>{tLedger.tabAll}</span>
-                <span className="opacity-70 font-mono text-[10px]">
+                <span
+                  className={`font-mono text-xs font-bold ${
+                    selectedScope === "all"
+                      ? "text-neutral-950 font-black"
+                      : "text-neutral-800 dark:text-neutral-200"
+                  }`}
+                >
                   ({scopeCounts.all})
                 </span>
               </button>
@@ -435,18 +447,24 @@ export default function PublicLedger({
                 className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 transition-all cursor-pointer ${
                   selectedScope === "archive"
                     ? "bg-lime-400 text-neutral-950 font-black shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
+                    : "text-neutral-700 hover:text-foreground dark:text-neutral-300"
                 }`}
               >
                 <Archive className="size-3.5" />
                 <span>{tLedger.tabArchive}</span>
-                <span className="opacity-70 font-mono text-[10px]">
+                <span
+                  className={`font-mono text-xs font-bold ${
+                    selectedScope === "archive"
+                      ? "text-neutral-950 font-black"
+                      : "text-neutral-800 dark:text-neutral-200"
+                  }`}
+                >
                   ({scopeCounts.archive})
                 </span>
               </button>
             </div>
 
-            <div className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5 self-end sm:self-center">
+            <div className="text-xs text-neutral-700 dark:text-neutral-300 font-semibold flex items-center gap-1.5 self-end sm:self-center">
               {isLoadingDb ? (
                 <span className="inline-flex items-center gap-1">
                   <Loader2 className="size-3.5 animate-spin" />
@@ -521,7 +539,7 @@ export default function PublicLedger({
                 <col className="w-[24%]" />
               </colgroup>
               <thead>
-                <tr className="border-b border-border bg-muted/50 text-[11px] uppercase tracking-wider font-bold text-muted-foreground">
+                <tr className="border-b border-border bg-muted/50 text-[11px] uppercase tracking-wider font-bold text-neutral-700 dark:text-neutral-300">
                   <th className="py-3 px-3.5">{tLedger.patron}</th>
                   <th className="py-3 px-3">{tLedger.purpose}</th>
                   <th className="py-3 px-3">{tLedger.amount}</th>
@@ -575,7 +593,7 @@ export default function PublicLedger({
                                     count: donationCount,
                                   })
                                 }
-                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9.5px] font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-300 border border-amber-500/30 transition-all cursor-pointer shadow-2xs"
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9.5px] font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-200 border border-amber-500/30 transition-all cursor-pointer shadow-2xs"
                                 title={
                                   language === "pl"
                                     ? `Zobacz kartę mecenasa ${patron}`
@@ -584,7 +602,7 @@ export default function PublicLedger({
                               >
                                 <Sparkles className="size-2.5 text-amber-500" />
                                 <span>{tLedger.recurringBadge}</span>
-                                <span className="font-mono opacity-80">
+                                <span className="font-mono font-bold text-amber-950 dark:text-amber-100">
                                   ({donationCount})
                                 </span>
                               </button>
@@ -608,7 +626,7 @@ export default function PublicLedger({
                             {amountData.primary}
                           </span>
                           {amountData.secondary && (
-                            <span className="text-[10px] font-semibold text-muted-foreground/80 font-mono">
+                            <span className="text-[10px] font-bold text-neutral-700 dark:text-neutral-300 font-mono">
                               {amountData.secondary}
                             </span>
                           )}
@@ -625,7 +643,7 @@ export default function PublicLedger({
                       {/* 5. Certyfikat i audyt – Stałe szerokości gwarantujące perfekcyjne wyrównanie */}
                       <td className="py-3 px-3.5 text-right">
                         <div className="inline-flex items-center justify-end gap-1.5 shrink-0">
-                          {/* Przycisk Audytu: stałe w-[68px] zapobiega falowaniu kolumny */}
+                          {/* Przycisk Audytu */}
                           <button
                             type="button"
                             onClick={() => {
@@ -643,7 +661,7 @@ export default function PublicLedger({
                             <span>{language === "pl" ? "Audyt" : "Audit"}</span>
                           </button>
 
-                          {/* Podgląd Certyfikatu: stałe w-[92px] centrujące ID */}
+                          {/* Podgląd Certyfikatu */}
                           <button
                             type="button"
                             onClick={() => setSelectedEntry(entry)}
@@ -653,7 +671,7 @@ export default function PublicLedger({
                             <span className="truncate">{shortCertId}</span>
                           </button>
 
-                          {/* Bezpośredni link: stały kwadrat 28x28px */}
+                          {/* Bezpośredni link */}
                           <Link
                             href={`/certyfikat/${encodeURIComponent(certId)}`}
                             className="size-7 rounded-lg border border-border/80 bg-background hover:bg-muted text-xs font-bold text-muted-foreground hover:text-foreground transition-colors shrink-0 flex items-center justify-center"
@@ -713,7 +731,7 @@ export default function PublicLedger({
                                 count: donationCount,
                               })
                             }
-                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-300 border border-amber-500/30 cursor-pointer"
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-200 border border-amber-500/30 cursor-pointer"
                           >
                             ⭐ {tLedger.recurringBadge} ({donationCount})
                           </button>
@@ -738,7 +756,7 @@ export default function PublicLedger({
                         {amountData.primary}
                       </span>
                       {amountData.secondary && (
-                        <span className="text-[9.5px] font-semibold text-muted-foreground/80 font-mono">
+                        <span className="text-[10px] font-bold text-neutral-700 dark:text-neutral-300 font-mono">
                           {amountData.secondary}
                         </span>
                       )}
