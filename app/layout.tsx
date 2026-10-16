@@ -128,6 +128,13 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        {/* Natychmiastowe ciemne płótno od 0 ms – likwiduje białe klatki i zbija Speed Index */}
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `html,body{background-color:#0c0c0c !important;color-scheme:dark;}`,
+          }}
+        />
+
         {/* Wstępna rezolucja DNS dla analityki bez rywalizacji o pasmo z plikiem CSS */}
         <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
 
