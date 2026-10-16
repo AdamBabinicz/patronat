@@ -5,7 +5,6 @@ import { useEffect, useState, useCallback } from "react";
 import {
   ArrowRight,
   ArrowUpRight,
-  Cookie,
   Moon,
   Sun,
   WalletCards,
@@ -19,6 +18,7 @@ import {
 import PatronAgent, { type AllocationPayload } from "@/components/PatronAgent";
 import DonationCheckout from "@/components/DonationCheckout";
 import PublicLedger, { type LedgerEntry } from "@/components/PublicLedger";
+import CookieBanner from "@/components/CookieBanner";
 import type { Currency } from "@/components/checkout/types";
 
 // Standardowy kurs przeliczeniowy spójny z tabelą rejestru (1 EUR ≈ 4.30 PLN)
@@ -44,12 +44,6 @@ export default function Page() {
   const [extraVerifiedCount, setExtraVerifiedCount] = useState<number>(0);
   const [liveEntries, setLiveEntries] = useState<LedgerEntry[]>([]);
 
-  // Zgody Cookie
-  const [showCookies, setShowCookies] = useState(true);
-  const [showSettings, setShowSettings] = useState(false);
-  const [analytics, setAnalytics] = useState(false);
-  const [marketing, setMarketing] = useState(false);
-
   const t: Messages = getTranslations(language);
 
   // Funkcja pobierająca zagregowane sumy bezpośrednio z bazy Neon PostgreSQL
@@ -62,7 +56,6 @@ export default function Page() {
       let total = 0;
       let count = 0;
 
-      // 1. Odczyt z bazy Neon PostgreSQL
       if (data.stats && typeof data.stats.totalAmount === "number") {
         total = data.stats.totalAmount;
       } else if (typeof data.totalAmount === "number") {
@@ -75,7 +68,6 @@ export default function Page() {
         );
       }
 
-      // 2. Rzeczywista liczba zweryfikowanych alokacji z Neon DB
       if (data.stats && typeof data.stats.totalCount === "number") {
         count = data.stats.totalCount;
       } else if (
@@ -109,11 +101,7 @@ export default function Page() {
       setLanguage(savedLang);
     }
 
-    // 3. Cookie
-    const consent = window.localStorage.getItem("patronai_cookie_consent");
-    if (consent) setShowCookies(false);
-
-    // 4. Wczytanie utrwalonych transakcji z bieżącej sesji
+    // 3. Wczytanie utrwalonych transakcji z bieżącej sesji
     try {
       const savedExtra =
         Number(window.localStorage.getItem("patronai_extra_amount")) || 0;
@@ -131,7 +119,7 @@ export default function Page() {
       // Ignoruj błędy parsowania
     }
 
-    // 5. Pobranie rzeczywistych danych statystycznych z bazy Neon
+    // 4. Pobranie rzeczywistych danych statystycznych z bazy Neon
     fetchLiveDatabaseStats();
   }, [fetchLiveDatabaseStats]);
 
@@ -166,7 +154,6 @@ export default function Page() {
   // Obsługa kliknięcia w dolne kafelki procesu (Płynna nawigacja UX)
   const handleStepCardClick = (stepIndex: number) => {
     if (stepIndex === 0) {
-      // Krok 01: Nazwij intencję -> Przewiń do Agenta i uaktywnij kursor
       const agentInput = document.querySelector<HTMLInputElement>(
         'input[placeholder*="Krzysztof"], input[placeholder*="intencj"], input[placeholder*="intention"], input[type="text"]',
       );
@@ -177,10 +164,8 @@ export default function Page() {
         document.getElementById("top")?.scrollIntoView({ behavior: "smooth" });
       }
     } else if (stepIndex === 1) {
-      // Krok 02: Zobacz alokację -> Przejdź do kasy lub wyboru potrzeb
       scrollToCheckout();
     } else if (stepIndex === 2) {
-      // Krok 03: Śledź dowód wpływu -> Przewiń do rejestru publicznego
       const ledgerSection = document.getElementById("ledger-section");
       if (ledgerSection) {
         ledgerSection.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -222,7 +207,6 @@ export default function Page() {
     setExtraVerifiedCount(updatedCount);
     setLiveEntries(updatedEntries);
 
-    // Zapis do localStorage dla optymistycznego podtrzymania widoku
     try {
       window.localStorage.setItem(
         "patronai_extra_amount",
@@ -233,11 +217,8 @@ export default function Page() {
         "patronai_live_entries",
         JSON.stringify(updatedEntries),
       );
-    } catch {
-      // Ignoruj
-    }
+    } catch {}
 
-    // Odśwież dane bezpośrednio z bazy Neon
     fetchLiveDatabaseStats();
   };
 
@@ -245,42 +226,23 @@ export default function Page() {
   const baseRaisedPln = dbStats !== null ? dbStats.totalAmount : 0;
   const totalPln = baseRaisedPln + extraRaisedAmount;
 
-  // Przeliczenie kwoty na walutę interfejsu (EUR w wersji EN)
   const isEurMode = language === "en" || t.stats.currency === "EUR";
   const displayAmount = isEurMode
     ? Math.round(totalPln / EUR_EXCHANGE_RATE)
     : totalPln;
 
-  // Poprawne formatowanie typograficzne: w języku polskim spacja tysięcy, w angielskim przecinek
   const currentTotalAmount =
     language === "pl"
       ? displayAmount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ")
       : displayAmount.toLocaleString("en-US");
 
-  // Rzeczywista liczba alokacji z bazy Neon
   const baseCount = dbStats !== null ? dbStats.count : 0;
   const currentTotalCount = baseCount + extraVerifiedCount;
-
-  const saveConsent = (a: boolean, m: boolean) => {
-    window.localStorage.setItem(
-      "patronai_cookie_consent",
-      JSON.stringify({
-        essential: true,
-        analytics: a,
-        marketing: m,
-        timestamp: new Date().toISOString(),
-      }),
-    );
-    setAnalytics(a);
-    setMarketing(m);
-    setShowCookies(false);
-    setShowSettings(false);
-  };
 
   return (
     <>
       <main className="min-h-screen bg-slate-50 text-neutral-900 transition-colors duration-200 dark:bg-neutral-950 dark:text-neutral-100">
-        {/* PRZYKLEJONY HEADER / NAWIGACJA */}
+        {/* HEADER / NAWIGACJA */}
         <header className="fixed top-0 left-0 right-0 z-40 border-b border-neutral-200/80 bg-slate-50/90 backdrop-blur-md dark:border-neutral-800/80 dark:bg-neutral-950/90 transition-colors">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3.5 sm:py-4">
             <a href="#top" className="flex items-center gap-3 font-semibold">
@@ -409,7 +371,7 @@ export default function Page() {
           onSelectAllocation={handleAllocationFromAgent}
         />
 
-        {/* 2. KASA MECENATU – POKAZYWANA TYLKO PO DECYZJI MECENASA */}
+        {/* 2. KASA MECENATU */}
         {isCheckoutVisible && (
           <section
             id="checkout-section"
@@ -469,7 +431,7 @@ export default function Page() {
           extraEntries={liveEntries}
         />
 
-        {/* 4. INTERAKTYWNE KARTY PROCESU (100% W3C HTML5 VALIDATED - ZERO BŁĘDÓW I OSTRZEŻEŃ) */}
+        {/* 4. INTERAKTYWNE KARTY PROCESU (100% W3C VALIDATED) */}
         <section
           aria-labelledby="impact-heading"
           className="mx-auto max-w-7xl px-5 py-10 sm:py-14"
@@ -510,7 +472,6 @@ export default function Page() {
                   title={`${actionLabel} ↗`}
                 >
                   <div>
-                    {/* Górny pasek numeru i dynamicznej etykiety nawigacyjnej */}
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-black text-lime-600 dark:text-lime-400 uppercase tracking-widest font-mono">
                         0{i + 1}
@@ -564,7 +525,11 @@ export default function Page() {
               </a>
               <button
                 type="button"
-                onClick={() => setShowSettings(true)}
+                onClick={() => {
+                  // Otwórz ustawienia z poziomu CookieBanner
+                  const event = new CustomEvent("openCookieSettings");
+                  window.dispatchEvent(event);
+                }}
                 className="hover:underline text-neutral-800 dark:text-neutral-200 cursor-pointer"
               >
                 {t.footer.cookie}
@@ -574,114 +539,8 @@ export default function Page() {
         </footer>
       </main>
 
-      {/* BANER COOKIE */}
-      {showCookies && (
-        <div className="fixed inset-x-4 bottom-4 z-40 mx-auto max-w-3xl rounded-3xl border border-neutral-300 bg-white p-5 shadow-2xl dark:border-neutral-800 dark:bg-neutral-900">
-          <div className="flex gap-3">
-            <Cookie className="mt-1 size-5 shrink-0 text-lime-600 dark:text-lime-400" />
-            <div className="flex-1">
-              <h2 className="font-bold text-sm text-neutral-900 dark:text-white">
-                {t.cookie.title}
-              </h2>
-              <p className="mt-1 text-xs text-neutral-700 dark:text-neutral-300 leading-relaxed">
-                {t.cookie.body}
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => saveConsent(true, true)}
-                  className="rounded-full bg-neutral-900 px-4 py-2 text-xs font-bold text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100 transition-colors cursor-pointer"
-                >
-                  {t.cookie.accept}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => saveConsent(false, false)}
-                  className="rounded-full border border-neutral-400 px-4 py-2 text-xs font-semibold text-neutral-800 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
-                >
-                  {t.cookie.reject}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowSettings(true)}
-                  className="rounded-full border border-neutral-400 px-4 py-2 text-xs font-semibold text-neutral-800 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
-                >
-                  {t.cookie.settings}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL COOKIE */}
-      {showSettings && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-200">
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="w-full max-w-md rounded-3xl border border-neutral-300 bg-white p-6 text-neutral-900 shadow-2xl dark:border-neutral-800 dark:bg-neutral-900 dark:text-white"
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold">{t.cookie.settings}</h2>
-              <button
-                type="button"
-                onClick={() => setShowSettings(false)}
-                aria-label={t.cookie.close}
-                className="text-neutral-700 hover:text-neutral-950 dark:text-neutral-300 dark:hover:text-white cursor-pointer"
-              >
-                <X className="size-5" />
-              </button>
-            </div>
-            <p className="mt-2 text-xs text-neutral-700 dark:text-neutral-300">
-              {t.cookie.preferences}
-            </p>
-            <div className="mt-5 flex flex-col gap-2.5">
-              <div className="rounded-2xl border border-neutral-300 bg-neutral-100 p-3.5 text-xs font-medium dark:border-neutral-800 dark:bg-neutral-950 flex justify-between items-center">
-                <span className="text-neutral-800 dark:text-neutral-200">
-                  {t.cookie.essential}
-                </span>
-                <span className="text-emerald-700 dark:text-emerald-400 font-bold">
-                  {t.cookie.alwaysActive}
-                </span>
-              </div>
-              {(
-                [
-                  [t.cookie.analytics, analytics, setAnalytics],
-                  [t.cookie.marketing, marketing, setMarketing],
-                ] as const
-              ).map(([label, value, setter]) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => setter(!value)}
-                  className="flex items-center justify-between rounded-2xl border border-neutral-300 p-3.5 text-left text-xs hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-800/50 transition-colors cursor-pointer"
-                >
-                  <span className="font-semibold text-neutral-800 dark:text-neutral-200">
-                    {label}
-                  </span>
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
-                      value
-                        ? "bg-lime-400 text-neutral-950"
-                        : "bg-neutral-200 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-300"
-                    }`}
-                  >
-                    {value ? t.cookie.activeState : t.cookie.inactiveState}
-                  </span>
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => saveConsent(analytics, marketing)}
-              className="mt-6 w-full rounded-full bg-neutral-900 px-4 py-3 text-xs font-bold text-white shadow-sm hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100 transition-all cursor-pointer"
-            >
-              {t.cookie.save}
-            </button>
-          </div>
-        </div>
-      )}
+      {/* WYDZIELONY KOMPONENT BANERA COOKIE Z GTM CONSENT MODE v2 */}
+      <CookieBanner messages={t} />
     </>
   );
 }
