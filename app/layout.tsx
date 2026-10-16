@@ -1,3 +1,4 @@
+// app/layout.tsx
 import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
@@ -123,11 +124,7 @@ export default function RootLayout({
   return (
     <html lang="pl" suppressHydrationWarning>
       <head>
-        {/* Preconnect do Google Tag Managera - przyspiesza nawiązanie połączenia TLS */}
-        <link rel="preconnect" href="https://www.googletagmanager.com" />
-        <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
-
-        {/* 1. Domyślny stan zgody Google Consent Mode v2 (błyskawiczny, inline) */}
+        {/* 1. Domyślny stan zgody Google Consent Mode v2 */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -188,10 +185,10 @@ export default function RootLayout({
         <ScrollToTop />
         {process.env.NODE_ENV === "production" && <Analytics />}
 
-        {/* Ładowanie GTM jako afterInteractive – nie blokuje FCP/LCP! */}
+        {/* Ładowanie GTM w trybie lazyOnload – uwalnia główny wątek CPU dla natychmiastowego LCP! */}
         <Script
           id="google-tag-manager"
-          strategy="afterInteractive"
+          strategy="lazyOnload"
           dangerouslySetInnerHTML={{
             __html: `
               (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
