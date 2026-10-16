@@ -6,19 +6,33 @@
     <title>PatronAI — Pitch Deck · PayPal AI Hackathon</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+      @page {
+        size: landscape;
+        margin: 0;
+      }
       @media print {
+        html,
         body {
-          background: white !important;
-          color: black !important;
+          background: #0a0a0a !important;
+          color: #ffffff !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+          margin: 0 !important;
+          padding: 0 !important;
         }
         .slide {
-          page-break-after: always;
+          display: flex !important;
+          page-break-after: always !important;
+          break-after: page !important;
           height: 100vh !important;
           width: 100vw !important;
+          max-height: 100vh !important;
           border: none !important;
+          border-radius: 0 !important;
           box-shadow: none !important;
           margin: 0 !important;
-          padding: 2.5rem !important;
+          padding: 3rem 4rem !important;
+          background: #171717 !important;
         }
         .no-print {
           display: none !important;
@@ -47,7 +61,7 @@
           onclick="window.print()"
           class="px-3 py-1.5 rounded-lg bg-lime-400 text-neutral-950 font-bold hover:bg-lime-300 transition-all cursor-pointer"
         >
-          🖨️ Zapisz jako PDF
+          🖨️ Zapisz jako PDF (Wszystkie 7 slajdów)
         </button>
         <span
           id="slideIndicator"
