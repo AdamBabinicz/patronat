@@ -128,6 +128,9 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        {/* Wstępna rezolucja DNS dla analityki bez rywalizacji o pasmo z plikiem CSS */}
+        <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+
         {/* 1. Domyślny stan zgody Google Consent Mode v2 (błyskawiczny, inline) */}
         <script
           dangerouslySetInnerHTML={{
