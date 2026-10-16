@@ -1,4 +1,3 @@
-// components/CookieBanner.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -60,6 +59,16 @@ export default function CookieBanner({ messages }: CookieBannerProps) {
     } catch {
       setShowCookies(true);
     }
+
+    // Nasłuchuj zdarzenia wywołanego z przycisku w stopce
+    const handleOpenSettings = () => {
+      setShowSettings(true);
+    };
+
+    window.addEventListener("openCookieSettings", handleOpenSettings);
+    return () => {
+      window.removeEventListener("openCookieSettings", handleOpenSettings);
+    };
   }, []);
 
   const saveConsent = (a: boolean, m: boolean) => {

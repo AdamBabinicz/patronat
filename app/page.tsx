@@ -1,4 +1,3 @@
-// app/page.tsx
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -19,6 +18,7 @@ import PatronAgent, { type AllocationPayload } from "@/components/PatronAgent";
 import DonationCheckout from "@/components/DonationCheckout";
 import PublicLedger, { type LedgerEntry } from "@/components/PublicLedger";
 import CookieBanner from "@/components/CookieBanner";
+import Footer from "@/components/Footer";
 import type { Currency } from "@/components/checkout/types";
 
 // Standardowy kurs przeliczeniowy spójny z tabelą rejestru (1 EUR ≈ 4.30 PLN)
@@ -495,48 +495,8 @@ export default function Page() {
           </div>
         </section>
 
-        {/* FOOTER */}
-        <footer className="border-t border-neutral-300 dark:border-neutral-800 bg-slate-100 dark:bg-neutral-950">
-          <div className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-8 sm:py-10 text-sm text-neutral-700 dark:text-neutral-300 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <div className="font-bold text-base text-neutral-900 dark:text-white">
-                Patron
-                <span className="text-lime-600 dark:text-lime-400">AI</span>
-              </div>
-              <p className="mt-2 max-w-sm text-xs sm:text-sm leading-relaxed text-neutral-700 dark:text-neutral-300">
-                {t.footer.description}
-              </p>
-              <p className="mt-4 text-xs text-neutral-700 dark:text-neutral-300 font-medium">
-                {t.footer.rights}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-5 text-xs sm:text-sm font-semibold">
-              <a
-                href="/polityka-prywatnosci"
-                className="hover:underline text-neutral-800 dark:text-neutral-200"
-              >
-                {t.footer.privacy}
-              </a>
-              <a
-                href="/regulamin"
-                className="hover:underline text-neutral-800 dark:text-neutral-200"
-              >
-                {t.footer.terms}
-              </a>
-              <button
-                type="button"
-                onClick={() => {
-                  // Otwórz ustawienia z poziomu CookieBanner
-                  const event = new CustomEvent("openCookieSettings");
-                  window.dispatchEvent(event);
-                }}
-                className="hover:underline text-neutral-800 dark:text-neutral-200 cursor-pointer"
-              >
-                {t.footer.cookie}
-              </button>
-            </div>
-          </div>
-        </footer>
+        {/* WYDZIELONY KOMPONENT STOPKI */}
+        <Footer messages={t} />
       </main>
 
       {/* WYDZIELONY KOMPONENT BANERA COOKIE Z GTM CONSENT MODE v2 */}
