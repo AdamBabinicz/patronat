@@ -1,3 +1,4 @@
+// components/CookieBanner.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -101,9 +102,9 @@ export default function CookieBanner({ messages }: CookieBannerProps) {
 
   return (
     <>
-      {/* Pływający baner zgody */}
+      {/* Pływający baner zgody – usunięto nieskomponowaną animację filter/enter */}
       {showCookies && (
-        <div className="fixed inset-x-4 bottom-4 z-40 mx-auto max-w-3xl rounded-3xl border border-neutral-300 bg-white p-5 shadow-2xl dark:border-neutral-800 dark:bg-neutral-900 animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <div className="fixed inset-x-4 bottom-4 z-40 mx-auto max-w-3xl rounded-3xl border border-neutral-300 bg-white p-5 shadow-2xl dark:border-neutral-800 dark:bg-neutral-900">
           <div className="flex gap-3">
             <Cookie className="mt-1 size-5 shrink-0 text-lime-600 dark:text-lime-400" />
             <div className="flex-1">
@@ -143,7 +144,7 @@ export default function CookieBanner({ messages }: CookieBannerProps) {
 
       {/* Modal szczegółowych ustawień zgody */}
       {showSettings && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4">
           <div
             role="dialog"
             aria-modal="true"
