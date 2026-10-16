@@ -33,6 +33,16 @@ export const KNOWN_PURPOSE_DICTIONARY: Record<
   string,
   { pl: string; en: string }
 > = {
+  // --- Z bazy i zrzutów ekranu (w tym brakujące warsztaty arcymistrzowskie) ---
+  "Cykl warsztatów arcymistrzowskich dla sekcji wyczynowej": {
+    pl: "Cykl warsztatów arcymistrzowskich dla sekcji wyczynowej",
+    en: "Grandmaster Masterclass Workshop Series for High-Performance Section",
+  },
+  "Warsztaty arcymistrzowskie z taktyki debiutowej": {
+    pl: "Warsztaty arcymistrzowskie z taktyki debiutowej",
+    en: "Grandmaster Opening Tactics Masterclass Workshops",
+  },
+
   // --- Z migracji 006_seed_demo_dataset.sql ---
   "Zegary szachowe DGT 2010": {
     pl: "Zegary szachowe DGT 2010",
@@ -116,10 +126,6 @@ export const KNOWN_PURPOSE_DICTIONARY: Record<
     pl: "Zakup 3 kompletów szachownic turniejowych z atestem FIDE",
     en: "Purchase of 3 Tournament Chessboard Sets (FIDE Certified)",
   },
-  "Warsztaty arcymistrzowskie z taktyki debiutowej": {
-    pl: "Warsztaty arcymistrzowskie z taktyki debiutowej",
-    en: "Grandmaster Opening Tactics Masterclass Workshops",
-  },
   "Dofinansowanie transportu na Turniej Mikołajkowy": {
     pl: "Dofinansowanie transportu na Turniej Mikołajkowy",
     en: "Transit Subsidy for Saint Nicholas Youth Tournament",
@@ -147,43 +153,63 @@ export const KNOWN_PURPOSE_DICTIONARY: Record<
 };
 
 /**
- * Wzorce semantyczne fallbacku dla dynamicznych wpisów dodanych w trakcie testu sędziego
+ * Rozszerzone wzorce semantyczne fallbacku dla dowolnych dynamicznych wpisów darczyńców
  */
 const PATTERN_FALLBACKS: Array<{ pattern: RegExp; en: string; pl: string }> = [
+  // 1. Zegary i elektronika
   {
-    pattern: /(zegar|clock|dgt|czas|timer)/i,
+    pattern: /(zegar|clock|dgt|czas|timer|elektroniczn)/i,
     en: "Electronic Chess Clocks Procurement",
     pl: "Zakup elektronicznych zegarów szachowych",
   },
+  // 2. Puchary, medale, nagrody
   {
-    pattern: /(puchar|medal|trofe|cup|award)/i,
+    pattern: /(puchar|medal|trofe|cup|award|nagrod|statuetk)/i,
     en: "Championship Trophies and Awards",
     pl: "Puchary i medale turniejowe",
   },
+  // 3. Transport, dojazdy, hotele, busy
   {
-    pattern: /(trans|bus|przewoz|dojazd|travel|trip)/i,
-    en: "Tournament Team Transportation Fund",
+    pattern: /(trans|bus|przewoz|dojazd|travel|trip|hotel|nocleg|wyjazd)/i,
+    en: "Tournament Team Transportation & Travel Fund",
     pl: "Fundusz transportu drużyny na turniej",
   },
+  // 4. Warsztaty, szkolenia, arcymistrzowie, lekcje, treningi
   {
-    pattern: /(stypend|szkolen|trener|coach|masterclass)/i,
-    en: "Junior Chess Coaching & Masterclass",
+    pattern:
+      /(warsztat|arcymistrz|taktyk|trener|szkolen|coach|masterclass|lekcj|trening|zajec)/i,
+    en: "Grandmaster Coaching & Tactics Masterclass",
     pl: "Szkolenie mistrzowskie juniorów",
   },
+  // 5. Szachownice, bierki, atesty FIDE, sprzęt
   {
-    pattern: /(szachownic|bierk|board|pieces|fide)/i,
+    pattern: /(szachownic|bierk|board|pieces|fide|sprzet|wyposazen)/i,
     en: "FIDE Tournament Equipment & Boards",
     pl: "Sprzęt i szachownice turniejowe FIDE",
   },
+  // 6. Druki, banery, dyplomy
   {
-    pattern: /(druk|dyplom|baner|print|plakat)/i,
+    pattern: /(druk|dyplom|baner|print|plakat|ulotk)/i,
     en: "Tournament Diplomas & Promotional Banners",
     pl: "Wydruk dyplomów i banerów turniejowych",
   },
+  // 7. Sala, remont, sprzątanie
   {
-    pattern: /(sala|czyszcz|sprzat|facility|clean)/i,
+    pattern: /(sala|czyszcz|sprzat|facility|clean|remont|renowac)/i,
     en: "Youth Training Facility Maintenance",
     pl: "Renowacja i utrzymanie sali klubowej",
+  },
+  // 8. Obozy, kolonie, zgrupowania
+  {
+    pattern: /(oboz|zgrupowan|koloni|camp)/i,
+    en: "Youth Chess Summer & Winter Training Camp",
+    pl: "Zgrupowanie szkoleniowe juniorów",
+  },
+  // 9. Stypendia, pomoc, opłaty wpisowe, granty
+  {
+    pattern: /(stypend|wpisow|startow|pomoc|wsparci|grant|fundusz|darowizn)/i,
+    en: "Youth Talent Scholarship & Participation Grant",
+    pl: "Stypendium i dofinansowanie udziału juniorów",
   },
 ];
 
@@ -204,6 +230,7 @@ function containsPolishMarkers(text: string): boolean {
     lower.includes(" zegar") ||
     lower.includes(" szach") ||
     lower.includes(" sala ") ||
+    lower.includes(" warsztat") ||
     lower.includes(" wpłat")
   );
 }
@@ -278,7 +305,7 @@ export function getLocalizedPurpose(
     }
   }
 
-  // 4. Jeśli w trybie EN tekst NIE zawiera cech języka polskiego, traktujemy go jako natywny EN
+  // 4. Jeśli w trybie EN tekst NIE zawiera cech języka polskiego, traktujemy go jako natywny wpis EN
   if (language === "en" && !containsPolishMarkers(trimmed)) {
     return {
       text: trimmed,
@@ -286,7 +313,7 @@ export function getLocalizedPurpose(
     };
   }
 
-  // 5. Fallback wzorcowy dla dynamicznych celów w języku polskim
+  // 5. Fallback wzorcowy (pattern matching) dla dynamicznych celów w języku polskim
   for (const item of PATTERN_FALLBACKS) {
     if (item.pattern.test(trimmed)) {
       if (language === "en") {
@@ -304,7 +331,17 @@ export function getLocalizedPurpose(
     }
   }
 
-  // 6. Domyślny fallback
+  // 6. Globalny Fallback dla całkowicie dowolnych, niestandardowych wpisów w języku polskim:
+  // W trybie EN wyświetla czytelną dla sędziów etykietę i zachowuje oryginalny polski wpis w badge'u!
+  if (language === "en" && containsPolishMarkers(trimmed)) {
+    return {
+      text: "Custom Youth Sports Patronage Allocation",
+      originalPl: trimmed,
+      wasTranslated: true,
+    };
+  }
+
+  // 7. Domyślny zwrot dla trybu PL
   return {
     text: trimmed,
     wasTranslated: false,
