@@ -2,7 +2,15 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { ArrowRight, Cookie, Moon, Sun, WalletCards, X } from "lucide-react";
+import {
+  ArrowRight,
+  ArrowUpRight,
+  Cookie,
+  Moon,
+  Sun,
+  WalletCards,
+  X,
+} from "lucide-react";
 import {
   type Language,
   type Messages,
@@ -145,7 +153,7 @@ export default function Page() {
     setTimeout(() => {
       const el = document.getElementById("checkout-section");
       if (el) {
-        el.scrollIntoView({ behavior: "smooth" });
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     }, 100);
   };
@@ -153,6 +161,31 @@ export default function Page() {
   const handleAllocationFromAgent = (allocation: AllocationPayload) => {
     setSelectedAllocation(allocation);
     scrollToCheckout();
+  };
+
+  // Obsługa kliknięcia w dolne kafelki procesu (Płynna nawigacja UX)
+  const handleStepCardClick = (stepIndex: number) => {
+    if (stepIndex === 0) {
+      // Krok 01: Nazwij intencję -> Przewiń do Agenta i uaktywnij kursor
+      const agentInput = document.querySelector<HTMLInputElement>(
+        'input[placeholder*="Krzysztof"], input[placeholder*="intencj"], input[placeholder*="intention"], input[type="text"]',
+      );
+      if (agentInput) {
+        agentInput.scrollIntoView({ behavior: "smooth", block: "center" });
+        setTimeout(() => agentInput.focus(), 400);
+      } else {
+        document.getElementById("top")?.scrollIntoView({ behavior: "smooth" });
+      }
+    } else if (stepIndex === 1) {
+      // Krok 02: Zobacz alokację -> Przejdź do kasy lub wyboru potrzeb
+      scrollToCheckout();
+    } else if (stepIndex === 2) {
+      // Krok 03: Śledź dowód wpływu -> Przewiń do rejestru publicznego
+      const ledgerSection = document.getElementById("ledger-section");
+      if (ledgerSection) {
+        ledgerSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
   };
 
   // Rejestracja udanej transakcji w czasie rzeczywistym
@@ -263,7 +296,6 @@ export default function Page() {
             </a>
 
             <nav className="flex items-center gap-2">
-              {/* Przełącznik motywu ciemny/jasny */}
               <button
                 type="button"
                 aria-label={t.nav.theme}
@@ -277,7 +309,6 @@ export default function Page() {
                 )}
               </button>
 
-              {/* Segmentowy przełącznik języka [ PL | EN ] */}
               <div className="flex items-center rounded-full border border-neutral-300 bg-white p-0.5 text-xs font-bold dark:border-neutral-700 dark:bg-neutral-900">
                 <button
                   type="button"
@@ -303,7 +334,6 @@ export default function Page() {
                 </button>
               </div>
 
-              {/* Przycisk CTA Zostań mecenasem */}
               <button
                 type="button"
                 onClick={scrollToCheckout}
@@ -345,7 +375,6 @@ export default function Page() {
               {t.stats.raised}
             </p>
 
-            {/* Identyczna typografia i rozmiar dla walut PL i EN */}
             <p className="mt-2.5 sm:mt-3 text-4xl sm:text-5xl font-black tracking-tight text-neutral-900 dark:text-white transition-all flex items-baseline gap-2">
               {isEurMode ? (
                 <>
@@ -440,7 +469,7 @@ export default function Page() {
           extraEntries={liveEntries}
         />
 
-        {/* 4. KARTY WPŁYWU (IMPACT CARDS) Z PEŁNĄ SEMANTYKĄ HTML5 (W3C VALIDATED) */}
+        {/* 4. INTERAKTYWNE KARTY PROCESU (PŁYNNA NAWIGACJA PO APLIKACJI) */}
         <section
           aria-labelledby="impact-heading"
           className="mx-auto max-w-7xl px-5 py-10 sm:py-14"
@@ -452,22 +481,57 @@ export default function Page() {
           </h2>
 
           <div className="grid gap-6 md:grid-cols-3">
-            {t.impact.cards.map((card, i) => (
-              <article
-                key={card.title}
-                className="rounded-3xl border border-neutral-300 bg-white p-6 sm:p-8 text-neutral-900 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-white"
-              >
-                <span className="text-xs font-black text-lime-600 dark:text-lime-400 uppercase tracking-widest">
-                  0{i + 1}
-                </span>
-                <h3 className="mt-4 sm:mt-6 text-xl font-bold tracking-tight">
-                  {card.title}
-                </h3>
-                <p className="mt-2.5 sm:mt-3 text-xs sm:text-sm leading-relaxed text-neutral-700 dark:text-neutral-300">
-                  {card.body}
-                </p>
-              </article>
-            ))}
+            {t.impact.cards.map((card, i) => {
+              const actionLabel =
+                i === 0
+                  ? language === "pl"
+                    ? "Przejdź do agenta"
+                    : "Go to agent"
+                  : i === 1
+                    ? language === "pl"
+                      ? "Zobacz alokację"
+                      : "View checkout"
+                    : language === "pl"
+                      ? "Zobacz rejestr"
+                      : "View ledger";
+
+              return (
+                <div
+                  key={card.title}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleStepCardClick(i)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleStepCardClick(i);
+                    }
+                  }}
+                  className="group text-left rounded-3xl border border-neutral-300 bg-white p-6 sm:p-8 text-neutral-900 shadow-sm hover:shadow-md hover:border-lime-500/60 dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-white dark:hover:border-lime-500/50 transition-all cursor-pointer transform hover:-translate-y-1 active:translate-y-0 flex flex-col justify-between"
+                  title={`${actionLabel} ↗`}
+                >
+                  <div>
+                    {/* Górny pasek numeru i dynamicznej etykiety nawigacyjnej */}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-black text-lime-600 dark:text-lime-400 uppercase tracking-widest font-mono">
+                        0{i + 1}
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-neutral-500 group-hover:text-lime-700 dark:text-neutral-400 dark:group-hover:text-lime-300 transition-colors">
+                        <span>{actionLabel}</span>
+                        <ArrowUpRight className="size-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 text-lime-600 dark:text-lime-400" />
+                      </span>
+                    </div>
+
+                    <h3 className="mt-4 sm:mt-5 text-xl font-bold tracking-tight group-hover:text-lime-700 dark:group-hover:text-lime-400 transition-colors">
+                      {card.title}
+                    </h3>
+                    <p className="mt-2.5 text-xs sm:text-sm leading-relaxed text-neutral-700 dark:text-neutral-300">
+                      {card.body}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
 
