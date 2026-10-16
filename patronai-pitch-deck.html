@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PatronAI — Pitch Deck · PayPal AI Hackathon</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @media print {
+        body {
+          background: white !important;
+          color: black !important;
+        }
+        .slide {
+          page-break-after: always;
+          height: 100vh !important;
+          width: 100vw !important;
+          border: none !important;
+          box-shadow: none !important;
+          margin: 0 !important;
+          padding: 2.5rem !important;
+        }
+        .no-print {
+          display: none !important;
+        }
+      }
+      .slide-aspect {
+        aspect-ratio: 16 / 9;
+        max-height: 88vh;
+      }
+    </style>
+  </head>
+  <body
+    class="bg-neutral-950 text-neutral-100 font-sans min-h-screen flex flex-col items-center justify-between p-4 sm:p-6 select-none"
+  >
+    <!-- Top Bar / Controls (Ukryte na wydruku) -->
+    <header
+      class="w-full max-w-6xl flex items-center justify-between py-2 text-xs text-neutral-400 no-print"
+    >
+      <div class="flex items-center gap-2">
+        <span class="size-2 rounded-full bg-lime-400 animate-pulse"></span>
+        <span class="font-bold text-neutral-200">PatronAI Pitch Deck</span>
+        <span class="opacity-50">• PayPal AI Hackathon</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <button
+          onclick="window.print()"
+          class="px-3 py-1.5 rounded-lg bg-lime-400 text-neutral-950 font-bold hover:bg-lime-300 transition-all cursor-pointer"
+        >
+          🖨️ Zapisz jako PDF
+        </button>
+        <span
+          id="slideIndicator"
+          class="font-mono text-neutral-300 font-bold bg-neutral-900 px-2.5 py-1 rounded-md border border-neutral-800"
+          >1 / 7</span
+        >
+      </div>
+    </header>
+
+    <!-- Slide Container -->
+    <main
+      class="w-full max-w-6xl flex-1 flex items-center justify-center my-auto"
+    >
+      <!-- SLIDE 1: Title -->
+      <section
+        class="slide slide-aspect w-full bg-neutral-900 border border-neutral-800 rounded-3xl p-8 sm:p-14 flex flex-col justify-between shadow-2xl relative overflow-hidden"
+        data-slide="1"
+      >
+        <div
+          class="absolute -right-24 -top-24 size-96 rounded-full bg-lime-400/10 blur-3xl pointer-events-none"
+        ></div>
+        <div>
+          <div
+            class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-lime-400/15 border border-lime-400/30 text-lime-400 text-xs font-black tracking-widest uppercase mb-6"
+          >
+            <span>🏆 PayPal AI Hackathon Submission</span>
+          </div>
+          <h1
+            class="text-4xl sm:text-6xl font-black tracking-tight text-white leading-tight"
+          >
+            Patron<span class="text-lime-400">AI</span>
+          </h1>
+          <p
+            class="text-xl sm:text-2xl text-neutral-300 font-medium mt-3 max-w-2xl leading-snug"
+          >
+            Autonomous Agentic Sponsorship & Deterministic Fintech Trust Layer
+            for Youth Sports
+          </p>
+        </div>
+
+        <div
+          class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 border-t border-neutral-800/80"
+        >
+          <div>
+            <span
+              class="text-[11px] uppercase tracking-wider text-neutral-400 block font-bold"
+              >Target Pilot Partner</span
+            >
+            <span class="text-sm font-bold text-white"
+              >UKS Roszada Radom (80+ Champions)</span
+            >
+          </div>
+          <div>
+            <span
+              class="text-[11px] uppercase tracking-wider text-neutral-400 block font-bold"
+              >Core Technology</span
+            >
+            <span class="text-sm font-bold text-white"
+              >Google Gemini + Neon PostgreSQL</span
+            >
+          </div>
+          <div>
+            <span
+              class="text-[11px] uppercase tracking-wider text-neutral-400 block font-bold"
+              >Payments</span
+            >
+            <span class="text-sm font-bold text-white"
+              >PayPal Commerce Platform</span
+            >
+          </div>
+        </div>
+      </section>
+
+      <!-- SLIDE 2: The Problem -->
+      <section
+        class="slide slide-aspect w-full bg-neutral-900 border border-neutral-800 rounded-3xl p-8 sm:p-14 flex flex-col justify-between shadow-2xl hidden"
+        data-slide="2"
+      >
+        <div>
+          <span
+            class="text-xs font-black text-red-400 uppercase tracking-widest block mb-2"
+            >01 · The Grassroots Funding Crisis</span
+          >
+          <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tight">
+            90% of Local Youth Sports Clubs Operate in Financial Stress
+          </h2>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 my-auto">
+          <div
+            class="p-5 rounded-2xl bg-neutral-950/60 border border-neutral-800/80 space-y-2"
+          >
+            <div class="text-2xl">📦</div>
+            <h3 class="text-base font-bold text-white">The "Black-Box" Trap</h3>
+            <p class="text-xs text-neutral-400 leading-relaxed">
+              Donors hesitate because traditional charities dump funds into
+              general accounts with zero line-item spend verification.
+            </p>
+          </div>
+          <div
+            class="p-5 rounded-2xl bg-neutral-950/60 border border-neutral-800/80 space-y-2"
+          >
+            <div class="text-2xl">🤝</div>
+            <h3 class="text-base font-bold text-white">Unmeasured Barter</h3>
+            <p class="text-xs text-neutral-400 leading-relaxed">
+              Over 40% of small-business support is in-kind (buses, printing,
+              gear), but clubs lack legal contracts & valuation tools.
+            </p>
+          </div>
+          <div
+            class="p-5 rounded-2xl bg-neutral-950/60 border border-neutral-800/80 space-y-2"
+          >
+            <div class="text-2xl">💼</div>
+            <h3 class="text-base font-bold text-white">No Corporate ROI</h3>
+            <p class="text-xs text-neutral-400 leading-relaxed">
+              Sponsors wait months for a logo on a gym banner, receiving zero
+              instant CSR/ESG deliverables for their annual reports.
+            </p>
+          </div>
+        </div>
+
+        <div class="text-xs text-neutral-400 border-t border-neutral-800 pt-3">
+          Result: Millions of corporate dollars sit on the sidelines due to
+          friction and lack of trust.
+        </div>
+      </section>
+
+      <!-- SLIDE 3: The Solution -->
+      <section
+        class="slide slide-aspect w-full bg-neutral-900 border border-neutral-800 rounded-3xl p-8 sm:p-14 flex flex-col justify-between shadow-2xl hidden"
+        data-slide="3"
+      >
+        <div>
+          <span
+            class="text-xs font-black text-lime-400 uppercase tracking-widest block mb-2"
+            >02 · The Solution</span
+          >
+          <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tight">
+            From Patron Intention to Audited Proof in 60 Seconds
+          </h2>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 my-auto">
+          <div
+            class="p-5 rounded-2xl bg-lime-400/5 border border-lime-400/20 space-y-2"
+          >
+            <div
+              class="size-7 rounded-lg bg-lime-400 text-neutral-950 font-black flex items-center justify-center text-xs"
+            >
+              1
+            </div>
+            <h3 class="text-base font-bold text-white">PatronAgent Match</h3>
+            <p class="text-xs text-neutral-300 leading-relaxed">
+              Paste any company URL or speak in PL/EN. AI classifies domain,
+              suggests exact club needs, and predicts Social ROI (training hours
+              funded).
+            </p>
+          </div>
+          <div
+            class="p-5 rounded-2xl bg-lime-400/5 border border-lime-400/20 space-y-2"
+          >
+            <div
+              class="size-7 rounded-lg bg-lime-400 text-neutral-950 font-black flex items-center justify-center text-xs"
+            >
+              2
+            </div>
+            <h3 class="text-base font-bold text-white">
+              PayPal + Barter Rails
+            </h3>
+            <p class="text-xs text-neutral-300 leading-relaxed">
+              Seamless multi-currency checkout via PayPal Commerce Platform
+              (PLN, EUR, USD) or instant AI Barter Valuator generating legal
+              agreements.
+            </p>
+          </div>
+          <div
+            class="p-5 rounded-2xl bg-lime-400/5 border border-lime-400/20 space-y-2"
+          >
+            <div
+              class="size-7 rounded-lg bg-lime-400 text-neutral-950 font-black flex items-center justify-center text-xs"
+            >
+              3
+            </div>
+            <h3 class="text-base font-bold text-white">Instant Deliverables</h3>
+            <p class="text-xs text-neutral-300 leading-relaxed">
+              One-click viral LinkedIn post, formal UN SDG 3 & 4 ESG statement,
+              and an authentic synthesized audio thank-you from junior players.
+            </p>
+          </div>
+        </div>
+
+        <div
+          class="text-xs text-lime-400/90 font-mono border-t border-neutral-800 pt-3"
+        >
+          Zero onboarding friction • Instant corporate gratitude • Verified club
+          allocation
+        </div>
+      </section>
+
+      <!-- SLIDE 4: Architecture & Trust Layer -->
+      <section
+        class="slide slide-aspect w-full bg-neutral-900 border border-neutral-800 rounded-3xl p-8 sm:p-14 flex flex-col justify-between shadow-2xl hidden"
+        data-slide="4"
+      >
+        <div>
+          <span
+            class="text-xs font-black text-amber-400 uppercase tracking-widest block mb-2"
+            >03 · Architectural Breakthrough</span
+          >
+          <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tight">
+            The Deterministic Trust Layer
+          </h2>
+          <p class="text-xs text-neutral-400 italic mt-1">
+            "A rule a prompt can hallucinate around is not a financial rule."
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 my-auto">
+          <div
+            class="p-5 rounded-2xl bg-neutral-950 border border-amber-500/30 space-y-3"
+          >
+            <div
+              class="flex items-center gap-2 text-amber-400 font-bold text-sm"
+            >
+              <span>🧠 Probabilistic Layer</span>
+              <span class="text-[10px] bg-amber-500/20 px-2 py-0.5 rounded"
+                >Google Gemini</span
+              >
+            </div>
+            <ul
+              class="text-xs text-neutral-300 space-y-2 list-disc list-inside"
+            >
+              <li>
+                Multimodal Vision OCR reads messy VAT invoices & receipts.
+              </li>
+              <li>
+                Extracts Merchant Tax ID (NIP), line items, and gross totals.
+              </li>
+              <li>Audits semantic match vs. declared club purpose.</li>
+              <li>
+                <strong
+                  >Output is advisory JSON only — never writes the
+                  ledger.</strong
+                >
+              </li>
+            </ul>
+          </div>
+
+          <div
+            class="p-5 rounded-2xl bg-neutral-950 border border-emerald-500/30 space-y-3"
+          >
+            <div
+              class="flex items-center gap-2 text-emerald-400 font-bold text-sm"
+            >
+              <span>⚙️ Deterministic Layer</span>
+              <span class="text-[10px] bg-emerald-500/20 px-2 py-0.5 rounded"
+                >Plain Code & Postgres</span
+              >
+            </div>
+            <ul
+              class="text-xs text-neutral-300 space-y-2 list-disc list-inside"
+            >
+              <li>
+                SHA-256 cryptographic hashes seal each verified allocation.
+              </li>
+              <li>
+                Neon Serverless PostgreSQL enforces ACID relational constraints.
+              </li>
+              <li>
+                <code>v_ledger_totals</code> view computes live multi-currency
+                totals.
+              </li>
+              <li>
+                <strong
+                  >Governs all money, balances, and immutable
+                  certificates.</strong
+                >
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="text-xs text-neutral-400 border-t border-neutral-800 pt-3">
+          Auditable AI: mathematical proofs safeguard against hallucination in
+          financial transactions.
+        </div>
+      </section>
+
+      <!-- SLIDE 5: Benchmark Validation -->
+      <section
+        class="slide slide-aspect w-full bg-neutral-900 border border-neutral-800 rounded-3xl p-8 sm:p-14 flex flex-col justify-between shadow-2xl hidden"
+        data-slide="5"
+      >
+        <div>
+          <span
+            class="text-xs font-black text-lime-400 uppercase tracking-widest block mb-2"
+            >04 · Engineering Validation</span
+          >
+          <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tight">
+            Stress-Tested Live Neon PostgreSQL Ledger
+          </h2>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 my-auto">
+          <div
+            class="p-4 rounded-2xl bg-neutral-950 border border-neutral-800 text-center"
+          >
+            <span
+              class="text-2xl sm:text-3xl font-black text-lime-400 font-mono block"
+              >161 ms</span
+            >
+            <span class="text-[11px] text-neutral-400 font-medium"
+              >Query Response Time</span
+            >
+          </div>
+          <div
+            class="p-4 rounded-2xl bg-neutral-950 border border-neutral-800 text-center"
+          >
+            <span
+              class="text-2xl sm:text-3xl font-black text-white font-mono block"
+              >29</span
+            >
+            <span class="text-[11px] text-neutral-400 font-medium"
+              >Aggregated Allocations</span
+            >
+          </div>
+          <div
+            class="p-4 rounded-2xl bg-neutral-950 border border-neutral-800 text-center"
+          >
+            <span
+              class="text-2xl sm:text-3xl font-black text-emerald-400 font-mono block"
+              >17 224 PLN</span
+            >
+            <span class="text-[11px] text-neutral-400 font-medium"
+              >Dynamic Total (EUR 4,006)</span
+            >
+          </div>
+          <div
+            class="p-4 rounded-2xl bg-neutral-950 border border-neutral-800 text-center"
+          >
+            <span
+              class="text-2xl sm:text-3xl font-black text-amber-400 font-mono block"
+              >20 / 9</span
+            >
+            <span class="text-[11px] text-neutral-400 font-medium"
+              >Season 2026 / Archive Split</span
+            >
+          </div>
+        </div>
+
+        <div
+          class="p-4 rounded-2xl bg-neutral-950/70 border border-neutral-800/80 text-xs text-neutral-300 space-y-1"
+        >
+          <span class="font-bold text-white block"
+            >Key Architectural Milestones Validated:</span
+          >
+          <p>
+            • <strong>Recurring Patron Engine:</strong> Global SQL aggregation
+            tracks patron loyalty badges (e.g. <em>Stały Mecenas 3</em>).
+          </p>
+          <p>
+            • <strong>Bidirectional Pagination:</strong> Asynchronous "Load
+            More" + "Show Less" with viewport snap-back.
+          </p>
+          <p>
+            • <strong>Dual-Layer i18n:</strong> Canonical Polish SHA-256 seal
+            stays intact while rendering native English for judges.
+          </p>
+        </div>
+
+        <div
+          class="text-[10px] text-neutral-400 border-t border-neutral-800 pt-2"
+        >
+          *Prototype transparency: Simulated benchmark dataset. Real funds
+          collected: 0.00 PLN (PayPal Sandbox Mode).
+        </div>
+      </section>
+
+      <!-- SLIDE 6: Comparison -->
+      <section
+        class="slide slide-aspect w-full bg-neutral-900 border border-neutral-800 rounded-3xl p-8 sm:p-14 flex flex-col justify-between shadow-2xl hidden"
+        data-slide="6"
+      >
+        <div>
+          <span
+            class="text-xs font-black text-lime-400 uppercase tracking-widest block mb-2"
+            >05 · Competitive Advantage</span
+          >
+          <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tight">
+            Why PatronAI Wins Over Traditional Crowdfunding
+          </h2>
+        </div>
+
+        <div class="overflow-x-auto my-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr
+                class="border-b border-neutral-800 text-[10px] uppercase tracking-wider text-neutral-400"
+              >
+                <th class="py-2 px-3">Capability</th>
+                <th class="py-2 px-3">Traditional (GoFundMe / Zrzutka)</th>
+                <th class="py-2 px-3 text-lime-400 font-bold">♟️ PatronAI</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-neutral-800 text-neutral-300">
+              <tr>
+                <td class="py-2.5 px-3 font-semibold text-white">
+                  Expense Audit
+                </td>
+                <td class="py-2.5 px-3 text-neutral-400">
+                  Black Box (funds in general pool)
+                </td>
+                <td class="py-2.5 px-3 text-emerald-400 font-bold">
+                  Gemini Multimodal Vision OCR on VAT invoices
+                </td>
+              </tr>
+              <tr>
+                <td class="py-2.5 px-3 font-semibold text-white">
+                  Integrity Proof
+                </td>
+                <td class="py-2.5 px-3 text-neutral-400">Trust-me display</td>
+                <td class="py-2.5 px-3 text-emerald-400 font-bold">
+                  SHA-256 hash seal on public ledger
+                </td>
+              </tr>
+              <tr>
+                <td class="py-2.5 px-3 font-semibold text-white">
+                  In-Kind Barter
+                </td>
+                <td class="py-2.5 px-3 text-neutral-400">
+                  Ignored (Cash only)
+                </td>
+                <td class="py-2.5 px-3 text-emerald-400 font-bold">
+                  AI Barter Valuator + legal .txt agreement
+                </td>
+              </tr>
+              <tr>
+                <td class="py-2.5 px-3 font-semibold text-white">
+                  Corporate B2B ROI
+                </td>
+                <td class="py-2.5 px-3 text-neutral-400">
+                  Generic PDF receipt
+                </td>
+                <td class="py-2.5 px-3 text-emerald-400 font-bold">
+                  Instant 1-Click LinkedIn + UN SDG ESG Pack
+                </td>
+              </tr>
+              <tr>
+                <td class="py-2.5 px-3 font-semibold text-white">
+                  Emotional Impact
+                </td>
+                <td class="py-2.5 px-3 text-neutral-400">
+                  Transactional email
+                </td>
+                <td class="py-2.5 px-3 text-emerald-400 font-bold">
+                  Personalized audio thank-you from young athletes
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="text-xs text-neutral-400 border-t border-neutral-800 pt-3">
+          From a donation portal to a full-stack CSR & trust infrastructure.
+        </div>
+      </section>
+
+      <!-- SLIDE 7: Summary & Vision -->
+      <section
+        class="slide slide-aspect w-full bg-neutral-900 border border-neutral-800 rounded-3xl p-8 sm:p-14 flex flex-col justify-between shadow-2xl hidden"
+        data-slide="7"
+      >
+        <div>
+          <span
+            class="text-xs font-black text-lime-400 uppercase tracking-widest block mb-2"
+            >06 · Vision & Team</span
+          >
+          <h2 class="text-3xl sm:text-4xl font-black text-white tracking-tight">
+            Scaling Grassroots Sponsorship Across the EU
+          </h2>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 my-auto">
+          <div
+            class="p-5 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-2"
+          >
+            <span
+              class="text-xs font-bold text-lime-400 uppercase tracking-wider block"
+              >Phase 1 · Pilot</span
+            >
+            <h3 class="text-sm font-bold text-white">UKS Roszada Radom</h3>
+            <p class="text-xs text-neutral-400">
+              Immediate post-hackathon deployment for 80+ junior chess players
+              and local sponsors.
+            </p>
+          </div>
+          <div
+            class="p-5 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-2"
+          >
+            <span
+              class="text-xs font-bold text-lime-400 uppercase tracking-wider block"
+              >Phase 2 · Federation</span
+            >
+            <h3 class="text-sm font-bold text-white">Multi-Sport Rollout</h3>
+            <p class="text-xs text-neutral-400">
+              Onboarding youth football, swimming, and martial arts clubs across
+              Central Europe.
+            </p>
+          </div>
+          <div
+            class="p-5 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-2"
+          >
+            <span
+              class="text-xs font-bold text-lime-400 uppercase tracking-wider block"
+              >Phase 3 · Automation</span
+            >
+            <h3 class="text-sm font-bold text-white">Coach Mobile App</h3>
+            <p class="text-xs text-neutral-400">
+              Direct tournament receipt scanning via Gemini Vision with
+              automated tax deduction exports.
+            </p>
+          </div>
+        </div>
+
+        <div
+          class="flex items-center justify-between pt-4 border-t border-neutral-800 text-xs text-neutral-400"
+        >
+          <div>
+            <span class="text-white font-bold">PatronAI Team:</span> Adam
+            Gierczak (Lead Architect & Full-Stack Developer)
+          </div>
+          <div class="flex gap-4">
+            <span class="text-lime-400 font-mono font-bold"
+              >patronat.vercel.app</span
+            >
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Navigation / Instructions (Ukryte na wydruku) -->
+    <footer
+      class="w-full max-w-6xl flex items-center justify-between py-2 text-xs text-neutral-400 no-print"
+    >
+      <div class="flex items-center gap-2">
+        <kbd
+          class="px-2 py-0.5 rounded bg-neutral-900 border border-neutral-800 font-mono"
+          >←</kbd
+        >
+        <kbd
+          class="px-2 py-0.5 rounded bg-neutral-900 border border-neutral-800 font-mono"
+          >→</kbd
+        >
+        <span>Steruj strzałkami na klawiaturze</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button
+          id="prevBtn"
+          class="px-4 py-2 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-neutral-200 font-bold border border-neutral-800 cursor-pointer"
+        >
+          Poprzedni
+        </button>
+        <button
+          id="nextBtn"
+          class="px-4 py-2 rounded-xl bg-lime-400 hover:bg-lime-300 text-neutral-950 font-black cursor-pointer"
+        >
+          Następny
+        </button>
+      </div>
+    </footer>
+
+    <script>
+      let currentSlide = 1;
+      const totalSlides = 7;
+
+      const slides = document.querySelectorAll(".slide");
+      const indicator = document.getElementById("slideIndicator");
+      const prevBtn = document.getElementById("prevBtn");
+      const nextBtn = document.getElementById("nextBtn");
+
+      function showSlide(index) {
+        if (index < 1) index = 1;
+        if (index > totalSlides) index = totalSlides;
+        currentSlide = index;
+
+        slides.forEach((slide) => {
+          const slideNo = parseInt(slide.getAttribute("data-slide"));
+          if (slideNo === currentSlide) {
+            slide.classList.remove("hidden");
+          } else {
+            slide.classList.add("hidden");
+          }
+        });
+
+        indicator.textContent = `${currentSlide} / ${totalSlides}`;
+        prevBtn.disabled = currentSlide === 1;
+        nextBtn.disabled = currentSlide === totalSlides;
+        prevBtn.style.opacity = currentSlide === 1 ? "0.4" : "1";
+        nextBtn.style.opacity = currentSlide === totalSlides ? "0.4" : "1";
+      }
+
+      prevBtn.addEventListener("click", () => showSlide(currentSlide - 1));
+      nextBtn.addEventListener("click", () => showSlide(currentSlide + 1));
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowRight" || e.key === " ") {
+          showSlide(currentSlide + 1);
+        } else if (e.key === "ArrowLeft") {
+          showSlide(currentSlide - 1);
+        }
+      });
+
+      showSlide(1);
+    </script>
+  </body>
+</html>

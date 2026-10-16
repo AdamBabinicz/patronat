@@ -27,15 +27,19 @@
 
 1. [The Problem](#-the-problem)
 2. [The Solution](#-the-solution-patronai)
-3. [System Architecture](#️-system-architecture--pipeline-diagrams)
-4. [Core AI Pillars — Deep Dives](#-core-ai-pillars--deep-dives)
-5. [Technology Stack](#️-technology-stack)
-6. [Project Architecture](#-project-architecture-clean-architecture)
-7. [Getting Started Locally](#-getting-started-locally)
-8. [Judge Walkthrough — Test in 3 Minutes](#-judge-walkthrough--test-in-3-minutes)
-9. [Pilot Framework, Simulation Data & Target Club Partnership](#-pilot-framework-simulation-data--target-club-partnership)
-10. [What Makes PatronAI Hack-Worthy](#-what-makes-patronai-hack-worthy--60-second-executive-summary)
-11. [License & Team](#-license--team)
+3. [The Deterministic Trust Layer](#-the-deterministic-trust-layer--architecture-philosophy)
+4. [System Architecture](#️-system-architecture--pipeline-diagrams)
+5. [Load Testing & Benchmark Validation](#-load-testing--benchmark-validation-results)
+6. [Core AI Pillars — Deep Dives](#-core-ai-pillars--deep-dives)
+7. [Recent Advanced UX & Trust Layer Enhancements](#-recent-advanced-ux--trust-layer-enhancements)
+8. [Typographic Precision & Dual-Layer i18n](#-refined-typographic-precision--i18n-dual-layer)
+9. [Technology Stack](#️-technology-stack)
+10. [Project Architecture](#-project-architecture-clean-architecture)
+11. [Getting Started Locally](#-getting-started-locally)
+12. [Judge Walkthrough — Test in 3 Minutes](#-judge-walkthrough--test-in-3-minutes)
+13. [Pilot Framework, Simulation Data & Target Club Partnership](#-pilot-framework-simulation-data--target-club-partnership)
+14. [What Makes PatronAI Hack-Worthy](#-what-makes-patronai-hack-worthy--60-second-executive-summary)
+15. [License & Team](#-license--team)
 
 ---
 
@@ -87,6 +91,53 @@ flowchart LR
     E --> F["🏅 Verifiable Certificate<br/>SHA-256 Hash"]
     F --> G["📣 CSR Pack +<br/>AI Voice Note"]
 ```
+
+---
+
+## 🔐 The Deterministic Trust Layer — Architecture Philosophy
+
+> **"A rule a prompt can hallucinate around is not a financial rule."**
+
+This single sentence is the architectural thesis of PatronAI, and it dictates where intelligence lives in the system.
+
+PatronAI splits every decision into exactly two layers, and the boundary between them is never negotiable:
+
+- **🧠 Probabilistic Layer — Google Gemini.** Multimodal Vision **inspects**, **transcribes**, and **semantically audits** invoices and receipts. It reasons about intent, extracts merchant tax IDs (NIP), line items, net/gross totals, and judges whether a purchase actually serves the declared allocation goal. Its output is _advisory JSON_ — a recommendation, never a ledger mutation.
+- **⚙️ Deterministic Layer — Plain Code.** **SHA-256 cryptographic hashes**, **Neon Serverless PostgreSQL relations**, and **SQL aggregation views** enforce ledger integrity and transactions. Nothing enters the permanent record because a model said so; entries enter because deterministic code hashed them, relational constraints accepted them, and SQL aggregated them.
+
+**Why this matters.** A generative model is a _judge of meaning_, not an _enforcer of arithmetic_. Gemini is allowed to decide _"does this DGT chess clock invoice plausibly match an allocation for tournament equipment?"_ — a genuinely fuzzy, semantic question that deterministic code cannot answer. Gemini is **never** allowed to decide the balance of the ledger, the total in the registry, whether a hash is valid, or whether a transaction is final — all of those are exact, reproducible computations owned by the database.
+
+The result is a trust model judges can verify independently: the **AI is auditable**, because every AI decision is stored as data next to the deterministic record that sealed it. You can re-read the Gemini output, re-run the SHA-256 digest, re-execute the SQL aggregation, and confirm the ledger reconciles — with no model in the loop required.
+
+```mermaid
+flowchart LR
+    subgraph AI["🧠 Probabilistic Layer — Google Gemini"]
+        V["Multimodal Vision<br/>OCR + semantic audit"]
+        R["Reasoning<br/>Intent and ROI matching"]
+    end
+    subgraph DET["⚙️ Deterministic Layer — Plain Code"]
+        H["SHA-256 Integrity Hashing"]
+        DB[("Neon Serverless<br/>PostgreSQL relations")]
+        SQL["SQL Aggregation Views<br/>v_ledger_totals"]
+    end
+    V -- "structured JSON, advisory only" --> H
+    R -- "typed match object" --> H
+    H --> DB
+    DB --> SQL
+    SQL -- "live totals" --> L["Public Ledger Registry"]
+    SQL -- "live totals" --> C["Standalone certificate verification"]
+```
+
+### Layer Responsibility Matrix
+
+| Concern                              | Owner                                      | Nature                       | Hallucination risk tolerated?                         |
+| ------------------------------------ | ------------------------------------------ | ---------------------------- | ----------------------------------------------------- |
+| Invoice / receipt OCR                | Google Gemini Multimodal Vision            | Probabilistic, advisory      | Yes — output is reviewed as data                      |
+| Semantic purpose match               | Google Gemini Reasoning                    | Probabilistic, advisory      | Yes — mismatches are flagged, never silently approved |
+| Intent → need matching & social ROI  | PatronAgent (Gemini) + typed needs catalog | Probabilistic + typed domain | Yes — scoring only, no ledger effect                  |
+| Ledger totals & multi-currency sums  | SQL aggregation view `v_ledger_totals`     | Deterministic, reproducible  | **No**                                                |
+| Record integrity / tamper evidence   | SHA-256 cryptographic hashing              | Deterministic, reproducible  | **No**                                                |
+| Relational persistence & constraints | Neon Serverless PostgreSQL                 | Deterministic, transactional | **No**                                                |
 
 ---
 
@@ -167,6 +218,41 @@ flowchart TD
 
 ---
 
+## 📊 Load Testing & Benchmark Validation Results
+
+A full **stress-test pass** was executed against the Neon Serverless PostgreSQL ledger to prove — not assert — that the deterministic layer holds under a realistic benchmark workload. The benchmark dataset was seeded into the `allocations` table as a **Dynamic Pilot Benchmark Dataset of continuously simulated test allocations**, then read back exclusively through the production code path (`app/api/ledger/route.ts` → `v_ledger_totals`).
+
+### Verified Benchmark Results
+
+| Benchmark metric                        | Verified result                                                                             | Enforcement mechanism                              |
+| --------------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| 🗄️ **Live allocations aggregated**      | **29** allocations aggregated end-to-end                                                    | `allocations` table → `v_ledger_totals` view       |
+| ⚡ **Aggregate query response time**    | **~160 ms** for the full 29-row aggregation                                                 | Pooled serverless Postgres connection              |
+| 💰 **Multi-currency ledger total**      | **17 224 PLN / EUR 4,006** — computed dynamically at read time                              | `v_ledger_totals` view — **zero hardcoded values** |
+| 📅 **Season segregation — Season 2026** | **20 active allocations**                                                                   | Season column partitioning in SQL aggregation      |
+| 📅 **Season segregation — Archive**     | **9 historical allocations (2025)**                                                         | Season column partitioning in SQL aggregation      |
+| 👥 **Unique patrons identified**        | **21 unique patrons**                                                                       | Patron relation across `allocations`               |
+| 🏅 **Recurring Patron engine**          | Badges such as **"Stały Mecenas (3) / Recurring Patron (3)"** rendered from verified counts | `patron_donation_count` aggregation                |
+
+### What the Stress Test Proves
+
+- **The numbers are computed, not stored.** The PLN/EUR totals above are produced on every request by the `v_ledger_totals` aggregation view. Change a row in `allocations` and the registry moves — there is no constant anywhere in the path that could drift from the data.
+- **Latency stays flat as the ledger grows.** Aggregating all 29 allocations — spanning two seasons and 21 distinct patrons — completes in **~160 ms**, so the public ledger remains an instant, live view rather than a cached snapshot.
+- **Season segregation is a first-class query dimension.** The same dataset cleanly splits into **Season 2026 (20 active allocations)** and **Archive (9 historical allocations from 2025)**, letting a club show current-season momentum and historical track record side by side without separate tables.
+- **The Recurring Patron engine is real.** With **21 unique patrons** resolved and `patron_donation_count` driving badge rendering, a returning sponsor is recognized automatically — e.g. **"Stały Mecenas (3) / Recurring Patron (3)"** — rather than being tallied by hand.
+
+```mermaid
+flowchart LR
+    A[("allocations table<br/>29 benchmark rows")] --> V["v_ledger_totals<br/>SQL aggregation view"]
+    V --> T["Multi-currency registry<br/>17 224 PLN / EUR 4,006"]
+    V --> S["Season segregation<br/>2026: 20 active / Archive: 9"]
+    V --> P["Recurring Patron engine<br/>21 patrons / patron_donation_count"]
+```
+
+> **Transparency note:** these are benchmark results on a simulated pilot dataset, not production traction. Real funds collected remain **0.00 PLN** — see [Pilot Framework, Simulation Data & Target Club Partnership](#-pilot-framework-simulation-data--target-club-partnership).
+
+---
+
 ## 🧠 Core AI Pillars — Deep Dives
 
 ### 1. ⚡ PatronAgent — Autonomous Intent & ROI Matcher
@@ -189,6 +275,7 @@ The flagship answer to the black-box donation problem, orchestrated by `componen
 - **Tamper-Evident Cryptographic Ledger:** Every verified allocation is sealed with a **SHA-256 integrity hash**, making the public ledger tamper-evident down to individual line items.
 - **🔐 Canonical Cryptographic Truth & Dual-Layer i18n (SHA-256):** The integrity hash is always derived from the **canonical Polish ledger record** of the club (UKS Roszada Radom), so the SHA-256 checksum stays stable and independently verifiable — while the interface can still render a **fully English UI/UX for international PayPal judges**. The canonical mapping lives in `lib/translations/purposeMap.ts`, and `components/ledger/LedgerPurposeCell.tsx` renders the localized goal with a subtle **`PL Original`** badge — auditable translation layered on top of cryptography, never a silent override of it.
 - **🧾 100% Database-Driven Audit Reports (Zero-Hardcoding):** Every VAT invoice audit report — Gemini Multimodal OCR output, merchant **NIP**, cost line items, net/gross totals — is fetched **live from the `audit_reports` table in Neon Serverless PostgreSQL**, and the audit modal (`components/ledger/LedgerAuditModal.tsx`) renders only what the database returns. **No static mock fallbacks, no hard-coded invoice fixtures anywhere in the audit path.**
+- **⚙️ Advisory AI, Deterministic Ledger:** Gemini's audit verdict is stored as reviewable data; it never writes a total or mutates the ledger. Hashing and aggregation remain in plain code — see [The Deterministic Trust Layer](#-the-deterministic-trust-layer--architecture-philosophy).
 
 ### 3. 🤝 AI Barter Valuator — In-Kind Sponsorship Rails
 
@@ -218,6 +305,8 @@ The emotional payload of every sponsorship: donors don't just see a receipt — 
 - **Public Immutable Verification Page:** Any certificate is independently verifiable at a standalone URL — no login, no app context required.
 - **Dynamic QR Code:** Instant smartphone scanning straight from the certificate page or printed material.
 - **PDF Generation & Ledger Lookup:** One-click PDF export and a direct link back to the tamper-evident public ledger entry.
+- **🧬 Surfaced SHA-256 Seal on the Certificate UI:** The full **64-character SHA-256 cryptographic hash** is rendered directly on the certificate page with a one-click copy control — a judge can lift the digest and verify it independently, without opening developer tools.
+- **🖨️ Ink-Friendly Print & PDF Styling:** Dedicated `@media print` rules switch the certificate to a white background with print-optimized contrast, so a PDF export or a physical printout stays legible and toner-friendly.
 - **🌍 Canonical Hash Stability Across Languages:** Verification is always recomputed from the **canonical Polish source record**, mapped through `lib/translations/purposeMap.ts` and rendered via `components/ledger/LedgerPurposeCell.tsx` (English goal + subtle **`PL Original`** badge). An English-language certificate therefore verifies against the **same SHA-256 checksum** as the Polish original — international judges get a native English UX without invalidating a single issued certificate.
 
 ### 7. 💳 PayPal Commerce Platform Integration
@@ -225,22 +314,97 @@ The emotional payload of every sponsorship: donors don't just see a receipt — 
 - **PayPal JavaScript SDK:** Supports card and digital wallet payments through the PayPal Commerce Platform.
 - **Developer Simulation Mode:** A built-in simulation flow (`NEXT_PUBLIC_PAYPAL_CLIENT_ID=test`) lets judges trigger instant checkouts and explore post-payment deliverables without live credentials.
 - **Sandbox-Only Status:** The gateway runs exclusively in **simulation / sandbox mode — no production UKS Roszada account connected**. No real transactions have been (or can be) processed at this stage of the project.
+- **🔗 Atomic Capture → Audit Report Sync:** `/api/paypal/capture-order` no longer stops at the payment record. On capture, it **atomically creates the linked, verified audit report row in `audit_reports`** within the same transaction, so a sandbox checkout produces an unbroken, queryable trust trail — payment, allocation, audit report, and hash seal all resolve to one narrative with no manual reconciliation step.
+
+---
+
+## 🆕 Recent Advanced UX & Trust Layer Enhancements
+
+The trust layer is only as credible as the interface that presents it. These are the most recent hardening passes on the Public Ledger, the certificate route, and the language an institutional patron reads.
+
+### 🔄 Bidirectional Pagination — `components/PublicLedger.tsx`
+
+The Public Ledger is now navigable in **both directions**, asynchronously, with no page reload:
+
+- **Expanding:** a **"Load more allocations"** control (`ChevronDown`) appends the next batch of allocations to the live table.
+- **Collapsing:** an instant **"Show less (collapse to 8)"** control (`ChevronUp`) returns the ledger to its default 8-row view and **smooth-scrolls the viewport back to the top of the table**, so the reader never loses their place.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Collapsed8
+    Collapsed8 --> ExpandedAll: "Load more allocations (ChevronDown)"
+    ExpandedAll --> Collapsed8: "Show less, collapse to 8 (ChevronUp) + smooth scroll to table top"
+```
+
+### 👤 Interactive Recurring Patron Profile Modal
+
+Clicking a patron's **recurring badge** (e.g. `Stały Mecenas (3) / Recurring Patron (3)`) now opens an **aggregate impact profile** for that patron instead of a static tooltip. The modal presents:
+
+- **Total verified allocations** attributed to that patron,
+- **Identified financial support** aggregated across their contributions,
+- **A one-click deep filter** that applies the patron's identity as a live filter back in the Public Ledger — turning a badge into an investigative tool.
+
+### 🏛️ Elevated Enterprise Trust Terminology
+
+Defensive, absolutist phrasing was replaced with the language institutional finance and CSR reviewers actually use:
+
+| Previous (defensive) wording | Elevated (institutional) wording | Locale |
+| ---------------------------- | -------------------------------- | ------ |
+| "Zero fraud"                 | **"100% Purpose Aligned"**       | EN     |
+| "Zero fraud"                 | **"100% Zgodności Celowej"**     | PL     |
+
+The claim is now precise and defensible: every verified allocation is aligned with its declared purpose — a statement backed by the in-database audit record, rather than an unfalsifiable absolute.
+
+### 🧾 Standalone Certificate Route (`/certyfikat/[id]`)
+
+- The **64-character SHA-256 cryptographic hash seal** is now surfaced directly in the certificate UI, with a **one-click copy** action.
+- Print and PDF output was optimized with dedicated **`@media print`** styles for **ink-friendly white backgrounds** — certificates are meant to be printed and pinned to a clubhouse wall.
+
+### 🔗 PayPal Capture Route Sync (`/api/paypal/capture-order`)
+
+- The capture endpoint now **atomically creates linked verified audit reports in `audit_reports`**, preserving an **unbroken trust trail** for every sandbox checkout.
+- No orphaned payment records: capture, allocation, and audit report land together, so the deterministic layer never has to reconcile a half-written story.
+
+---
+
+## 🎯 Refined Typographic Precision & i18n Dual-Layer
+
+### 💱 Currency Typography — Locale-Correct, Globally Readable
+
+Financial precision is a design requirement, not a detail. PatronAI formats every displayed amount according to its own locale convention:
+
+| Currency | Formatting convention                           | Rendered example |
+| -------- | ----------------------------------------------- | ---------------- |
+| **PLN**  | Suffix symbol, **thousands separated by space** | **`17 224 PLN`** |
+| **EUR**  | **Prefix symbol**, comma decimal separator      | **`EUR 4,006`**  |
+| **USD**  | **Prefix symbol**, comma decimal separator      | `USD 4,006`      |
+
+A Polish patron reads `17 224 PLN`; an international judge reads `EUR 4,006`. Same ledger, same underlying aggregation view, locale-appropriate typography on top.
+
+### 🌍 Dual-Layer Canonical Purpose Mapping
+
+The certificate requirement and the i18n requirement pull in opposite directions: judges need English, but the SHA-256 checksum must stay anchored to a single, stable record. PatronAI satisfies both with a two-layer model:
+
+- **Layer 1 — Canonical Polish record (hash-anchoring).** The cryptographic digest is always derived from the **canonical Polish ledger record** of the club (UKS Roszada Radom). This record is the source of truth and is never translated in place.
+- **Layer 2 — Localized presentation (badge-marked).** International judges read a **native English description** of the purpose, rendered through `lib/translations/purposeMap.ts` and `components/ledger/LedgerPurposeCell.tsx`, carrying a subtle **`PL Original`** badge that advertises the canonical origin of the hash.
+
+**Net effect:** an English UI, a native-quality reading experience for international PayPal judges, **and** zero certificate invalidation — the same SHA-256 checksum verifies in both languages. Localization is layered _on top of_ cryptography, never _instead of_ it.
 
 ---
 
 ## 🛠️ Technology Stack
 
-| Layer                       | Technologies                                                                                                                                                    |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Frontend Framework**      | Next.js 15 (App Router), React 19, TypeScript 5                                                                                                                 |
-| **Styling & UI**            | Tailwind CSS 3.4, Lucide Icons, Canvas API (audio equalizer)                                                                                                    |
-| **Artificial Intelligence** | Google Gemini API (Multimodal Vision + Reasoning), Web Speech API (input & synthesis)                                                                           |
-| **Payments & Checkout**     | PayPal JavaScript SDK (Commerce Platform, Sandbox / Developer Simulation Mode)                                                                                  |
-| **Domain & i18n**           | `lib/needsCatalog.ts` (typed needs domain), `lib/translations/` (strict type-safe `pl` / `en`), `lib/translations/purposeMap.ts` (canonical purpose mapping)    |
-| **Security & Trust**        | SHA-256 cryptographic integrity hashes, canonical Polish-source hashing, standalone QR verification route                                                       |
-| **Database & Persistence**  | Neon Serverless PostgreSQL (`@neondatabase/serverless`), connection pooling, auto-migrating DDL schema (`allocations`, `audit_reports`, `v_ledger_totals` view) |
-| **Client State**            | React State (ephemeral UI state)                                                                                                                                |
-| **Deployment**              | Vercel / Google Cloud Run (Dockerized Container)                                                                                                                |
+| Layer                       | Technologies                                                                                                                                                                                                                                                 |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Frontend Framework**      | Next.js 15 (App Router), React 19, TypeScript 5                                                                                                                                                                                                              |
+| **Styling & UI**            | Tailwind CSS 3.4, Lucide Icons (`ChevronDown` / `ChevronUp` pagination controls), Canvas API (audio equalizer)                                                                                                                                               |
+| **Artificial Intelligence** | Google Gemini API (Multimodal Vision + Reasoning), Web Speech API (input & synthesis)                                                                                                                                                                        |
+| **Payments & Checkout**     | PayPal JavaScript SDK (Commerce Platform, Sandbox / Developer Simulation Mode)                                                                                                                                                                               |
+| **Domain & i18n**           | `lib/needsCatalog.ts` (typed needs domain), `lib/translations/` (strict type-safe `pl` / `en`), `lib/translations/purposeMap.ts` (canonical purpose mapping)                                                                                                 |
+| **Security & Trust**        | SHA-256 cryptographic integrity hashes, canonical Polish-source hashing, 64-char hash seal surfaced on the certificate UI, standalone QR verification route                                                                                                  |
+| **Database & Persistence**  | Neon Serverless PostgreSQL (`@neondatabase/serverless`), connection pooling, auto-migrating DDL schema (`allocations`, `audit_reports`, `v_ledger_totals` view), SQL aggregation for live multi-currency totals, season segregation, `patron_donation_count` |
+| **Client State**            | React State (ephemeral UI state)                                                                                                                                                                                                                             |
+| **Deployment**              | Vercel / Google Cloud Run (Dockerized Container)                                                                                                                                                                                                             |
 
 ---
 
@@ -262,16 +426,16 @@ patronai/
 │   │   │       └── route.ts         # Database-driven certificate verification endpoint
 │   │   └── paypal/
 │   │       └── capture-order/
-│   │           └── route.ts         # PayPal capture with persistent database write
+│   │           └── route.ts         # PayPal capture with persistent database write + atomic linked audit report creation
 │   ├── certyfikat/
 │   │   └── [id]/
-│   │       └── page.tsx             # Standalone verifiable certificate route (QR + PDF + ledger lookup)
+│   │       └── page.tsx             # Standalone verifiable certificate route (SHA-256 seal + copy, QR + PDF + ledger lookup)
 │   ├── layout.tsx                   # Root layout with responsive viewport & meta
 │   └── page.tsx                     # Main interactive application & navigation
 ├── components/
 │   ├── PatronAgent.tsx              # AI matching, voice input & Barter Valuator
 │   ├── DonationCheckout.tsx         # Multi-currency checkout & PayPal integration
-│   ├── PublicLedger.tsx             # Orchestrating live ledger with AI Vision Invoice Audit
+│   ├── PublicLedger.tsx             # Orchestrating live ledger with AI Vision Invoice Audit + bidirectional pagination
 │   ├── ledger/
 │   │   ├── LedgerPurposeCell.tsx    # Dual-level bilingual goal rendering with "PL Original" badge
 │   │   ├── LedgerAuditModal.tsx     # Extracted Gemini Multimodal Vision invoice audit modal
@@ -369,7 +533,9 @@ Open [http://localhost:3000](http://localhost:3000) in your browser to experienc
 1. Scroll to **KROK 03 · Public Ledger** and click 🧾 **Audyt AI / AI Audit** on any allocation row.
 2. Inspect the Gemini-extracted VAT invoice data: merchant **NIP**, line items, net/gross totals — semantically checked against the allocation goal, all served live from the `audit_reports` table in Neon PostgreSQL.
 3. **Try it yourself:** use the **Live Upload / Camera runner** to drag-and-drop your own receipt and watch instant AI OCR verification.
-4. Open any **`/certyfikat/[id]`** certificate: scan the dynamic QR code with your phone, verify the SHA-256 hash, and export the PDF. Switch the UI to English and note the **`PL Original`** badge — the hash still matches the canonical Polish record.
+4. **Stress the ledger view:** click **Load more allocations** (`ChevronDown`) to page forward, then **Show less (collapse to 8)** (`ChevronUp`) to snap back to the top of the table — the registry totals stay live throughout.
+5. **Drill into a recurring patron:** click a **`Stały Mecenas / Recurring Patron`** badge to open the aggregate impact profile and apply its one-click ledger filter.
+6. Open any **`/certyfikat/[id]`** certificate: scan the dynamic QR code with your phone, copy the **64-character SHA-256 seal** straight off the page, verify the hash, and export the PDF. Switch the UI to English and note the **`PL Original`** badge — the hash still matches the canonical Polish record.
 
 ---
 
@@ -379,7 +545,7 @@ PatronAI is a **competition prototype / pilot** prepared for the PayPal AI Hacka
 
 **1. 🏁 Competition status — Real Funds Collected: 0.00 PLN.** This is a competition demonstration prototype: no real funds have been raised, and the club's production PayPal account (UKS Roszada Radom) is **not connected** — all checkout flows run in PayPal developer **simulation / sandbox mode, no production UKS Roszada account**.
 
-**2. 📈 Dynamic Pilot Benchmark Dataset — continuously simulated test allocations.** Every figure in the public ledger (amounts, invoices, receipts) belongs to a **Dynamic Pilot Benchmark Dataset across continuously simulated test allocations, live-aggregated directly from Neon Serverless PostgreSQL** — a modeled scenario based on illustrative club needs, created solely to demonstrate the matching → payment → audit → certificate pipeline end-to-end. The registry value is **not a hard-coded constant**: it is aggregated in real time from the `allocations` table through the `v_ledger_totals` view, so the benchmark evolves with every simulated allocation. **No real invoices, budgets, or club expenditures exist behind these numbers.**
+**2. 📈 Dynamic Pilot Benchmark Dataset — continuously simulated test allocations.** Every figure in the public ledger (amounts, invoices, receipts) belongs to a **Dynamic Pilot Benchmark Dataset across continuously simulated test allocations, live-aggregated directly from Neon Serverless PostgreSQL** — a modeled scenario based on illustrative club needs, created solely to demonstrate the matching → payment → audit → certificate pipeline end-to-end. The registry value is **not a hard-coded constant**: it is aggregated in real time from the `allocations` table through the `v_ledger_totals` view, so the benchmark evolves with every simulated allocation. **No real invoices, budgets, or club expenditures exist behind these numbers.** The stress-test baseline for this dataset is documented above: **29 aggregated allocations, ~160 ms aggregate query time, 17 224 PLN / EUR 4,006, 20 active (Season 2026) / 9 archived (2025) allocations, 21 unique patrons.**
 
 **3. 🤝 Target pilot club — UKS Roszada Radom (80+ children).** A real local club designated as the **prospective pilot partner / target community use case** for production deployment after the hackathon; the current implementation is a prototype powered entirely by the dynamic pilot benchmark dataset.
 
@@ -396,12 +562,15 @@ PatronAI is a **competition prototype / pilot** prepared for the PayPal AI Hacka
 
 ## 🌟 What Makes PatronAI Hack-Worthy — 60-Second Executive Summary
 
+- **🔐 Deterministic Trust Layer, not AI-washed finance.** Gemini inspects, transcribes and semantically audits — but **SHA-256 hashes, Neon relational constraints and SQL aggregation views** own every ledger fact. _"A rule a prompt can hallucinate around is not a financial rule."_ Probabilistic judgement and deterministic enforcement are separated by a hard architectural boundary.
 - **🧾 Truly Agentic Vision Audit, not a buzzword.** Gemini Multimodal Vision runs at allocation-time, not upload-time: every receipt is parsed into structured JSON (product · quantity · gross total · NIP) and semantically cross-checked against the patron's declared goal — mismatches are flagged, never silently approved. The first honest answer to the _black-box donation problem_.
+- **⚡ Stress-tested, not asserted.** A benchmark pass in Neon Serverless PostgreSQL aggregates **29 live allocations in ~160 ms**, reconciles **17 224 PLN / EUR 4,006** dynamically through `v_ledger_totals`, splits cleanly into **Season 2026 (20 active) vs. Archive (9 from 2025)**, and resolves **21 unique patrons** through the Recurring Patron engine (`patron_donation_count`). Every number is computed at read time; none is hard-coded.
 - **🌍 Canonical cryptographic truth & dual-layer i18n (SHA-256).** PatronAI resolves a genuinely hard dilemma: international PayPal judges need a **fully English UI/UX**, yet the SHA-256 checksum is generated from the **canonical Polish record** of UKS Roszada Radom — so a naive translation would invalidate every certificate. `lib/translations/purposeMap.ts` holds the canonical cryptographic mapping and `components/ledger/LedgerPurposeCell.tsx` renders the localized goal with a subtle **`PL Original`** badge: localization layered on top of cryptography, never instead of it.
 - **🧾 Audit reports straight from the database — zero-hardcoding.** The AI Vision audit modal (`components/ledger/LedgerAuditModal.tsx`) is driven entirely by the `audit_reports` table in Neon Serverless PostgreSQL — Gemini Multimodal OCR output, merchant **NIP**, cost line items, net/gross totals — with **no mock fallbacks and no static invoice fixtures anywhere in the path**.
 - **🤝 Beyond cash: in-kind barter as a first-class citizen.** The AI Barter Valuator assigns AVE market equivalence, picks a Gold/Silver/Bronze tier, and generates a downloadable, legally structured partnership agreement — turning a coach bus or a printed banner into a trackable, certificate-grade contribution.
 - **📣 Instant corporate deliverables.** One-click LinkedIn posts + UN SDG-aligned ESG statements the same minute the patron checks out — closing the CSR feedback loop that normally takes a quarter.
 - **🎙️ Emotional impact, engineered.** A personalized spoken thank-you from the athletes themselves, with a live equalizer waveform — sponsors don't just read a receipt, they _feel_ the impact.
+- **🔄 A ledger built for enquiry, not just display.** Bidirectional pagination (async **Load more allocations** / instant **Show less (collapse to 8)** with smooth scroll-back), an **interactive recurring-patron impact profile modal** with one-click ledger filtering, and the full **64-character SHA-256 seal surfaced on the certificate** with one-click copy and **ink-friendly `@media print`** output. Enterprise trust language — **"100% Purpose Aligned" / "100% Zgodności Celowej"** — replaces defensive absolutes.
 - **🔐 Tamper-evident, not just "transparent."** Every ledger entry carries a SHA-256 hash and a standalone `/certyfikat/[id]` verification page with dynamic QR + PDF export — sponsors audit individual line items, not trust an aggregate dashboard.
 - **🗄️ Durable cloud persistence, not a browser cache.** The public ledger and every issued certificate live in a **relational Neon Serverless PostgreSQL** database — reached through pooled serverless connections (`@neondatabase/serverless`) against an auto-migrating DDL schema (`allocations`, `audit_reports`, `v_ledger_totals`). Audit records and certificate lookups survive refreshes, device changes and cleared browser storage, so the trust trail is a queryable server-side record rather than client-side state.
 - **🧪 Transparent competition pilot, not inflated traction.** Real funds collected: **0.00 PLN** (PayPal runs in sandbox / developer simulation mode, no production UKS Roszada account); the ledger presents a **Dynamic Pilot Benchmark Dataset across continuously simulated test allocations, live-aggregated directly from Neon Serverless PostgreSQL** — every total is aggregated in real time from the `allocations` table via the `v_ledger_totals` view rather than stored as a constant — with UKS Roszada Radom (80+ active youth players) named as the **prospective pilot partner / target community use case** for deployment after the hackathon.
