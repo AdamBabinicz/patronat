@@ -283,7 +283,7 @@ export default function PublicLedger({
       ? [...liveNewEntries, ...dbEntries]
       : [...extraEntries, ...(tLedger.entries as readonly LedgerEntry[])];
 
-  // Prawdziwy, w 100% dynamiczny audyt przesłanego dokumentu przez backendowy endpoint Gemini Vision
+  // Systemowa obsługa audytu faktury z zabezpieczeniem timeout (max 26s – nigdy nie wisi)
   const handleCustomFileUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
   ) => {
@@ -300,6 +300,7 @@ export default function PublicLedger({
       const res = await fetch("/api/audit/invoice", {
         method: "POST",
         body: formData,
+        signal: AbortSignal.timeout(26000), // Gwarancja braku nieskończonego ładowania
       });
 
       const result = await res.json();
@@ -316,10 +317,16 @@ export default function PublicLedger({
       }
     } catch (err: any) {
       console.error("Błąd połączenia z API audytu:", err);
+      const isTimeout =
+        err.name === "TimeoutError" || err.name === "AbortError";
       alert(
-        language === "pl"
-          ? "Wystąpił błąd podczas przesyłania dokumentu do audytu Gemini Vision."
-          : "An error occurred while uploading document to Gemini Vision audit.",
+        isTimeout
+          ? language === "pl"
+            ? "Przekroczono limit czasu analizy (timeout). Spróbuj wgrać mniejszy plik lub zrób zrzut ekranu."
+            : "Document analysis timed out. Please try uploading a smaller file or a screenshot."
+          : language === "pl"
+            ? "Wystąpił błąd podczas przesyłania dokumentu do audytu Gemini Vision."
+            : "An error occurred while uploading document to Gemini Vision audit.",
       );
     } finally {
       setIsAnalyzingCustom(false);
@@ -611,7 +618,7 @@ export default function PublicLedger({
                           : "hover:bg-muted/40"
                       }`}
                     >
-                      {/* 1. Mecenas (spójny językowo) */}
+                      {/* 1. Mecenas */}
                       <td className="py-3 px-3.5 font-bold text-foreground truncate">
                         <div className="flex flex-col gap-0.5 min-w-0">
                           <div className="flex items-center gap-1.5 min-w-0">

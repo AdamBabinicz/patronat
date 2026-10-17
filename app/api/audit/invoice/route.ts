@@ -3,123 +3,177 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 
 export const runtime = "nodejs";
+export const maxDuration = 30; // 30 sekund dla Vercel Serverless
 
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const locale = (formData.get("locale") as string) || "pl";
+    const isEn = locale === "en";
 
     if (!file) {
       return NextResponse.json(
-        { success: false, error: "Brak przesłanego pliku" },
+        {
+          success: false,
+          error: isEn
+            ? "No invoice document file was provided."
+            : "Brak przesłanego pliku dokumentu faktury.",
+        },
         { status: 400 },
       );
     }
 
-    // 1. Obliczenie autentycznego kryptograficznego hashu SHA-256 z bajtów pliku
+    // Limit rozmiaru pliku do 10MB
+    if (file.size > 10 * 1024 * 1024) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: isEn
+            ? "The uploaded file is too large (max 10MB)."
+            : "Przesłany plik jest zbyt duży (maksymalny rozmiar to 10MB).",
+        },
+        { status: 400 },
+      );
+    }
+
+    const lowerName = file.name.toLowerCase();
+
+    // 1. Zabezpieczenie UX przed formatami Office (.doc, .docx)
+    if (
+      lowerName.endsWith(".doc") ||
+      lowerName.endsWith(".docx") ||
+      lowerName.endsWith(".odt") ||
+      lowerName.endsWith(".rtf")
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: isEn
+            ? "Supported invoice audit formats are PDF documents and legible scans/photos (JPG, PNG, WEBP). Please export your document as PDF."
+            : "Obsługiwane formaty audytu faktur to dokumenty PDF oraz skany/zdjęcia (JPG, PNG, WEBP). Zapisz dokument jako PDF.",
+        },
+        { status: 400 },
+      );
+    }
+
+    // 2. Precyzyjne wykrycie MIME type
+    let mimeType = file.type;
+    if (!mimeType || mimeType === "application/octet-stream") {
+      if (lowerName.endsWith(".pdf")) mimeType = "application/pdf";
+      else if (lowerName.endsWith(".png")) mimeType = "image/png";
+      else if (lowerName.endsWith(".webp")) mimeType = "image/webp";
+      else mimeType = "image/jpeg";
+    }
+
+    // 3. Prawdziwy kryptograficzny SHA-256 z bajtów pliku
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const sha256Hash =
       "0x" + crypto.createHash("sha256").update(buffer).digest("hex");
 
-    // 2. Przygotowanie danych base64
-    const base64Data = buffer.toString("base64");
-    const mimeType =
-      file.type ||
-      (file.name.toLowerCase().endsWith(".pdf")
-        ? "application/pdf"
-        : "image/jpeg");
+    // 4. API Key
+    const rawApiKey = process.env.GEMINI_API_KEY || "";
+    const apiKey = rawApiKey.trim().replace(/^["']|["']$/g, "");
 
-    // 3. Sprawdzenie klucza GEMINI_API_KEY w środowisku
-    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Brak zmiennej GEMINI_API_KEY na serwerze (skonfiguruj w .env.local lub Vercel)",
+          error: isEn
+            ? "Server configuration issue: GEMINI_API_KEY is not defined."
+            : "Błąd serwera: brak klucza GEMINI_API_KEY w zmiennych środowiskowych.",
         },
         { status: 500 },
       );
     }
 
-    // 4. Instrukcja dla Gemini Vision
+    // 5. Prompt OCR dopasowany do wybranego języka
     const prompt = `
-Jesteś certyfikowanym audytorem księgowym i systemem OCR dla platformy mecenatu sportu PatronAI.
-Przeanalizuj przesłany dokument (fakturę VAT, rachunek lub paragon).
-
-Wyekstrahuj DOKŁADNIE i RZETELNIE następujące dane w formacie JSON (bez bloków markdown, sam czysty JSON):
+You are an expert accountant OCR auditor for PatronAI youth sports platform.
+Analyze this invoice or receipt and extract the exact information in JSON format (pure JSON only, no markdown):
 {
-  "seller": "Pełna nazwa wystawcy/sprzedawcy lub firmy",
-  "sellerNip": "Numer NIP sprzedawcy (np. PL 1234567890 lub brak jeśli paragon)",
-  "invoiceNumber": "Numer faktury lub paragonu",
-  "issueDate": "Data wystawienia lub sprzedaży (w formacie DD.MM.YYYY)",
+  "seller": "Full company or seller name",
+  "sellerNip": "Seller Tax ID / NIP (e.g. PL 1234567890 or empty if not present)",
+  "invoiceNumber": "Invoice or receipt number",
+  "issueDate": "Date of issue (DD.MM.YYYY)",
   "items": [
     {
-      "name": "Nazwa zakupionego towaru lub usługi",
-      "qty": "Ilość z jednostką (np. 1 szt. lub 1 pc. zależnie od ${locale})",
-      "gross": "Wartość brutto pozycji z walutą (np. 1 300,00 PLN)"
+      "name": "Item or service name (${isEn ? "in English" : "in Polish"})",
+      "qty": "${isEn ? "1 pc." : "1 szt."}",
+      "gross": "Total gross amount with currency (e.g. 1 300,00 PLN)"
     }
   ],
-  "totalGross": "Łączna kwota brutto dokumentu z walutą (np. 1 300,00 PLN)",
+  "totalGross": "Total document gross amount (e.g. 1 300,00 PLN)",
   "semanticMatchScore": 99.4
 }
-
-Wymogi językowe:
-- Jeśli locale to "en", opisy pozycji przetłumacz profesjonalnie na angielski, a jednostkę oznacz jako "1 pc." (lub "pcs").
-- Jeśli locale to "pl", zachowaj oryginalne polskie nazewnictwo pozycji i jednostkę "szt.".
-- Zwróć WYŁĄCZNIE poprawny obiekt JSON.
+Strict rule: Return ONLY the JSON object.
 `;
 
-    // 5. Bezpośrednie wywołanie Gemini 2.5 Flash przez natywny REST API (Zero bibliotek)
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    // 6. Oficjalny model rekomendowany przez Google: gemini-3.8-flash (z fallbackiem na gemini-flash-latest)
+    const targetModels = ["gemini-3.8-flash", "gemini-flash-latest"];
+    let parsedData: any = null;
+    let lastError = "";
 
-    const apiResponse = await fetch(geminiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: prompt },
+    for (const model of targetModels) {
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+        const apiResponse = await fetch(geminiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: AbortSignal.timeout(24000), // Bezpieczny limit 24s
+          body: JSON.stringify({
+            contents: [
               {
-                inline_data: {
-                  mime_type: mimeType,
-                  data: base64Data,
-                },
+                parts: [
+                  { text: prompt },
+                  {
+                    inlineData: {
+                      mimeType,
+                      data: buffer.toString("base64"),
+                    },
+                  },
+                ],
               },
             ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.1,
-          responseMimeType: "application/json",
-        },
-      }),
-    });
+            generationConfig: {
+              temperature: 0.1,
+              responseMimeType: "application/json",
+            },
+          }),
+        });
 
-    if (!apiResponse.ok) {
-      const errBody = await apiResponse.text();
-      console.error("Gemini API Error Response:", errBody);
+        if (apiResponse.ok) {
+          const apiData = await apiResponse.json();
+          const rawText =
+            apiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+
+          const cleanedJson = rawText
+            .replace(/```json/g, "")
+            .replace(/```/g, "")
+            .trim();
+
+          parsedData = JSON.parse(cleanedJson);
+          break; // Sukces!
+        } else {
+          lastError = await apiResponse.text();
+          console.warn(`Model ${model} zwrócił błąd:`, lastError);
+        }
+      } catch (err: any) {
+        lastError = err.message || String(err);
+      }
+    }
+
+    if (!parsedData) {
       return NextResponse.json(
         {
           success: false,
-          error: `Błąd Google Gemini API: ${apiResponse.statusText}`,
+          error: `Błąd analizy Gemini: ${lastError}`,
         },
         { status: 502 },
       );
     }
-
-    const apiData = await apiResponse.json();
-    const rawText = apiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-
-    const cleanedJson = rawText
-      .replace(/```json/g, "")
-      .replace(/```/g, "")
-      .trim();
-
-    const parsedData = JSON.parse(cleanedJson);
 
     return NextResponse.json({
       success: true,
@@ -137,8 +191,15 @@ Wymogi językowe:
     });
   } catch (error: any) {
     console.error("Błąd audytu Gemini Vision:", error);
+    const isTimeout =
+      error.name === "TimeoutError" || error.name === "AbortError";
     return NextResponse.json(
-      { success: false, error: error.message || "Błąd analizy dokumentu" },
+      {
+        success: false,
+        error: isTimeout
+          ? "Przekroczono limit czasu analizy Gemini (timeout 24s). Spróbuj ponownie."
+          : error.message || "Błąd analizy dokumentu",
+      },
       { status: 500 },
     );
   }
