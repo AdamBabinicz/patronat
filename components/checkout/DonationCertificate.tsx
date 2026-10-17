@@ -34,6 +34,13 @@ interface DonationCertificateProps {
   onReset: () => void;
 }
 
+// Bezpieczny dostęp do Web Speech API bez błędów ts(2339) (zawężania window do 'never')
+function getSpeechSynthesis(): SpeechSynthesis | null {
+  if (typeof window === "undefined") return null;
+  const win = window as unknown as { speechSynthesis?: SpeechSynthesis };
+  return win.speechSynthesis || null;
+}
+
 export function DonationCertificate({
   paymentDetails,
   isAnonymous,
@@ -63,9 +70,31 @@ export function DonationCertificate({
     paymentDetails?.id ||
     `ROSZADA-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
 
+  // Gwarantowane pobranie właściwej kwoty i waluty z obiektu transakcji (zapobiega niespodziewanemu 15 USD)
+  const displayAmount = Number(
+    paymentDetails?.recordAmount ??
+      (paymentDetails?.amount?.value
+        ? parseFloat(paymentDetails.amount.value)
+        : null) ??
+      amount,
+  );
+
+  const displayCurrency: Currency =
+    paymentDetails?.recordCurrency ||
+    paymentDetails?.amount?.currency_code ||
+    currency ||
+    "PLN";
+
+  // Gwarantowane pobranie właściwej nazwy mecenasa (np. Grama)
   const effectivePatron = isAnonymous
     ? t.defaultAnonymous
-    : donorName || t.defaultAnonymous;
+    : paymentDetails?.donorName || donorName || t.defaultAnonymous;
+
+  const isBarterTransaction = Boolean(
+    paymentDetails?.isBarter ||
+    paymentDetails?.paymentMethod === "BARTER" ||
+    orderId.startsWith("BARTER-"),
+  );
 
   const certUrl =
     typeof window !== "undefined"
@@ -81,21 +110,23 @@ export function DonationCertificate({
   // Treść podziękowania czytanego głosem przez juniorów klubu
   const voiceMessageText =
     locale === "pl"
-      ? `Cześć! W imieniu wszystkich juniorów oraz zarządu klubu ${clubName}, z całego serca dziękujemy mecenasowi: ${effectivePatron}! Dzięki Twojemu wsparciu w kwocie ${amount.toFixed(0)} ${currency} na cel: "${goal}", możemy trenować, rozwijać nasze pasje i walczyć o mistrzostwo. Dziękujemy, że grasz razem z nami!`
-      : `Hello! On behalf of all youth athletes and the board of ${clubName}, we sincerely thank: ${effectivePatron}! With your generous support of ${amount.toFixed(0)} ${currency} for: "${goal}", we can train, develop our skills, and compete for trophies. Thank you for standing with us!`;
+      ? `Cześć! W imieniu wszystkich juniorów oraz zarządu klubu ${clubName}, z całego serca dziękujemy mecenasowi: ${effectivePatron}! Dzięki Twojemu wsparciu w kwocie ${displayAmount.toFixed(0)} ${displayCurrency} na cel: "${goal}", możemy trenować, rozwijać nasze pasje i walczyć o mistrzostwo. Dziękujemy, że grasz razem z nami!`
+      : `Hello! On behalf of all youth athletes and the board of ${clubName}, we sincerely thank: ${effectivePatron}! With your generous support of ${displayAmount.toFixed(0)} ${displayCurrency} for: "${goal}", we can train, develop our skills, and compete for trophies. Thank you for standing with us!`;
 
   // Bezpieczne zatrzymanie dźwięku przy odmontowaniu
   useEffect(() => {
     return () => {
-      if (typeof window !== "undefined" && "speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
+      const synth = getSpeechSynthesis();
+      if (synth) {
+        synth.cancel();
       }
     };
   }, []);
 
   // Obsługa odtwarzania syntezy mowy
   const togglePlayVoice = () => {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+    const synth = getSpeechSynthesis();
+    if (!synth) {
       alert(
         locale === "pl"
           ? "Twoja przeglądarka nie obsługuje syntezy mowy."
@@ -105,37 +136,40 @@ export function DonationCertificate({
     }
 
     if (isPlayingVoice) {
-      window.speechSynthesis.cancel();
+      synth.cancel();
       setIsPlayingVoice(false);
       return;
     }
 
-    window.speechSynthesis.cancel();
+    synth.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(voiceMessageText);
-    utterance.lang = locale === "pl" ? "pl-PL" : "en-US";
-    utterance.rate = 1.02;
-    utterance.pitch = 1.1; // Młodzieńczy, przyjazny ton
+    if (typeof window !== "undefined" && "SpeechSynthesisUtterance" in window) {
+      const utterance = new SpeechSynthesisUtterance(voiceMessageText);
+      utterance.lang = locale === "pl" ? "pl-PL" : "en-US";
+      utterance.rate = 1.02;
+      utterance.pitch = 1.1; // Młodzieńczy, przyjazny ton
 
-    utterance.onstart = () => {
-      setIsPlayingVoice(true);
-    };
+      utterance.onstart = () => {
+        setIsPlayingVoice(true);
+      };
 
-    utterance.onend = () => {
-      setIsPlayingVoice(false);
-    };
+      utterance.onend = () => {
+        setIsPlayingVoice(false);
+      };
 
-    utterance.onerror = () => {
-      setIsPlayingVoice(false);
-    };
+      utterance.onerror = () => {
+        setIsPlayingVoice(false);
+      };
 
-    utteranceRef.current = utterance;
-    window.speechSynthesis.speak(utterance);
+      utteranceRef.current = utterance;
+      synth.speak(utterance);
+    }
   };
 
   const handleReplayVoice = () => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
+    const synth = getSpeechSynthesis();
+    if (synth) {
+      synth.cancel();
       setIsPlayingVoice(false);
       setTimeout(() => {
         togglePlayVoice();
@@ -146,14 +180,14 @@ export function DonationCertificate({
   // Generowanie dynamicznej treści posta LinkedIn
   const linkedInPostText =
     locale === "pl"
-      ? `🎯 Z dumą ogłaszamy, że jako mecenas wsparliśmy młode talenty z klubu ${clubName}!\n\nW ramach transparentnej alokacji PatronAI przekazaliśmy ${amount.toFixed(2)} ${currency} na cel: "${goal}".\n\nSport młodzieżowy to nie tylko rywalizacja, ale przede wszystkim strategiczne myślenie, dyscyplina i równe szanse dla każdego juniora. Cieszymy się, że możemy być częścią tej misji! ♟️🏆\n\nSprawdź nasz oficjalny certyfikat mecenatu w publicznym rejestrze:\n${certUrl}\n\n#CSR #BiznesDlaSportu #PatronAI #${clubHashtag} #ESG #OdpowiedzialnyBiznes #SportMłodzieżowy`
-      : `🎯 Proud to announce our corporate patronage for the young athletes at ${clubName}!\n\nThrough transparent PatronAI impact allocation, we contributed ${amount.toFixed(2)} ${currency} to: "${goal}".\n\nYouth sports build resilience, strategic foresight, and character. We are proud to invest in the next generation of champions! ♟️🏆\n\nVerify our official patronage certificate in the public registry:\n${certUrl}\n\n#CSR #SportsSponsorship #PatronAI #${clubHashtag} #ESG #YouthDevelopment #CorporateCitizenship`;
+      ? `🎯 Z dumą ogłaszamy, że jako mecenas wsparliśmy młode talenty z klubu ${clubName}!\n\nW ramach transparentnej alokacji PatronAI przekazaliśmy ${displayAmount.toFixed(2)} ${displayCurrency} na cel: "${goal}".\n\nSport młodzieżowy to nie tylko rywalizacja, ale przede wszystkim strategiczne myślenie, dyscyplina i równe szanse dla każdego juniora. Cieszymy się, że możemy być częścią tej misji! ♟️🏆\n\nSprawdź nasz oficjalny certyfikat mecenatu w publicznym rejestrze:\n${certUrl}\n\n#CSR #BiznesDlaSportu #PatronAI #${clubHashtag} #ESG #OdpowiedzialnyBiznes #SportMłodzieżowy`
+      : `🎯 Proud to announce our corporate patronage for the young athletes at ${clubName}!\n\nThrough transparent PatronAI impact allocation, we contributed ${displayAmount.toFixed(2)} ${displayCurrency} to: "${goal}".\n\nYouth sports build resilience, strategic foresight, and character. We are proud to invest in the next generation of champions! ♟️🏆\n\nVerify our official patronage certificate in the public registry:\n${certUrl}\n\n#CSR #SportsSponsorship #PatronAI #${clubHashtag} #ESG #YouthDevelopment #CorporateCitizenship`;
 
   // Generowanie formalnego oświadczenia do raportu ESG / CSR
   const esgStatementText =
     locale === "pl"
-      ? `OŚWIADCZENIE WPŁYWU SPOŁECZNEGO (CSR / ESG COMPLIANCE)\n--------------------------------------------------\nPodmiot finansujący: ${effectivePatron}\nBeneficjent: ${clubName}\nCel mecenatu: ${goal}\nWartość alokacji: ${amount.toFixed(2)} ${currency}\nUnikalny identyfikator certyfikatu: ${orderId}\nData rejestracji: ${new Date().toLocaleDateString("pl-PL")}\n\nZgodność z Celami Zrównoważonego Rozwoju ONZ (UN SDGs):\n• SDG 3 (Dobre zdrowie i jakość życia): Promowanie aktywności fizycznej i rozwoju psychofizycznego młodzieży.\n• SDG 4 (Dobra jakość edukacji): Wspieranie strategicznego myślenia, równego dostępu do szkoleń i integracji społecznej.\n\nStatus audytu: Wpis potwierdzony w publicznym, transparentnym rejestrze mecenasów PatronAI.`
-      : `SOCIAL IMPACT & ESG COMPLIANCE STATEMENT\n----------------------------------------\nFunding Entity: ${effectivePatron}\nBeneficiary: ${clubName}\nSupported Goal: ${goal}\nAllocated Amount: ${amount.toFixed(2)} ${currency}\nRegistry Certificate ID: ${orderId}\nRegistration Date: ${new Date().toLocaleDateString("en-US")}\n\nUN Sustainable Development Goals (SDGs) Alignment:\n• SDG 3 (Good Health and Well-being): Promoting youth physical and psychological wellness.\n• SDG 4 (Quality Education): Developing strategic thinking, sports excellence, and equal youth access.\n\nAudit Status: Authenticated on the transparent PatronAI Public Ledger.`;
+      ? `OŚWIADCZENIE WPŁYWU SPOŁECZNEGO (CSR / ESG COMPLIANCE)\n--------------------------------------------------\nPodmiot finansujący: ${effectivePatron}\nBeneficjent: ${clubName}\nCel mecenatu: ${goal}\nWartość alokacji: ${displayAmount.toFixed(2)} ${displayCurrency}\nUnikalny identyfikator certyfikatu: ${orderId}\nData rejestracji: ${new Date().toLocaleDateString("pl-PL")}\n\nZgodność z Celami Zrównoważonego Rozwoju ONZ (UN SDGs):\n• SDG 3 (Dobre zdrowie i jakość życia): Promowanie aktywności fizycznej i rozwoju psychofizycznego młodzieży.\n• SDG 4 (Dobra jakość edukacji): Wspieranie strategicznego myślenia, równego dostępu do szkoleń i integracji społecznej.\n\nStatus audytu: Wpis potwierdzony w publicznym, transparentnym rejestrze mecenasów PatronAI.`
+      : `SOCIAL IMPACT & ESG COMPLIANCE STATEMENT\n----------------------------------------\nFunding Entity: ${effectivePatron}\nBeneficiary: ${clubName}\nSupported Goal: ${goal}\nAllocated Amount: ${displayAmount.toFixed(2)} ${displayCurrency}\nRegistry Certificate ID: ${orderId}\nRegistration Date: ${new Date().toLocaleDateString("en-US")}\n\nUN Sustainable Development Goals (SDGs) Alignment:\n• SDG 3 (Good Health and Well-being): Promoting youth physical and psychological wellness.\n• SDG 4 (Quality Education): Developing strategic thinking, sports excellence, and equal youth access.\n\nAudit Status: Authenticated on the transparent PatronAI Public Ledger.`;
 
   const handleCopyLink = () => {
     if (typeof window !== "undefined") {
@@ -191,10 +225,17 @@ export function DonationCertificate({
     }
   };
 
-  // Wizualizator fali dźwiękowej
+  // Wizualizator fali dźwiękowej (16 słupków)
   const waveHeights = [
     35, 65, 45, 90, 60, 85, 40, 100, 75, 50, 95, 60, 80, 50, 70, 40,
   ];
+
+  // Podtytuł certyfikatu dopasowany do trybu gotówkowego lub bezgotówkowego barteru
+  const resolvedSubtitle = isBarterTransaction
+    ? locale === "pl"
+      ? "Porozumienie barterowe zostało pomyślnie zarejestrowane, a świadczenie rzeczowe przypisane do klubu."
+      : "Barter agreement successfully recorded, and in-kind contribution allocated."
+    : t.successSubtitle;
 
   return (
     <div className="max-w-2xl mx-auto p-4 sm:p-6 lg:p-8">
@@ -213,7 +254,7 @@ export function DonationCertificate({
             {t.successTitle}
           </h2>
           <p className="mt-1 text-xs sm:text-sm text-muted-foreground max-w-md">
-            {t.successSubtitle}
+            {resolvedSubtitle}
           </p>
         </div>
 
@@ -248,9 +289,16 @@ export function DonationCertificate({
           </div>
 
           <div className="flex justify-between items-center py-2 border-b border-border/50">
-            <span className="text-muted-foreground">{t.amountPaidLabel}:</span>
+            <span className="text-muted-foreground">
+              {isBarterTransaction
+                ? locale === "pl"
+                  ? "Wartość świadczenia (AVE):"
+                  : "In-Kind Value (AVE):"
+                : t.amountPaidLabel}
+              :
+            </span>
             <span className="font-black text-emerald-800 dark:text-emerald-300 text-lg sm:text-xl">
-              {amount.toFixed(2)} {currency}
+              {displayAmount.toFixed(2)} {displayCurrency}
             </span>
           </div>
 
@@ -358,7 +406,7 @@ export function DonationCertificate({
             </div>
           </div>
 
-          {/* Wizualizator fali dźwiękowej */}
+          {/* Wizualizator fali dźwiękowej (pełny zestaw 16 animowanych słupków) */}
           <div className="flex items-center gap-2 self-end sm:self-center">
             <div className="flex items-center gap-0.5 h-7 px-2 py-1 rounded-xl bg-muted/50 border border-border/60">
               {waveHeights.map((h, i) => (

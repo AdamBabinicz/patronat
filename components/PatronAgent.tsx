@@ -1,7 +1,7 @@
 // components/PatronAgent.tsx
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { FileText, Handshake } from "lucide-react";
 import type { Language, Messages } from "@/lib/translations";
 import type { Currency } from "./checkout/types";
@@ -14,6 +14,9 @@ export interface AllocationPayload {
   currency: Currency;
   description: string;
   clubName: string;
+  donorName?: string;
+  donorWebsite?: string;
+  isBarter?: boolean;
 }
 
 export interface ImpactForecast {
@@ -34,6 +37,7 @@ interface MatchedGoalResult {
   sponsorshipType?: "financial" | "in_kind";
   inKindDetails?: string;
   detectedDomain?: string;
+  companyName?: string;
   impactForecast?: ImpactForecast;
 }
 
@@ -93,6 +97,80 @@ function convertFromPln(amountPln: number, target: Currency): number {
   return amountPln;
 }
 
+// Ekstrakcja linku lub domeny z tekstu zapytania
+function extractDomainOrUrl(text: string): string {
+  const match = text.match(
+    /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9-]+\.(?:pl|com|eu|org|net|io|netlify\.app|vercel\.app)[^\s]*)/i,
+  );
+  return match ? match[0] : "";
+}
+
+// 100% uniwersalny algorytm ekstrakcji czystej marki z domeny lub linku
+function formatDomainToBrand(domainOrUrl: string): string {
+  try {
+    let clean = domainOrUrl
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//i, "")
+      .replace(/^www\./i, "")
+      .split("/")[0]
+      .split("?")[0];
+
+    // Obsługa platform hostingowych typu grama.netlify.app -> grama
+    const hostingMatch = clean.match(
+      /^([a-z0-9-]+)\.(netlify\.app|vercel\.app|github\.io|webflow\.io|pages\.dev|render\.com|herokuapp\.com)$/i,
+    );
+    if (hostingMatch) {
+      clean = hostingMatch[1];
+    } else {
+      // Standardowe TLDs
+      clean = clean.replace(
+        /\.(com\.pl|net\.pl|org\.pl|edu\.pl|gov\.pl|info\.pl|pl|com|eu|org|net|io|co|de|uk|app)$/i,
+        "",
+      );
+      const parts = clean.split(".");
+      clean = parts[parts.length - 1];
+    }
+
+    const words = clean.split(/[-_]+/).filter(Boolean);
+    if (words.length === 0) return domainOrUrl;
+
+    return words
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
+  } catch {
+    return domainOrUrl;
+  }
+}
+
+// Czyszczenie surowych adresów URL w wygenerowanych tytułach celów
+function sanitizeGoalText(
+  text: string,
+  rawUrl?: string,
+  brandName?: string,
+): string {
+  let result = text;
+  if (brandName && rawUrl) {
+    const cleanUrl = rawUrl
+      .replace(/^https?:\/\//i, "")
+      .replace(/^www\./i, "")
+      .replace(/\/.*$/, "");
+    if (cleanUrl.length > 0) {
+      const escaped = cleanUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      result = result.replace(new RegExp(escaped, "gi"), brandName);
+    }
+  }
+
+  // Zabezpieczenie przed widocznymi końcówkami hostingów w tytule
+  result = result.replace(
+    /(https?:\/\/)?(?:www\.)?([a-zA-Z0-9-]+)\.(?:netlify\.app|vercel\.app|github\.io|webflow\.io)/gi,
+    (_, __, brand) =>
+      brand.charAt(0).toUpperCase() + brand.slice(1).toLowerCase(),
+  );
+
+  return result;
+}
+
 export default function PatronAgent({
   messages,
   language,
@@ -121,7 +199,14 @@ export default function PatronAgent({
     setSelectedCurrency(language === "en" ? "EUR" : "PLN");
   }, [language]);
 
-  // Pobieranie listy darczyńców wyłącznie z bazy Neon (przez /api/ledger)
+  // Wykrywanie marki z wpisywanego tekstu w czasie rzeczywistym
+  const detectedBrandInQuery = useMemo(() => {
+    const url = extractDomainOrUrl(query);
+    if (!url) return "";
+    return formatDomainToBrand(url);
+  }, [query]);
+
+  // Pobieranie mecenasów wyłącznie z bazy Neon (przez /api/ledger)
   useEffect(() => {
     let isMounted = true;
 
@@ -152,7 +237,6 @@ export default function PatronAgent({
             cleanName.toLowerCase().includes("anonim") ||
             cleanName.toLowerCase().includes("anonymous");
 
-          // Unikamy duplikatów
           const dedupKey = isAnonymous ? "anonymous" : cleanName.toLowerCase();
           if (seenNames.has(dedupKey)) {
             continue;
@@ -300,6 +384,9 @@ export default function PatronAgent({
     setMatchedGoal(null);
     setCustomAmount(null);
 
+    const detectedUrl = extractDomainOrUrl(rawQuery);
+    const localBrandName = detectedUrl ? formatDomainToBrand(detectedUrl) : "";
+
     try {
       const response = await fetch("/api/agent/match", {
         method: "POST",
@@ -322,17 +409,29 @@ export default function PatronAgent({
           ? 400
           : convertFromPln(400, selectedCurrency));
 
+      const detectedDomain = data.detectedDomain || detectedUrl;
+      const resolvedCompany = data.companyName || localBrandName;
+
+      // Oczyszczamy tytuł celu mecenatu, zamieniając surowe domeny na elegancką nazwę marki
+      const cleanedGoal = sanitizeGoalText(
+        data.goal || tAgent.line,
+        detectedDomain,
+        resolvedCompany,
+      );
+
       setMatchedGoal({
-        goal: data.goal || tAgent.line,
+        goal: cleanedGoal,
         amount: effectiveAmount,
         currency: (data.currency as Currency) || selectedCurrency,
         description: data.description || tAgent.purpose,
         confidence: Number(data.confidence) || 96.5,
         category: data.category,
         reasoning: data.reasoning,
-        sponsorshipType: data.sponsorshipType || "financial",
+        sponsorshipType:
+          data.sponsorshipType || (detectedDomain ? "in_kind" : "financial"),
         inKindDetails: data.inKindDetails,
-        detectedDomain: data.detectedDomain,
+        detectedDomain,
+        companyName: resolvedCompany,
         impactForecast: data.impactForecast,
       });
       setCustomAmount(effectiveAmount);
@@ -344,36 +443,49 @@ export default function PatronAgent({
           : convertFromPln(400, selectedCurrency);
 
       const isLikelyInKind =
-        rawQuery.toLowerCase().includes("druk") ||
-        rawQuery.toLowerCase().includes("bus") ||
-        rawQuery.toLowerCase().includes("przewóz") ||
-        rawQuery.toLowerCase().includes("puchar") ||
+        Boolean(detectedUrl) ||
+        rawQuery.toLowerCase().includes("angielsk") ||
+        rawQuery.toLowerCase().includes("nauka") ||
+        rawQuery.toLowerCase().includes("usług") ||
+        rawQuery.toLowerCase().includes("barter") ||
+        rawQuery.toLowerCase().includes("catering") ||
         rawQuery.toLowerCase().includes("sprzęt");
 
+      const brandFallback = localBrandName || "Partner B2B";
+      const fallbackGoal = detectedUrl
+        ? language === "pl"
+          ? `Oficjalne partnerstwo B2B z marką ${brandFallback}`
+          : `Official B2B Partnership with ${brandFallback}`
+        : rawQuery.length > 5
+          ? rawQuery
+          : tAgent.line;
+
       setMatchedGoal({
-        goal: rawQuery.length > 5 ? rawQuery : tAgent.line,
+        goal: fallbackGoal,
         amount: fallbackAmount,
         currency: selectedCurrency,
         description: tAgent.purpose,
-        confidence: 94.2,
+        confidence: 95.8,
         sponsorshipType: isLikelyInKind ? "in_kind" : "financial",
+        detectedDomain: detectedUrl,
+        companyName: brandFallback,
         inKindDetails: isLikelyInKind
           ? language === "pl"
-            ? "Świadczenie usługowe / przekazanie materiałów"
-            : "Direct services / equipment provision"
+            ? `Świadczenie barterowe / usługi promocyjne (${brandFallback})`
+            : `In-kind sponsorship & service delivery (${brandFallback})`
           : undefined,
         impactForecast: {
           beneficiaries:
-            language === "pl" ? "40 młodych zawodników" : "40 youth athletes",
+            language === "pl" ? "120 adeptów klubu" : "120 club youth players",
           metric:
             language === "pl"
-              ? "Realizacja statutowego wsparcia klubu"
-              : "Direct sports development funding",
+              ? "Certyfikat CSR i transparentne rozliczenie"
+              : "CSR Certificate & transparent ledger entry",
           socialRoi:
             language === "pl"
               ? "100% transparentna alokacja"
               : "100% verifiable community impact",
-          badge: language === "pl" ? "Wpływ Społeczny" : "Social Impact",
+          badge: language === "pl" ? "Partnerstwo CSR" : "CSR Partnership",
         },
       });
       setCustomAmount(fallbackAmount);
@@ -421,14 +533,72 @@ export default function PatronAgent({
     if (!matchedGoal) return;
 
     const finalAmount = customAmount || matchedGoal.amount;
+    const isBarter = matchedGoal.sponsorshipType === "in_kind";
+
+    // 100% dynamiczne rozpoznawanie tożsamości mecenasa
+    let resolvedDonorName = "";
+    let resolvedDonorWebsite = "";
+
+    const rawDomain = matchedGoal.detectedDomain || extractDomainOrUrl(query);
+
+    if (rawDomain) {
+      resolvedDonorWebsite = rawDomain.startsWith("http")
+        ? rawDomain
+        : `https://${rawDomain}`;
+    }
+
+    // 1. Sprawdzamy, czy mecenas istnieje w bazie Neon (pobrany w sponsorsList)
+    const existingSponsorFromNeon = sponsorsList.find((s) => {
+      if (
+        rawDomain &&
+        (s.name.toLowerCase().includes(rawDomain.toLowerCase()) ||
+          s.queryPl.toLowerCase().includes(rawDomain.toLowerCase()) ||
+          s.queryEn.toLowerCase().includes(rawDomain.toLowerCase()))
+      ) {
+        return true;
+      }
+      return s.name.toLowerCase() === query.trim().toLowerCase();
+    });
+
+    if (existingSponsorFromNeon && !existingSponsorFromNeon.isAnonymous) {
+      resolvedDonorName = existingSponsorFromNeon.name;
+    } else if (
+      matchedGoal.companyName &&
+      matchedGoal.companyName.trim().length > 0
+    ) {
+      resolvedDonorName = matchedGoal.companyName.trim();
+    } else if (rawDomain) {
+      resolvedDonorName = formatDomainToBrand(rawDomain);
+    } else if (query.trim().length > 0) {
+      resolvedDonorName = query.trim();
+    }
+
+    // KLUCZOWE: Gwarantujemy dodanie przedrostka barterowego przed przekazaniem do kasy,
+    // co uniemożliwia przypadkowe otworzenie kasy w trybie gotówkowym PayPal!
+    const cleanBaseGoal = matchedGoal.goal
+      .replace(/^(mecenat rzeczowy|in-kind patronage|barter):\s*/i, "")
+      .trim();
+
+    const finalizedGoal = isBarter
+      ? language === "pl"
+        ? `Mecenat rzeczowy: ${cleanBaseGoal}`
+        : `In-Kind Patronage: ${cleanBaseGoal}`
+      : cleanBaseGoal;
+
+    const enrichedDescription = resolvedDonorWebsite
+      ? `${matchedGoal.description} (${resolvedDonorWebsite})`
+      : matchedGoal.description;
 
     if (onSelectAllocation) {
       onSelectAllocation({
-        goal: matchedGoal.goal,
+        goal: finalizedGoal,
         amount: finalAmount,
         currency: selectedCurrency,
-        description: matchedGoal.description,
+        description: enrichedDescription,
         clubName: tAgent.clubName,
+        donorName: resolvedDonorName,
+        donorWebsite: resolvedDonorWebsite,
+        isBarter,
       });
     }
 
@@ -573,11 +743,23 @@ export default function PatronAgent({
             </button>
           </form>
 
-          {/* Sugerowane przykłady intencji + rotujący mecenas z bazy Neon */}
+          {/* Wykryta marka w czasie rzeczywistym + Sugerowane przykłady + rotujący mecenas z bazy */}
           <div className="mt-3.5 sm:mt-4 flex flex-wrap items-center gap-1.5 sm:gap-2">
+            {detectedBrandInQuery && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-black border border-emerald-500/50 bg-emerald-500/20 text-emerald-950 dark:text-emerald-100 shadow-xs mr-1 animate-in fade-in">
+                <span>🌐</span>
+                <span>
+                  {language === "pl"
+                    ? `Wykryto firmę: ${detectedBrandInQuery}`
+                    : `Detected company: ${detectedBrandInQuery}`}
+                </span>
+              </span>
+            )}
+
             <span className="text-[11px] font-black uppercase tracking-wider text-neutral-800 dark:text-neutral-200 mr-1">
               {language === "pl" ? "Przykłady:" : "Examples:"}
             </span>
+
             {tAgent.examples.map((example, idx) => (
               <button
                 key={idx}
@@ -721,6 +903,7 @@ export default function PatronAgent({
                   {matchedGoal.description}
                 </p>
 
+                {/* Sekcja mecenatu rzeczowego / umowy barterowej */}
                 {matchedGoal.sponsorshipType === "in_kind" && (
                   <div className="p-3.5 sm:p-4 rounded-2xl bg-purple-500/10 border border-purple-500/25 space-y-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -742,8 +925,8 @@ export default function PatronAgent({
                     <p className="text-xs text-purple-950 dark:text-purple-100 leading-relaxed font-medium">
                       {matchedGoal.inKindDetails ||
                         (language === "pl"
-                          ? "Świadczenie usługowe lub dostarczenie sprzętu dla klubu."
-                          : "Direct services or physical equipment delivery.")}
+                          ? `Świadczenie usługowe lub dostarczenie materiałów przez partnera ${matchedGoal.companyName || ""}.`
+                          : `Direct services or physical equipment delivery by partner ${matchedGoal.companyName || ""}.`)}
                     </p>
 
                     <div className="pt-2 border-t border-purple-500/20 text-[11px] text-neutral-700 dark:text-neutral-300 space-y-1">
@@ -791,11 +974,30 @@ export default function PatronAgent({
                   </div>
                 )}
 
-                {matchedGoal.reasoning && (
-                  <p className="text-[11px] text-neutral-800 dark:text-neutral-200 italic bg-muted/50 p-2.5 rounded-xl border border-border/50 font-medium">
-                    💡 {matchedGoal.reasoning}
-                  </p>
+                {/* Pojedyncza, estetyczna plakietka rozpoznanej oficjalnej strony firmy */}
+                {matchedGoal.detectedDomain && (
+                  <div className="flex items-center gap-1.5 text-[11px] text-emerald-800 dark:text-emerald-300 font-semibold bg-emerald-500/10 p-2.5 rounded-xl border border-emerald-500/25">
+                    <span>⚡</span>
+                    <span>
+                      {language === "pl"
+                        ? `Zidentyfikowano oficjalną witrynę partnera: ${matchedGoal.companyName || formatDomainToBrand(matchedGoal.detectedDomain)} (${matchedGoal.detectedDomain}). Rekomendowany certyfikowany mecenat firmowy.`
+                        : `Identified official partner website: ${matchedGoal.companyName || formatDomainToBrand(matchedGoal.detectedDomain)} (${matchedGoal.detectedDomain}). Recommended certified corporate patronage.`}
+                    </span>
+                  </div>
                 )}
+
+                {/* Uzasadnienie dopasowania AI (wyświetlane tylko, jeśli nie powiela plakietki witryny) */}
+                {matchedGoal.reasoning &&
+                  !matchedGoal.reasoning
+                    .toLowerCase()
+                    .includes("zidentyfikowano oficjalną") &&
+                  !matchedGoal.reasoning
+                    .toLowerCase()
+                    .includes("rekomendowany certyfikowany") && (
+                    <p className="text-[11px] text-neutral-800 dark:text-neutral-200 italic bg-muted/50 p-2.5 rounded-xl border border-border/50 font-medium">
+                      💡 {matchedGoal.reasoning}
+                    </p>
+                  )}
 
                 {matchedGoal.impactForecast && (
                   <div className="p-3 sm:p-3.5 rounded-2xl bg-emerald-500/10 dark:bg-emerald-950/20 border border-emerald-500/30 space-y-2">
@@ -907,7 +1109,7 @@ export default function PatronAgent({
                     <button
                       type="button"
                       onClick={handleCommitAllocation}
-                      className="px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 font-black text-xs sm:text-sm transition-all shadow-md flex items-center gap-2 cursor-pointer"
+                      className="px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-[0.99] text-stone-950 font-black text-xs sm:text-sm transition-all shadow-md flex items-center gap-2 cursor-pointer"
                     >
                       <span>⚡</span>
                       <span>
@@ -925,7 +1127,7 @@ export default function PatronAgent({
           )}
         </div>
 
-        {/* Modal porozumienia barterowego wyodrębniony do dedykowanego komponentu */}
+        {/* Modal porozumienia barterowego */}
         {showBarterModal && matchedGoal && (
           <BarterAgreementModal
             isOpen={showBarterModal}

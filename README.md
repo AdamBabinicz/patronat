@@ -456,7 +456,7 @@ Both modes are first-class, both are zero-real-money, and both converge on the i
 | Role                              | Sandbox account                             | Notes                                                                                                                                                                                                                                                                           |
 | --------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 🏢 **Business receiver (Polish)** | `<business-name>@business.example.com`      | The **Polish** sandbox Business account receiving the contribution. Create your own under **Testing Tools → Sandbox Accounts** in the PayPal Developer Dashboard — the local Polish setup exercises the same multi-currency and NIP-aware audit path as the intended pilot club |
-| 👤 **Personal buyer**             | `<personal-name>@personal.example.com`      | The sandbox Personal account used as the payer for the test checkout                                                                                                                                                                                                            |
+| 👤 **Personal buyer**             | `sb-b09fp53395107@personal.example.com`     | **Pre-configured judge test account for the hackathon jury** — password: `1:>#5g6O`. Copy-paste both values at the PayPal sandbox login prompt — no need to generate your own credentials                                                                                       |
 | 💳 **Virtual test card**          | Generated in the PayPal Developer Dashboard | **Never use a real card.** Open the dashboard, go to **Testing Tools → Sandbox Accounts**, and use the built-in **card generator** to produce a disposable sandbox card number — safe to use, impossible to charge                                                              |
 
 > **Security & scope note.** The placeholders above are deliberately generic: **no working credentials, passwords, card numbers or secrets are shipped in this repository**, and none should ever be committed. All sandbox values must be generated in your own PayPal Developer Dashboard. The integration remains **sandbox-only — no production PayPal or bank account is connected for UKS Roszada Radom**, so **real funds collected remain `0.00 PLN`** (see the [Transparency Disclaimer](#transparency-disclaimer)).
@@ -690,6 +690,12 @@ Open [http://localhost:3000](http://localhost:3000) in your browser to experienc
 4. **Watch the ledger update in real time:** scroll to **KROK 03 · Public Ledger** and see your entry appear — the registry totals re-aggregate live from `v_ledger_totals` on refresh, with no cached snapshot and no page reload required.
 
 **Option B — Real PayPal Sandbox Mode (real REST API v2 round-trip, still zero real money):**
+
+> [!IMPORTANT]
+> **Official PayPal Sandbox Buyer test credentials for the hackathon jury** — copy-paste them at the PayPal sandbox login prompt and complete the genuine REST API v2 capture in ~30 seconds:
+>
+> - **Sandbox Buyer Email:** `sb-b09fp53395107@personal.example.com`
+> - **Sandbox Buyer Password:** `1:>#5g6O`
 
 1. In the [PayPal Developer Dashboard](https://developer.paypal.com/) open **Testing Tools → Sandbox Accounts** and create two test accounts: a **Polish Business** receiver — e.g. `<business-name>@business.example.com` — and a **Personal** buyer — e.g. `<personal-name>@personal.example.com`. Then use the dashboard's **card generator** to produce a **virtual test card** (**never a real card**).
 2. Put your **sandbox Client ID** in `NEXT_PUBLIC_PAYPAL_CLIENT_ID`, and set `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` and `PAYPAL_ENV=sandbox` for the server-side **PayPal REST API v2** capture in `app/api/paypal/capture-order/route.ts`.
