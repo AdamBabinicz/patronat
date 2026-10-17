@@ -171,7 +171,6 @@ export default function PayPalButton({
     window.addEventListener("unhandledrejection", handleUnhandledRejection);
 
     const scriptId = "paypal-js-sdk";
-    // Nie przekazujemy locale do URL-a, aby uniknąć ponownego ładowania skryptu i kolizji tagu paypal-buttons
     const expectedSrc = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=${currency}&intent=capture`;
 
     const renderButtons = () => {
@@ -374,65 +373,58 @@ export default function PayPalButton({
       }
     };
 
-    let script = document.getElementById(scriptId) as HTMLScriptElement | null;
+    // Sprawdzenie wszystkich skryptów PayPala w dokumencie
+    const allScripts = document.querySelectorAll<HTMLScriptElement>(
+      "script[src*='paypal.com/sdk/js']",
+    );
+    let matchingScriptExists = false;
 
-    if (!script) {
-      script = document.createElement("script");
-      script.id = scriptId;
-      script.src = expectedSrc;
-      script.async = true;
+    allScripts.forEach((s) => {
+      // Jeśli skrypt ma dokładnie tę samą walutę i clientId, zachowaj go
+      if (
+        s.src.includes(`currency=${currency}`) &&
+        s.src.includes(`client-id=${clientId}`)
+      ) {
+        matchingScriptExists = true;
+      } else {
+        // Jeśli skrypt ma inną walutę (np. stary EUR, a teraz USD), usuń go natychmiast
+        s.remove();
+      }
+    });
 
-      script.onload = () => {
+    if (!matchingScriptExists) {
+      try {
+        delete (window as any).paypal;
+        delete (window as any).__zoid__;
+      } catch {}
+
+      setIsLoading(true);
+      const newScript = document.createElement("script");
+      newScript.id = scriptId;
+      newScript.src = expectedSrc;
+      newScript.async = true;
+
+      newScript.onload = () => {
         if (isMountedRef.current) {
           renderButtons();
         }
       };
 
-      script.onerror = () => {
+      newScript.onerror = () => {
         if (isMountedRef.current) {
           setScriptError(t.sdkError);
           setIsLoading(false);
         }
       };
 
-      document.head.appendChild(script);
+      document.head.appendChild(newScript);
+    } else if (window.paypal && window.paypal.Buttons) {
+      renderButtons();
     } else {
-      // Jeśli zmieniła się waluta w URL-u
-      if (script.src !== expectedSrc) {
-        script.remove();
-        try {
-          delete (window as any).paypal;
-          delete (window as any).__zoid__;
-        } catch {}
-
-        // Krótkie opóźnienie (tick), aby przeglądarka wyczyściła instancję przed dodaniem nowego skryptu
-        setTimeout(() => {
-          if (!isMountedRef.current) return;
-          const newScript = document.createElement("script");
-          newScript.id = scriptId;
-          newScript.src = expectedSrc;
-          newScript.async = true;
-
-          newScript.onload = () => {
-            if (isMountedRef.current) renderButtons();
-          };
-
-          newScript.onerror = () => {
-            if (isMountedRef.current) {
-              setScriptError(t.sdkError);
-              setIsLoading(false);
-            }
-          };
-
-          document.head.appendChild(newScript);
-        }, 50);
-      } else if (window.paypal && window.paypal.Buttons) {
-        renderButtons();
-      } else {
-        script.addEventListener("load", () => {
-          if (isMountedRef.current) renderButtons();
-        });
-      }
+      const currentScript = document.getElementById(scriptId);
+      currentScript?.addEventListener("load", () => {
+        if (isMountedRef.current) renderButtons();
+      });
     }
 
     return () => {
