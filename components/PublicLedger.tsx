@@ -19,7 +19,10 @@ import {
   ChevronUp,
 } from "lucide-react";
 import type { Language, Messages } from "@/lib/translations";
-import { formatAllocationAmount } from "@/lib/translations/purposeMap";
+import {
+  formatAllocationAmount,
+  getLocalizedPurpose,
+} from "@/lib/translations/purposeMap";
 import LedgerPurposeCell from "./ledger/LedgerPurposeCell";
 import LedgerAuditModal, {
   type LedgerEntry,
@@ -33,6 +36,33 @@ interface PublicLedgerProps {
   messages: Messages;
   language: Language;
   extraEntries?: LedgerEntry[];
+}
+
+/**
+ * Pomocnicza funkcja formatująca i lokalizująca nazwę mecenasa.
+ * Gwarantuje, że anonimowy mecenas w trybie PL zawsze ma polską nazwę, a w EN angielską.
+ */
+export function formatPatronName(name: string, language: Language): string {
+  if (!name) {
+    return language === "pl" ? "Anonimowy Darczyńca" : "Anonymous Patron";
+  }
+
+  const trimmed = name.trim();
+  const lower = trimmed.toLowerCase();
+
+  if (
+    lower === "anonymous patron" ||
+    lower === "anonymous supporter" ||
+    lower === "anonymous donor" ||
+    lower === "anonymous" ||
+    lower === "anonimowy darczyńca" ||
+    lower === "anonimowy mecenas" ||
+    lower === "anonimowy"
+  ) {
+    return language === "pl" ? "Anonimowy Darczyńca" : "Anonymous Patron";
+  }
+
+  return trimmed;
 }
 
 export default function PublicLedger({
@@ -72,7 +102,7 @@ export default function PublicLedger({
   const [totalItems, setTotalItems] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Stan wgrywania własnej faktury przez sędziego w trybie Live OCR Demo
+  // Stan wgrywania własnej faktury przez sędziego w trybie Live OCR Gemini Vision
   const [customAuditData, setCustomAuditData] =
     useState<InvoiceAuditData | null>(null);
   const [isAnalyzingCustom, setIsAnalyzingCustom] = useState(false);
@@ -111,8 +141,8 @@ export default function PublicLedger({
         : "Cryptographic SHA-256 Integrity Hash",
     liveUploadPrompt:
       language === "pl"
-        ? "Przetestuj na żywo: Wgraj własną fakturę lub paragon (JPG/PNG)"
-        : "Live Test: Upload your own receipt/invoice (JPG/PNG)",
+        ? "Przetestuj na żywo: Wgraj własną fakturę lub paragon (JPG/PNG/PDF)"
+        : "Live Test: Upload your own receipt/invoice (JPG/PNG/PDF)",
     analyzingDocument:
       language === "pl"
         ? "Trwa analiza multimodalna faktury przez Gemini Vision..."
@@ -160,12 +190,13 @@ export default function PublicLedger({
           const countsMap: Record<string, number> = {};
 
           const mapped: LedgerEntry[] = data.allocations.map((item: any) => {
-            const patronName = item.is_anonymous
+            const rawPatronName = item.is_anonymous
               ? language === "pl"
                 ? "Anonimowy Darczyńca"
-                : "Anonymous Supporter"
+                : "Anonymous Patron"
               : item.patron_name;
 
+            const patronName = formatPatronName(rawPatronName, language);
             const formattedAmount = `${Number(item.amount).toFixed(0)} ${item.currency || "PLN"}`;
 
             if (item.patron_donation_count && !item.is_anonymous) {
@@ -252,102 +283,59 @@ export default function PublicLedger({
       ? [...liveNewEntries, ...dbEntries]
       : [...extraEntries, ...(tLedger.entries as readonly LedgerEntry[])];
 
-  // Obsługa wgrywania własnego dokumentu do audytu AI OCR
-  const handleCustomFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Prawdziwy, w 100% dynamiczny audyt przesłanego dokumentu przez backendowy endpoint Gemini Vision
+  const handleCustomFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsAnalyzingCustom(true);
 
-    setTimeout(() => {
-      const lowerName = file.name.toLowerCase();
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("locale", language);
 
-      // Wykrycie pliku testowego pilotażu (np. przesłana faktura Słodkolandia / nabywca odbiorca fizyczny)
-      const isPilotTournamentInvoice =
-        lowerName.includes("nabywca") ||
-        lowerName.includes("odbiorca") ||
-        lowerName.includes("fizyczn") ||
-        lowerName.includes("slodkoland") ||
-        lowerName.includes("gierczak") ||
-        lowerName.includes("22");
+      const res = await fetch("/api/audit/invoice", {
+        method: "POST",
+        body: formData,
+      });
 
-      if (isPilotTournamentInvoice) {
-        setCustomAuditData({
-          invoiceNumber: "22/18",
-          seller: "Ewa Gierczak-Kucharska (Słodkolandia)",
-          sellerNip: "PL 9482493499",
-          issueDate: language === "pl" ? "02.07.2018 r." : "02.07.2018",
-          items: [
-            {
-              name:
-                language === "pl"
-                  ? "Wynajem urządzenia rekreacyjnego (atrakcje turniejowe dla dzieci)"
-                  : "Recreational equipment rental (youth tournament attractions)",
-              qty: language === "pl" ? "1 szt." : "1 pc.",
-              gross: "1 300,00 PLN",
-            },
-          ],
-          totalGross: "1 300,00 PLN",
-          auditHash: "0xfaa92b96e5053ea8217a9e12ce4c9a51b8c54836",
-          semanticMatchScore: 99.4,
-          isCustomUpload: true,
-        });
+      const result = await res.json();
+
+      if (result.success && result.data) {
+        setCustomAuditData(result.data);
       } else {
-        // Czyszczenie nazwy pliku z oznaczeń technicznych dla innych dokumentów
-        const cleanedBrand = file.name
-          .replace(/\.[^/.]+$/, "")
-          .replace(/[-_]+/g, " ")
-          .replace(
-            /\b(faktura|invoice|vat|skan|scan|rachunek|paragon|dokument|doc|pdf)\b/gi,
-            "",
-          )
-          .trim();
-
-        const formattedSeller =
-          cleanedBrand.length > 2
-            ? `${cleanedBrand.charAt(0).toUpperCase() + cleanedBrand.slice(1)} Sp. z o.o.`
-            : "SportPartner Dystrybucja Sp. z o.o.";
-
-        const isEnglish = language === "en";
-
-        setCustomAuditData({
-          invoiceNumber: `FV/${new Date().getFullYear()}/OCR-${Math.floor(
-            Math.random() * 800 + 100,
-          )}`,
-          seller: formattedSeller,
-          sellerNip: "PL 796-221-50-02",
-          issueDate: isEnglish ? "02.07.2018" : "02.07.2018 r.",
-          items: [
-            {
-              name: isEnglish
-                ? "Youth sports training equipment procurement"
-                : "Sfinansowanie wyposażenia sportowego dla juniorów klubu",
-              qty: isEnglish ? "1 pc." : "1 szt.",
-              gross: "1 300,00 PLN",
-            },
-          ],
-          totalGross: "1 300,00 PLN",
-          auditHash: `0x${Array.from({ length: 40 }, () =>
-            Math.floor(Math.random() * 16).toString(16),
-          ).join("")}`,
-          semanticMatchScore: 99.4,
-          isCustomUpload: true,
-        });
+        console.warn("Błąd analizy API audytu:", result.error);
+        alert(
+          language === "pl"
+            ? `Błąd analizy dokumentu przez Gemini Vision: ${result.error || "Nie udało się odczytać pliku"}`
+            : `Gemini Vision document analysis error: ${result.error || "Failed to parse document"}`,
+        );
       }
-
+    } catch (err: any) {
+      console.error("Błąd połączenia z API audytu:", err);
+      alert(
+        language === "pl"
+          ? "Wystąpił błąd podczas przesyłania dokumentu do audytu Gemini Vision."
+          : "An error occurred while uploading document to Gemini Vision audit.",
+      );
+    } finally {
       setIsAnalyzingCustom(false);
-
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
-    }, 1100);
+    }
   };
 
   const activePatronEntries = selectedPatronSummary
     ? allEntries.filter(
         (entry) =>
-          entry[0].toLowerCase().trim() ===
-          selectedPatronSummary.name.toLowerCase().trim(),
+          formatPatronName(entry[0], language).toLowerCase().trim() ===
+          formatPatronName(selectedPatronSummary.name, language)
+            .toLowerCase()
+            .trim(),
       )
     : [];
 
@@ -355,6 +343,11 @@ export default function PublicLedger({
     const parsed = parseFloat(curr[2].replace(/[^0-9.]/g, ""));
     return acc + (isNaN(parsed) ? 0 : parsed);
   }, 0);
+
+  // Wyznacz cel dla modalu audytu z gwarancją dwukierunkowej lokalizacji (PL <-> EN)
+  const auditGoalName = selectedAuditEntry
+    ? getLocalizedPurpose(selectedAuditEntry[1], language).text
+    : "";
 
   const activeAudit: InvoiceAuditData | null = customAuditData
     ? customAuditData
@@ -370,7 +363,7 @@ export default function PublicLedger({
             ),
             items: [
               {
-                name: `${language === "pl" ? "Cel statutowy" : "Statutory objective"}: ${selectedAuditEntry[1]}`,
+                name: `${language === "pl" ? "Alokacja celowa" : "Statutory allocation"}: ${auditGoalName}`,
                 qty: language === "pl" ? "1 alok" : "1 alloc",
                 gross: selectedAuditEntry[2],
               },
@@ -418,7 +411,9 @@ export default function PublicLedger({
               onClick={() => {
                 setSelectedAuditEntry(
                   allEntries[0] || [
-                    "Demo Patron",
+                    language === "pl"
+                      ? "Anonimowy Darczyńca"
+                      : "Anonymous Patron",
                     "Zegary DGT",
                     "600 PLN",
                     "ROSZADA-2026-LIVE",
@@ -597,7 +592,8 @@ export default function PublicLedger({
               </thead>
               <tbody className="divide-y divide-border/60 font-medium">
                 {allEntries.map((entry, idx) => {
-                  const [patron, purpose, amount, certId] = entry;
+                  const [rawPatron, purpose, amount, certId] = entry;
+                  const patron = formatPatronName(rawPatron, language);
                   const isLive = idx < liveNewEntries.length;
                   const amountData = formatAllocationAmount(amount, language);
                   const shortCertId = certId
@@ -615,7 +611,7 @@ export default function PublicLedger({
                           : "hover:bg-muted/40"
                       }`}
                     >
-                      {/* 1. Mecenas */}
+                      {/* 1. Mecenas (spójny językowo) */}
                       <td className="py-3 px-3.5 font-bold text-foreground truncate">
                         <div className="flex flex-col gap-0.5 min-w-0">
                           <div className="flex items-center gap-1.5 min-w-0">
@@ -738,7 +734,8 @@ export default function PublicLedger({
         {allEntries.length > 0 && (
           <div className="sm:hidden space-y-2.5">
             {allEntries.map((entry, idx) => {
-              const [patron, purpose, amount, certId] = entry;
+              const [rawPatron, purpose, amount, certId] = entry;
+              const patron = formatPatronName(rawPatron, language);
               const isLive = idx < liveNewEntries.length;
               const amountData = formatAllocationAmount(amount, language);
               const shortCertId = certId
@@ -1027,7 +1024,7 @@ function PatronSummaryModal({
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3.5 space-y-2">
           <div className="flex items-center justify-between gap-2">
             <span className="font-black text-foreground text-sm sm:text-base">
-              {summary.name}
+              {formatPatronName(summary.name, language)}
             </span>
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30">
               <Sparkles className="size-3" />
@@ -1070,7 +1067,7 @@ function PatronSummaryModal({
                 >
                   <div className="truncate flex-1 min-w-0">
                     <span className="truncate block font-medium text-foreground">
-                      {e[1]}
+                      {getLocalizedPurpose(e[1], language).text}
                     </span>
                     <span className="text-[10px] font-mono text-muted-foreground">
                       {e[3]}
