@@ -334,7 +334,7 @@ export default function Page() {
           className="mx-auto grid max-w-7xl gap-8 px-5 pt-24 pb-10 sm:pt-28 sm:pb-14 lg:grid-cols-2 lg:gap-12 lg:pt-32 lg:pb-16"
         >
           <div>
-            <p className="mb-3 text-xs font-bold uppercase tracking-widest text-lime-600 dark:text-lime-400">
+            <p className="mb-3 text-xs font-bold uppercase tracking-widest text-lime-700 dark:text-lime-400">
               {t.hero.eyebrow}
             </p>
             <h1 className="text-3xl font-extrabold tracking-tight text-neutral-900 sm:text-5xl lg:text-6xl dark:text-white leading-tight">
@@ -361,7 +361,7 @@ export default function Page() {
             <p className="mt-2.5 sm:mt-3 text-4xl sm:text-5xl font-black tracking-tight text-neutral-900 dark:text-white inline-flex items-baseline gap-2 flex-nowrap whitespace-nowrap">
               {isEurMode ? (
                 <>
-                  <span className="text-xl sm:text-2xl font-bold text-neutral-500 dark:text-neutral-400 font-mono">
+                  <span className="text-xl sm:text-2xl font-bold text-neutral-700 dark:text-neutral-200 font-mono">
                     {t.stats.currency}
                   </span>
                   <span>{currentTotalAmount}</span>
@@ -369,7 +369,7 @@ export default function Page() {
               ) : (
                 <>
                   <span>{currentTotalAmount}</span>
-                  <span className="text-xl sm:text-2xl font-bold text-neutral-500 dark:text-neutral-400 font-mono">
+                  <span className="text-xl sm:text-2xl font-bold text-neutral-700 dark:text-neutral-200 font-mono">
                     {t.stats.currency}
                   </span>
                 </>
@@ -482,7 +482,7 @@ export default function Page() {
                       <span className="text-xs font-black text-lime-600 dark:text-lime-400 uppercase tracking-widest font-mono">
                         0{i + 1}
                       </span>
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-neutral-500 group-hover:text-lime-700 dark:text-neutral-400 dark:group-hover:text-lime-300 transition-colors">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-neutral-700 dark:text-neutral-200 group-hover:text-lime-700 dark:group-hover:text-lime-300 transition-colors">
                         <span>{actionLabel}</span>
                         <ArrowUpRight className="size-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 text-lime-600 dark:text-lime-400" />
                       </span>

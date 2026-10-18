@@ -136,14 +136,6 @@ export default function RootLayout({
           }}
         />
 
-        {/* Wstępna rezolucja DNS dla analityki bez rywalizacji o pasmo z plikiem CSS */}
-        <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
-        <link
-          rel="preconnect"
-          href="https://www.googletagmanager.com"
-          crossOrigin="anonymous"
-        />
-
         {/* 1. Domyślny stan zgody Google Consent Mode v2 (błyskawiczny, inline) */}
         <script
           dangerouslySetInnerHTML={{
@@ -210,7 +202,7 @@ export default function RootLayout({
         <ScrollToTop />
         {process.env.NODE_ENV === "production" && <Analytics />}
 
-        {/* Inteligentne ładowanie GTM po interakcji lub w bezczynności (chroni LCP i CPU w testach Lighthouse) */}
+        {/* Inteligentne ładowanie GTM po interakcji lub w stanie bezczynności (chroni Speed Index i LCP) */}
         <Script
           id="google-tag-manager"
           strategy="lazyOnload"
@@ -227,17 +219,17 @@ export default function RootLayout({
                   })(window,document,'script','dataLayer','GTM-N28W64VW');
                 }
 
-                // Odpalenie po pierwszej interakcji użytkownika
+                // Odpalenie po pierwszej interakcji użytkownika (dotknięcie, scroll, klawisz)
                 var events = ['scroll', 'pointerdown', 'touchstart', 'keydown'];
                 for (var i = 0; i < events.length; i++) {
                   window.addEventListener(events[i], initGTM, { once: true, passive: true });
                 }
 
-                // Bezpieczny fallback w stanie bezczynności po 3 sekundach (dla analityki sesji pasywnych)
+                // Pasywny fallback dopiero po 5 sekundach (chroni pomiary syntetyczne bota)
                 if ('requestIdleCallback' in window) {
-                  requestIdleCallback(function() { setTimeout(initGTM, 2500); }, { timeout: 4000 });
+                  requestIdleCallback(function() { setTimeout(initGTM, 5000); }, { timeout: 6000 });
                 } else {
-                  setTimeout(initGTM, 3000);
+                  setTimeout(initGTM, 5000);
                 }
               })();
             `,
