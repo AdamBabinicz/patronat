@@ -10,6 +10,7 @@ import {
   Sun,
   WalletCards,
   X,
+  Loader2,
 } from "lucide-react";
 import {
   type Language,
@@ -30,11 +31,12 @@ const DonationCheckout = dynamic(
   },
 );
 
+// Językowo-neutralny loader oparty o animowany spinner (brak twardo zakodowanych tekstów)
 const PublicLedger = dynamic(() => import("@/components/PublicLedger"), {
   ssr: false,
   loading: () => (
-    <div className="py-16 text-center text-xs text-neutral-500 font-mono">
-      Ładowanie rejestru alokacji...
+    <div className="py-16 flex items-center justify-center gap-2 text-xs text-muted-foreground font-mono">
+      <Loader2 className="size-4 animate-spin text-lime-500" />
     </div>
   ),
 });
@@ -56,8 +58,8 @@ export default function Page() {
     totalAmount: number;
     count: number;
   }>({
-    totalAmount: 17224,
-    count: 29,
+    totalAmount: 18012,
+    count: 33,
   });
 
   // Dynamiczny stan sesyjny w czasie rzeczywistym (optimistic UI)
@@ -201,22 +203,23 @@ export default function Page() {
     const paidCurrency =
       details.currency || selectedAllocation?.currency || "PLN";
     const patronName =
-      details.donorName ||
-      details.patronName ||
-      (language === "pl" ? "Anonimowy Mecenas" : "Anonymous Patron");
+      details.donorName || details.patronName || t.checkout.defaultAnonymous;
     const goalTitle =
-      details.goal ||
-      selectedAllocation?.goal ||
-      (language === "pl" ? "Wsparcie klubu" : "Club Support");
+      details.goal || selectedAllocation?.goal || t.checkout.defaultGoal;
     const orderId =
       details.orderId ||
       details.id ||
       `ROSZADA-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
 
+    const formattedAmountEntry =
+      language === "en"
+        ? `${paidCurrency} ${paidAmount}`
+        : `${paidAmount} ${paidCurrency}`;
+
     const newEntry: LedgerEntry = [
       patronName,
       goalTitle,
-      `${paidAmount} ${paidCurrency}`,
+      formattedAmountEntry,
       orderId,
     ];
 
@@ -259,7 +262,6 @@ export default function Page() {
 
   return (
     <>
-      {/* Usunięto transition-colors duration-200 z root main - likwidacja uncomposed animation blokującej Speed Index */}
       <main className="min-h-screen bg-slate-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
         {/* HEADER / NAWIGACJA */}
         <header className="fixed top-0 left-0 right-0 z-40 border-b border-neutral-200/80 bg-slate-50/90 backdrop-blur-md dark:border-neutral-800/80 dark:bg-neutral-950/90">
@@ -356,10 +358,10 @@ export default function Page() {
               {t.stats.raised}
             </p>
 
-            <p className="mt-2.5 sm:mt-3 text-4xl sm:text-5xl font-black tracking-tight text-neutral-900 dark:text-white flex items-baseline gap-2">
+            <p className="mt-2.5 sm:mt-3 text-4xl sm:text-5xl font-black tracking-tight text-neutral-900 dark:text-white inline-flex items-baseline gap-2 flex-nowrap whitespace-nowrap">
               {isEurMode ? (
                 <>
-                  <span className="text-lg font-medium text-neutral-600 dark:text-neutral-400">
+                  <span className="text-xl sm:text-2xl font-bold text-neutral-500 dark:text-neutral-400 font-mono">
                     {t.stats.currency}
                   </span>
                   <span>{currentTotalAmount}</span>
@@ -367,7 +369,7 @@ export default function Page() {
               ) : (
                 <>
                   <span>{currentTotalAmount}</span>
-                  <span className="text-lg font-medium text-neutral-600 dark:text-neutral-400">
+                  <span className="text-xl sm:text-2xl font-bold text-neutral-500 dark:text-neutral-400 font-mono">
                     {t.stats.currency}
                   </span>
                 </>
@@ -408,9 +410,7 @@ export default function Page() {
                 </button>
 
                 <span className="text-xs font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-300">
-                  {language === "pl"
-                    ? "Krok 02 · Finalizacja alokacji"
-                    : "Step 02 · Allocation checkout"}
+                  {t.checkout.stepEyebrow}
                 </span>
                 <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-neutral-900 dark:text-white mt-1">
                   {t.checkout.title}
@@ -456,25 +456,12 @@ export default function Page() {
           className="mx-auto max-w-7xl px-5 py-10 sm:py-14"
         >
           <h2 id="impact-heading" className="sr-only">
-            {language === "pl"
-              ? "Filary i zasady mecenatu sportu młodzieżowego"
-              : "Pillars and Impact of Youth Sports Patronage"}
+            {t.impact.heading}
           </h2>
 
           <div className="grid gap-6 md:grid-cols-3">
             {t.impact.cards.map((card, i) => {
-              const actionLabel =
-                i === 0
-                  ? language === "pl"
-                    ? "Przejdź do agenta"
-                    : "Go to agent"
-                  : i === 1
-                    ? language === "pl"
-                      ? "Zobacz alokację"
-                      : "View checkout"
-                    : language === "pl"
-                      ? "Zobacz rejestr"
-                      : "View ledger";
+              const actionLabel = t.impact.actionLabels[i] || card.title;
 
               return (
                 <div

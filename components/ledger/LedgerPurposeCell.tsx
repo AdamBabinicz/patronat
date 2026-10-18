@@ -2,7 +2,7 @@
 "use client";
 
 import React from "react";
-import type { Language } from "@/lib/translations";
+import { type Language, getTranslations } from "@/lib/translations";
 import { getLocalizedPurpose } from "@/lib/translations/purposeMap";
 
 interface LedgerPurposeCellProps {
@@ -17,32 +17,13 @@ export default function LedgerPurposeCell({
   language,
   compact = false,
 }: LedgerPurposeCellProps) {
-  let localized = getLocalizedPurpose(purpose, language);
+  const { text, originalPl } = getLocalizedPurpose(purpose, language);
+  const t = getTranslations(language);
 
-  // Bezpośrednie zabezpieczenie semantyczne dla archiwalnych celów szachowych
-  if (language === "en" && !localized.wasTranslated && purpose) {
-    const pLower = purpose.toLowerCase();
-    if (
-      pLower.includes("zestaw") ||
-      pLower.includes("szkółk") ||
-      pLower.includes("szkolk") ||
-      pLower.includes("początkując") ||
-      pLower.includes("poczatkujac")
-    ) {
-      localized = {
-        text: "Chess Sets & Equipment for Junior Academy",
-        originalPl: purpose,
-        wasTranslated: true,
-      };
-    }
-  }
-
-  const { text, originalPl } = localized;
-
-  // Dyskretna informacja o oryginalnym zapisie dostępna po najechaniu kursorem (dla audytorów)
+  // Dyskretna informacja o kanonicznym zapisie źródłowym w bazie (dla audytorów i sędziów)
   const tooltipText =
     language === "en" && originalPl && originalPl !== text
-      ? `${text} • Registry record: "${originalPl}"`
+      ? `${text} • ${t.ledger.registryTooltip}: "${originalPl}"`
       : text;
 
   if (compact) {

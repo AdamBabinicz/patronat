@@ -2,13 +2,7 @@
 "use client";
 
 import React from "react";
-import {
-  Sparkles,
-  CheckCircle2,
-  Hash,
-  Upload,
-  ShieldCheck,
-} from "lucide-react";
+import { Sparkles, CheckCircle2, Hash, Upload } from "lucide-react";
 import type { Language } from "@/lib/translations";
 import { getLocalizedPurpose } from "@/lib/translations/purposeMap";
 
@@ -48,10 +42,13 @@ function formatIssueDate(rawDate: string, lang: Language): string {
   return rawDate;
 }
 
-// Formatowanie jednostki ilości – "szt." w PL, "pc." / "pcs" w EN
+// Formatowanie jednostki ilości – "szt." w PL, "pc." / "pcs" w EN, "alok" -> "alloc"
 function formatQty(rawQty: string, lang: Language): string {
   if (!rawQty) return "";
   if (lang === "en") {
+    if (/alok/i.test(rawQty)) {
+      return rawQty.replace(/alok/i, "alloc");
+    }
     const numMatch = rawQty.match(/^(\d+)/);
     const num = numMatch ? parseInt(numMatch[1], 10) : 1;
     const unit = num === 1 ? "pc." : "pcs";
@@ -60,38 +57,78 @@ function formatQty(rawQty: string, lang: Language): string {
   return rawQty;
 }
 
-// Naturalne tłumaczenie popularnych pozycji kosztowych faktur klubowych
-function formatItemName(rawName: string, lang: Language): string {
+// Inteligentne dwukierunkowe tłumaczenie pozycji kosztowych faktur klubowych (PL <-> EN)
+function formatItemName(
+  rawName: string,
+  lang: Language,
+  targetPrefix = "",
+): string {
   if (!rawName) return "";
-  if (lang === "en") {
-    const lower = rawName.toLowerCase();
-    if (
-      lower.includes("wynajem urządzenia rekreacyjnego") ||
-      lower.includes("atrakcje turniejowe")
-    ) {
-      return "Recreational equipment rental (youth tournament attractions)";
-    }
-    if (lower.includes("zegar") && lower.includes("dgt")) {
-      return "5 Professional DGT 2010 Electronic Chess Clocks";
-    }
-    if (lower.includes("puchar") || lower.includes("medal")) {
-      return "Engraved trophies and medals for junior championship";
-    }
-    if (lower.includes("szachownic") || lower.includes("komplet")) {
-      return "Purchase of 3 tournament chessboard sets (FIDE certified)";
-    }
-    if (
-      lower.includes("czyszczeni") ||
-      lower.includes("środk") ||
-      lower.includes("renowacj")
-    ) {
-      return "Deep cleaning & renovation of club training facility";
-    }
-    if (lower.includes("słodki stół") || lower.includes("poczęstunek")) {
-      return "Sweet table & pastry treats for youth tournament";
-    }
+
+  const trimmed = rawName.trim();
+  const lower = trimmed.toLowerCase();
+
+  // 1. Specyficzne pozycje faktury pilotażowej Słodkolandii (recreation / wynajem)
+  if (
+    lower.includes("wynajem urządzenia rekreacyjnego") ||
+    lower.includes("recreational equipment rental") ||
+    lower.includes("atrakcje turniejowe")
+  ) {
+    return lang === "en"
+      ? "Recreational equipment rental (youth tournament attractions)"
+      : "Wynajem urządzenia rekreacyjnego (atrakcje turniejowe)";
   }
-  return rawName;
+
+  // 2. Obsługa prefiksu "Alokacja celowa:" / "Target allocation:"
+  const hasPrefix =
+    /^(alokacja celowa:\s*|target allocation:\s*|alokacja:\s*)/i.test(trimmed);
+  const cleanCore = trimmed
+    .replace(/^(alokacja celowa:\s*|target allocation:\s*|alokacja:\s*)/i, "")
+    .trim();
+
+  // 3. Pełne tłumaczenie przez centralny purposeMap w obu kierunkach
+  const localized = getLocalizedPurpose(cleanCore, lang);
+  const localizedCore = localized.text;
+
+  if (hasPrefix) {
+    const prefix =
+      targetPrefix ||
+      (lang === "pl" ? "Alokacja celowa: " : "Target Allocation: ");
+    return `${prefix}${localizedCore}`;
+  }
+
+  return localizedCore;
+}
+
+// Formatowanie kwoty brutto pozycji i sumy faktury (np. "25 USD" -> "USD 25" w EN)
+function formatGrossAmount(rawGross: string, lang: Language): string {
+  if (!rawGross) return "";
+
+  const trimmed = rawGross.trim();
+
+  // Sprawdź format z kodem waluty na końcu (np. "25 USD", "25.00 USD", "450 PLN")
+  const matchSuffix = trimmed.match(/^([\d\s.,]+)\s*([A-Z]{3})$/i);
+  if (matchSuffix) {
+    const numPart = matchSuffix[1].trim();
+    const curPart = matchSuffix[2].toUpperCase();
+    if (lang === "en") {
+      return `${curPart} ${numPart}`;
+    }
+    return `${numPart} ${curPart}`;
+  }
+
+  // Sprawdź format z kodem waluty na początku (np. "USD 25", "EUR 88")
+  const matchPrefix = trimmed.match(/^([A-Z]{3})\s*([\d\s.,]+)$/i);
+  if (matchPrefix) {
+    const curPart = matchPrefix[1].toUpperCase();
+    const numPart = matchPrefix[2].trim();
+    if (lang === "en") {
+      return `${curPart} ${numPart}`;
+    }
+    return `${numPart} ${curPart}`;
+  }
+
+  return trimmed;
 }
 
 export default function LedgerAuditModal({
@@ -106,10 +143,6 @@ export default function LedgerAuditModal({
   onClose,
 }: LedgerAuditModalProps) {
   const certId = entry[3];
-
-  // Pobieramy zlokalizowany cel przez oficjalną mapę PatronAI (purposeMap)
-  const localizedPurposeResult = getLocalizedPurpose(entry[1], language);
-  const localizedPurposeText = localizedPurposeResult.text;
 
   // Dynamiczna lokalizacja emitenta faktury
   const displaySeller =
@@ -132,7 +165,7 @@ export default function LedgerAuditModal({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close"
+          aria-label={tAudit.close}
           className="absolute top-4 right-4 z-20 size-8 rounded-full border border-border bg-background/90 hover:bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
         >
           ✕
@@ -142,28 +175,17 @@ export default function LedgerAuditModal({
         <div className="p-5 sm:p-6 pb-4 border-b border-border/40 bg-muted/10">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-lime-500/10 border border-lime-500/30 text-lime-600 dark:text-lime-400 text-xs font-semibold uppercase tracking-wider mb-2">
             <Sparkles className="size-3.5" />
-            <span>
-              {language === "pl"
-                ? "Audyt AI Faktury VAT • Gemini Multimodal Vision"
-                : "AI VAT Invoice Audit • Gemini Multimodal Vision"}
-            </span>
+            <span>{tAudit.modalTitle}</span>
           </div>
 
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-            {tAudit?.title ||
-              (language === "pl"
-                ? "100% Transparentny Rejestr Wydatków"
-                : "100% Transparent Expense Ledger")}
+            {tAudit.badge}
           </h2>
 
           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
             {auditData.isCustomUpload
-              ? language === "pl"
-                ? "Weryfikacja faktury VAT: Wgrany dokument własny (PILOT)"
-                : "VAT invoice verification: Custom uploaded document (PILOT)"
-              : language === "pl"
-                ? `Weryfikacja faktury VAT przypisanej do alokacji: ${certId}`
-                : `VAT invoice verification assigned to allocation: ${certId}`}
+              ? tAudit.customUploadPrefix
+              : `${tAudit.verificationPrefix} ${certId}`}
           </p>
         </div>
 
@@ -174,16 +196,10 @@ export default function LedgerAuditModal({
             <div>
               <p className="text-xs sm:text-sm font-semibold text-foreground flex items-center gap-1.5">
                 <Upload className="size-3.5 text-lime-500" />
-                {tAudit?.uploadBoxTitle ||
-                  (language === "pl"
-                    ? "Wgraj własną fakturę do audytu na żywo (PDF / JPG)"
-                    : "Live Test for Judges: Upload your invoice (JPG/PNG)")}
+                <span>{tAudit.liveUploadPrompt}</span>
               </p>
               <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
-                {tAudit?.uploadBoxSubtitle ||
-                  (language === "pl"
-                    ? "Sprawdź multimodalne rozpoznawanie faktury na żywo"
-                    : "Test live multimodal invoice recognition")}
+                {tAudit.uploadBoxSubtitle}
               </p>
             </div>
 
@@ -196,17 +212,12 @@ export default function LedgerAuditModal({
               {isAnalyzingCustom ? (
                 <>
                   <span className="size-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>
-                    {language === "pl" ? "Analiza..." : "Analyzing..."}
-                  </span>
+                  <span>{tAudit.analyzing}</span>
                 </>
               ) : (
                 <>
                   <Upload className="size-3.5" />
-                  <span>
-                    {tAudit?.uploadBtn ||
-                      (language === "pl" ? "Wgraj plik" : "Upload file")}
-                  </span>
+                  <span>{tAudit.uploadBtn}</span>
                 </>
               )}
             </button>
@@ -218,23 +229,14 @@ export default function LedgerAuditModal({
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-semibold text-xs sm:text-sm text-emerald-600 dark:text-emerald-400">
-                  {language === "pl"
-                    ? "Potwierdzono ✓ (100% Zgodności Celowej)"
-                    : "Verified ✓ (100% Purpose Aligned)"}
+                  {tAudit.alignmentVerified}
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-mono font-medium">
-                  {verifiedLabel ||
-                    (language === "pl" ? "Potwierdzono ✓" : "Verified ✓")}
+                  {verifiedLabel}
                 </span>
               </div>
               <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
-                {language === "pl"
-                  ? `Wskaźnik zaufania Gemini Vision: ${
-                      auditData.semanticMatchScore || 99.4
-                    }% • Cel statutowy pokryty w 100%`
-                  : `Gemini Vision confidence: ${
-                      auditData.semanticMatchScore || 99.4
-                    }% • Statutory objective 100% covered`}
+                {`${tAudit.confidencePrefix} ${auditData.semanticMatchScore || 99.4}% • ${tAudit.confidenceSuffix}`}
               </p>
             </div>
           </div>
@@ -243,10 +245,7 @@ export default function LedgerAuditModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-2xl border border-border/60 bg-muted/20 text-xs">
             <div>
               <span className="text-muted-foreground block text-[11px] font-medium uppercase tracking-wider">
-                {tAudit?.sellerLabel ||
-                  (language === "pl"
-                    ? "Sprzedawca / Wystawca"
-                    : "Issuer / Vendor")}
+                {tAudit.vendorName}
               </span>
               <span className="font-semibold text-foreground text-sm mt-0.5 block truncate">
                 {displaySeller}
@@ -255,8 +254,7 @@ export default function LedgerAuditModal({
 
             <div>
               <span className="text-muted-foreground block text-[11px] font-medium uppercase tracking-wider">
-                {tAudit?.nipLabel ||
-                  (language === "pl" ? "NIP Sprzedawcy" : "Tax ID (NIP)")}
+                {tAudit.vendorNip}
               </span>
               <span className="font-mono font-semibold text-foreground text-sm mt-0.5 block">
                 {auditData.sellerNip}
@@ -265,10 +263,7 @@ export default function LedgerAuditModal({
 
             <div>
               <span className="text-muted-foreground block text-[11px] font-medium uppercase tracking-wider">
-                {tAudit?.invoiceNoLabel ||
-                  (language === "pl"
-                    ? "Nr faktury / paragonu"
-                    : "Invoice / Receipt No.")}
+                {tAudit.invoiceNumber}
               </span>
               <span className="font-mono font-semibold text-foreground text-sm mt-0.5 block">
                 {auditData.invoiceNumber}
@@ -277,8 +272,7 @@ export default function LedgerAuditModal({
 
             <div>
               <span className="text-muted-foreground block text-[11px] font-medium uppercase tracking-wider">
-                {tAudit?.issueDateLabel ||
-                  (language === "pl" ? "Data wystawienia" : "Posting Date")}
+                {tAudit.issueDate}
               </span>
               <span className="font-semibold text-foreground text-sm mt-0.5 block">
                 {displayIssueDate}
@@ -290,15 +284,10 @@ export default function LedgerAuditModal({
           <div className="rounded-2xl border border-border/60 overflow-hidden">
             <div className="p-3 bg-muted/40 border-b border-border/40 flex items-center justify-between">
               <span className="text-xs font-semibold text-foreground">
-                {tAudit?.itemsTitle ||
-                  (language === "pl"
-                    ? "Pozycje zakupu rozliczone z alokacji"
-                    : "Line items settled from allocation")}
+                {tAudit.itemsPurchased}
               </span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-lime-500/15 text-lime-600 dark:text-lime-400 font-bold flex items-center gap-1">
-                <span>
-                  {language === "pl" ? "WERYFIKACJA AI OCR" : "AI OCR VERIFIED"}
-                </span>
+                <span>{tAudit.ocrVerified}</span>
                 <span>✓</span>
               </span>
             </div>
@@ -308,13 +297,13 @@ export default function LedgerAuditModal({
                 <thead className="bg-muted/20 text-muted-foreground border-b border-border/30">
                   <tr>
                     <th className="py-2.5 px-3.5 font-medium">
-                      {language === "pl" ? "Pozycja kosztowa" : "Expense Item"}
+                      {tAudit.tableItem}
                     </th>
                     <th className="py-2.5 px-3 font-medium text-center">
-                      {language === "pl" ? "Ilość" : "Qty"}
+                      {tAudit.tableQty}
                     </th>
                     <th className="py-2.5 px-3.5 font-medium text-right">
-                      {language === "pl" ? "Brutto" : "Gross"}
+                      {tAudit.tableGross}
                     </th>
                   </tr>
                 </thead>
@@ -325,25 +314,29 @@ export default function LedgerAuditModal({
                       className="hover:bg-muted/10 transition-colors"
                     >
                       <td className="py-2.5 px-3.5 text-foreground font-medium">
-                        {formatItemName(item.name, language)}
+                        {formatItemName(
+                          item.name,
+                          language,
+                          tAudit.targetAllocationPrefix,
+                        )}
                       </td>
                       <td className="py-2.5 px-3 text-muted-foreground text-center font-mono">
                         {formatQty(item.qty, language)}
                       </td>
                       <td className="py-2.5 px-3.5 text-foreground text-right font-mono font-medium">
-                        {item.gross}
+                        {formatGrossAmount(item.gross, language)}
                       </td>
                     </tr>
                   ))}
                   <tr className="bg-muted/30 font-bold">
                     <td className="py-2.5 px-3.5 text-foreground">
-                      {language === "pl" ? "Suma brutto" : "Total Gross"}
+                      {tAudit.tableTotalGross}
                     </td>
                     <td className="py-2.5 px-3 text-center text-muted-foreground">
                       —
                     </td>
                     <td className="py-2.5 px-3.5 text-right text-foreground font-mono">
-                      {auditData.totalGross}
+                      {formatGrossAmount(auditData.totalGross, language)}
                     </td>
                   </tr>
                 </tbody>
@@ -355,9 +348,7 @@ export default function LedgerAuditModal({
           <div className="p-3.5 rounded-2xl border border-border/50 bg-background flex flex-col gap-1.5">
             <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
               <Hash className="size-3 text-lime-500" />
-              {language === "pl"
-                ? "Kryptograficzny Hash Integralności SHA-256:"
-                : "Cryptographic SHA-256 Integrity Hash:"}
+              <span>{tAudit.integrityHash}:</span>
             </span>
             <span className="font-mono text-[11px] sm:text-xs text-foreground/90 break-all select-all bg-muted/40 p-2 rounded-xl border border-border/30">
               {auditData.auditHash}
@@ -373,10 +364,7 @@ export default function LedgerAuditModal({
             className="px-4 py-2 rounded-xl border border-border bg-background hover:bg-muted font-medium text-xs sm:text-sm text-foreground transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
           >
             <span>👁️</span>
-            <span>
-              {tAudit?.showCertBtn ||
-                (language === "pl" ? "Pokaż certyfikat" : "Show Certificate")}
-            </span>
+            <span>{tAudit.showCertBtn}</span>
           </button>
 
           <button
@@ -384,8 +372,7 @@ export default function LedgerAuditModal({
             onClick={onClose}
             className="px-5 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs sm:text-sm transition-colors cursor-pointer shadow-xs"
           >
-            {tAudit?.closeBtn ||
-              (language === "pl" ? "Zamknij audyt" : "Close audit")}
+            {tAudit.close}
           </button>
         </div>
       </div>
