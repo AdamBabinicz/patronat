@@ -1,3 +1,4 @@
+// app/layout.tsx
 import { Analytics } from "@vercel/analytics/next";
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
@@ -137,6 +138,11 @@ export default function RootLayout({
 
         {/* Wstępna rezolucja DNS dla analityki bez rywalizacji o pasmo z plikiem CSS */}
         <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+        <link
+          rel="preconnect"
+          href="https://www.googletagmanager.com"
+          crossOrigin="anonymous"
+        />
 
         {/* 1. Domyślny stan zgody Google Consent Mode v2 (błyskawiczny, inline) */}
         <script
@@ -204,17 +210,36 @@ export default function RootLayout({
         <ScrollToTop />
         {process.env.NODE_ENV === "production" && <Analytics />}
 
-        {/* Ładowanie GTM jako lazyOnload – eliminuje Total Blocking Time i nie rywalizuje o CPU */}
+        {/* Inteligentne ładowanie GTM po interakcji lub w bezczynności (chroni LCP i CPU w testach Lighthouse) */}
         <Script
           id="google-tag-manager"
           strategy="lazyOnload"
           dangerouslySetInnerHTML={{
             __html: `
-              (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-              new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-              j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-              'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-              })(window,document,'script','dataLayer','GTM-N28W64VW');
+              (function() {
+                function initGTM() {
+                  if (window.__gtmInitialized) return;
+                  window.__gtmInitialized = true;
+                  (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+                  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+                  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+                  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+                  })(window,document,'script','dataLayer','GTM-N28W64VW');
+                }
+
+                // Odpalenie po pierwszej interakcji użytkownika
+                var events = ['scroll', 'pointerdown', 'touchstart', 'keydown'];
+                for (var i = 0; i < events.length; i++) {
+                  window.addEventListener(events[i], initGTM, { once: true, passive: true });
+                }
+
+                // Bezpieczny fallback w stanie bezczynności po 3 sekundach (dla analityki sesji pasywnych)
+                if ('requestIdleCallback' in window) {
+                  requestIdleCallback(function() { setTimeout(initGTM, 2500); }, { timeout: 4000 });
+                } else {
+                  setTimeout(initGTM, 3000);
+                }
+              })();
             `,
           }}
         />
