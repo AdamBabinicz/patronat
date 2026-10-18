@@ -10,7 +10,6 @@ import {
   Sun,
   WalletCards,
   X,
-  Loader2,
 } from "lucide-react";
 import {
   type Language,
@@ -18,12 +17,11 @@ import {
   getTranslations,
 } from "@/lib/translations";
 import PatronAgent, { type AllocationPayload } from "@/components/PatronAgent";
-import CookieBanner from "@/components/CookieBanner";
 import Footer from "@/components/Footer";
 import type { Currency } from "@/components/checkout/types";
 import type { LedgerEntry } from "@/components/PublicLedger";
 
-// Dynamiczne ładowanie komponentów poniżej ekranu głównego (drastycznie odchudza startowy bundle JS)
+// 1. Dynamiczne ładowanie kasy (poza krytyczną ścieżką renderowania)
 const DonationCheckout = dynamic(
   () => import("@/components/DonationCheckout"),
   {
@@ -31,14 +29,23 @@ const DonationCheckout = dynamic(
   },
 );
 
-// Językowo-neutralny loader oparty o animowany spinner (brak twardo zakodowanych tekstów)
+// 2. Dynamiczne ładowanie rejestru ze STATYCZNYM placeholderem (zero animacji spinera blokujących pomiar Speed Index)
 const PublicLedger = dynamic(() => import("@/components/PublicLedger"), {
   ssr: false,
   loading: () => (
-    <div className="py-16 flex items-center justify-center gap-2 text-xs text-muted-foreground font-mono">
-      <Loader2 className="size-4 animate-spin text-lime-500" />
+    <div
+      className="mx-auto max-w-7xl px-5 py-12"
+      aria-busy="true"
+      style={{ minHeight: "360px" }}
+    >
+      <div className="h-64 w-full rounded-3xl border border-neutral-200/60 bg-neutral-100/40 dark:border-neutral-800/60 dark:bg-neutral-900/20" />
     </div>
   ),
+});
+
+// 3. Dynamiczne odroczenie banera cookies poza startowy bundle JS
+const CookieBanner = dynamic(() => import("@/components/CookieBanner"), {
+  ssr: false,
 });
 
 // Standardowy kurs przeliczeniowy spójny z tabelą rejestru (1 EUR ≈ 4.30 PLN)
@@ -53,7 +60,7 @@ export default function Page() {
   const [selectedAllocation, setSelectedAllocation] =
     useState<AllocationPayload | null>(null);
 
-  // Stabilny stan początkowy zapobiegający przesunięciu LCP
+  // Stabilny stan początkowy (błyskawiczny LCP bez opóźnień sieciowych)
   const [dbStats, setDbStats] = useState<{
     totalAmount: number;
     count: number;
@@ -106,7 +113,7 @@ export default function Page() {
         setDbStats({ totalAmount: total, count });
       }
     } catch {
-      // W razie chwilowego braku sieci zachowaj obecny stan
+      // W razie chwilowego braku sieci zachowaj stabilny stan bazowy
     }
   }, []);
 
@@ -126,7 +133,7 @@ export default function Page() {
       setLanguage(savedLang);
     }
 
-    // 3. Wczytanie utrwalonych transakcji z bieżącej sesji
+    // 3. Wczytanie transakcji lokalnych
     try {
       const savedExtra =
         Number(window.localStorage.getItem("patronai_extra_amount")) || 0;
@@ -142,8 +149,33 @@ export default function Page() {
       }
     } catch {}
 
-    // 4. Pobranie danych w tle
-    fetchLiveDatabaseStats();
+    // 4. Pobieranie danych z bazy w fazie IDLE (daje pierwszeństwo renderowi ekranu, zbijając Speed Index)
+    if (typeof window !== "undefined") {
+      if ("requestIdleCallback" in window) {
+        const idleHandle = (
+          window as unknown as {
+            requestIdleCallback: (
+              cb: () => void,
+              opt: { timeout: number },
+            ) => number;
+            cancelIdleCallback: (id: number) => void;
+          }
+        ).requestIdleCallback(() => fetchLiveDatabaseStats(), {
+          timeout: 2500,
+        });
+
+        return () => {
+          (
+            window as unknown as {
+              cancelIdleCallback: (id: number) => void;
+            }
+          ).cancelIdleCallback?.(idleHandle);
+        };
+      } else {
+        const timer = setTimeout(fetchLiveDatabaseStats, 1500);
+        return () => clearTimeout(timer);
+      }
+    }
   }, [fetchLiveDatabaseStats]);
 
   const toggleTheme = () => {
@@ -328,7 +360,7 @@ export default function Page() {
           </div>
         </header>
 
-        {/* HERO SECTION */}
+        {/* HERO SECTION - KRYTYCZNY EKRAN GŁÓWNY (BŁYSKAWICZNY SPEED INDEX) */}
         <section
           id="top"
           className="mx-auto grid max-w-7xl gap-8 px-5 pt-24 pb-10 sm:pt-28 sm:pb-14 lg:grid-cols-2 lg:gap-12 lg:pt-32 lg:pb-16"
@@ -385,12 +417,16 @@ export default function Page() {
           </div>
         </section>
 
-        {/* 1. SILNIK AGENTIC COMMERCE (PATRON AGENT) */}
-        <PatronAgent
-          messages={t}
-          language={language}
-          onSelectAllocation={handleAllocationFromAgent}
-        />
+        {/* 1. SILNIK AGENTIC COMMERCE (ODCIĄŻENIE SILNIKA RENDERUJĄCEGO NA MOBILE) */}
+        <div
+          style={{ contentVisibility: "auto", containIntrinsicSize: "0 400px" }}
+        >
+          <PatronAgent
+            messages={t}
+            language={language}
+            onSelectAllocation={handleAllocationFromAgent}
+          />
+        </div>
 
         {/* 2. KASA MECENATU (DYNAMICZNA) */}
         {isCheckoutVisible && (
@@ -443,17 +479,22 @@ export default function Page() {
           </section>
         )}
 
-        {/* 3. PUBLICZNY REJESTR ALOKACJI (DYNAMICZNY - CODE SPLIT) */}
-        <PublicLedger
-          messages={t}
-          language={language}
-          extraEntries={liveEntries}
-        />
+        {/* 3. PUBLICZNY REJESTR ALOKACJI (BEZBLOKOWY DLA GŁÓWNEGO WĄTKU) */}
+        <div
+          style={{ contentVisibility: "auto", containIntrinsicSize: "0 500px" }}
+        >
+          <PublicLedger
+            messages={t}
+            language={language}
+            extraEntries={liveEntries}
+          />
+        </div>
 
         {/* 4. INTERAKTYWNE KARTY PROCESU */}
         <section
           aria-labelledby="impact-heading"
           className="mx-auto max-w-7xl px-5 py-10 sm:py-14"
+          style={{ contentVisibility: "auto", containIntrinsicSize: "0 350px" }}
         >
           <h2 id="impact-heading" className="sr-only">
             {t.impact.heading}
@@ -501,11 +542,15 @@ export default function Page() {
           </div>
         </section>
 
-        {/* WYDZIELONY KOMPONENT STOPKI */}
-        <Footer messages={t} />
+        {/* STOPKA Z OPTYMALIZACJĄ PAMIĘCI PODRĘCZNEJ PRZEGLĄDARKI */}
+        <div
+          style={{ contentVisibility: "auto", containIntrinsicSize: "0 200px" }}
+        >
+          <Footer messages={t} />
+        </div>
       </main>
 
-      {/* WYDZIELONY KOMPONENT BANERA COOKIE */}
+      {/* DYNAMICZNIE ODROCZONY BANER COOKIE */}
       <CookieBanner messages={t} />
     </>
   );
