@@ -16,6 +16,65 @@ export interface ExtendedDonationCheckoutProps extends DonationCheckoutProps {
   isInitialBarter?: boolean;
 }
 
+// Słownik tłumaczeń dla mecenatu rzeczowego oraz interfejsu powrotu mobilnego
+const barterDictionary = {
+  pl: {
+    barterPrefix: "Mecenat rzeczowy: ",
+    badge: "Mecenat Rzeczowy (Barter / Usługa)",
+    valuationNotice:
+      "Świadczenie bezgotówkowe: Wsparcie realizowane w postaci usługi lub towaru.",
+    cashChargeLabel: "Opłata gotówkowa:",
+    marketValueLabel: "Szacowany ekwiwalent rynkowy (AVE):",
+    submitButton: "Sfinalizuj mecenat rzeczowy i wygeneruj certyfikat",
+    agreementDisclaimer:
+      "Finalizacja nie obciąża Twojego konta bankowego. Rejestruje porozumienie barterowe z klubem i generuje certyfikat.",
+    switchFinLabel: "Wpłata finansowa (PayPal)",
+    switchBarterLabel: "Mecenat rzeczowy (Barter)",
+    methodSelectionLabel: "Wybierz model wsparcia:",
+    cancelText: "Anuluj i wybierz inną kwotę",
+    mobileNoticeText:
+      "Otwarto okno płatności. Jeśli rozmyśliłeś się, kliknij poniżej:",
+    barterActiveNotice:
+      "Wybrano tryb barterowy: Koszt finansowy wynosi 0 PLN. Świadczenie polega na bezpośrednim dostarczeniu produktów lub wykonaniu usługi.",
+    zeroCashValue: (cur: string) => `0,00 ${cur}`,
+  },
+  en: {
+    barterPrefix: "In-Kind Patronage: ",
+    badge: "In-Kind Patronage (Barter / Service)",
+    valuationNotice:
+      "Cashless contribution: Support delivered as a commercial service or goods.",
+    cashChargeLabel: "Cash charge:",
+    marketValueLabel: "Estimated market value (AVE):",
+    submitButton: "Finalize in-kind patronage & generate certificate",
+    agreementDisclaimer:
+      "Finalization does not charge your bank account. It records the barter agreement and generates the certificate.",
+    switchFinLabel: "Monetary (PayPal)",
+    switchBarterLabel: "In-Kind (Barter)",
+    methodSelectionLabel: "Select patronage model:",
+    cancelText: "Cancel and choose different amount",
+    mobileNoticeText:
+      "Payment window opened. If you changed your mind, click below:",
+    barterActiveNotice:
+      "Barter mode active: Cash cost is 0.00. Support consists of direct provision of goods or professional services.",
+    zeroCashValue: (cur: string) => `${cur} 0.00`,
+  },
+};
+
+const BARTER_KEYWORDS = [
+  "rzeczow",
+  "barter",
+  "in-kind",
+  "czyszczenie",
+  "usług",
+  "catering",
+  "transport",
+  "słodki stół",
+  "sweet table",
+  "poczęstunek",
+  "treats",
+  "remont",
+];
+
 // Funkcja pomocnicza czyszcząca i zamieniająca URL na czytelną nazwę firmy/marki (np. https://grama.netlify.app/ -> Grama)
 function extractCleanBrandFromUrl(url: string): string {
   try {
@@ -60,8 +119,8 @@ function formatGoalWithBarterPrefix(
     .replace(/^(mecenat rzeczowy|in-kind patronage|barter):\s*/i, "")
     .trim();
   if (!isBarter) return cleanGoal;
-  const prefix = lang === "pl" ? "Mecenat rzeczowy: " : "In-Kind Patronage: ";
-  return `${prefix}${cleanGoal}`;
+  const dict = barterDictionary[lang] || barterDictionary.pl;
+  return `${dict.barterPrefix}${cleanGoal}`;
 }
 
 export default function DonationCheckout({
@@ -88,20 +147,7 @@ export default function DonationCheckout({
   const detectIsBarter = (textGoal?: string, textDesc?: string): boolean => {
     if (isInitialBarter) return true;
     const combined = `${textGoal || ""} ${textDesc || ""}`.toLowerCase();
-    return (
-      combined.includes("rzeczow") ||
-      combined.includes("barter") ||
-      combined.includes("in-kind") ||
-      combined.includes("czyszczenie") ||
-      combined.includes("usług") ||
-      combined.includes("catering") ||
-      combined.includes("transport") ||
-      combined.includes("słodki stół") ||
-      combined.includes("sweet table") ||
-      combined.includes("poczęstunek") ||
-      combined.includes("treats") ||
-      combined.includes("remont")
-    );
+    return BARTER_KEYWORDS.some((kw) => combined.includes(kw));
   };
 
   const [isBarterMode, setIsBarterMode] = useState<boolean>(() =>
@@ -138,7 +184,7 @@ export default function DonationCheckout({
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [isAwaitingReturn, setIsAwaitingReturn] = useState<boolean>(false);
 
-  // Synchronizacja po zmianie języka
+  // Synchronizacja po zmianie języka z zewnątrz
   useEffect(() => {
     setLocale(initialLocale);
     if (initialLocale === "en" && currency === "PLN") {
@@ -155,7 +201,7 @@ export default function DonationCheckout({
     }
   }, [initialLocale]);
 
-  // Synchronizacja przy wyborze nowego celu / mecenasa z PatronAgenta
+  // Synchronizacja przy wyborze nowego celu lub patrona z PatronAgenta
   useEffect(() => {
     if (initialAmount) setAmount(initialAmount);
     if (initialGoal) setGoal(initialGoal);
@@ -183,7 +229,7 @@ export default function DonationCheckout({
     isInitialBarter,
   ]);
 
-  // Wykrywanie powrotu z zewnętrznej karty PayPala na telefonie
+  // Wykrywanie powrotu z zewnętrznej karty PayPala na urządzeniu mobilnym
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible" && isAwaitingReturn) {
@@ -207,55 +253,12 @@ export default function DonationCheckout({
   }, [isAwaitingReturn]);
 
   const t = (messages || getTranslations(locale)).checkout;
+  const localizedBarter = barterDictionary[locale] || barterDictionary.pl;
   const currentGoal = goal || initialGoal || t.defaultGoal;
   const currentEffectiveAmount = isCustom
     ? parseFloat(customAmount) || 0
     : amount;
   const minAmount = 1;
-
-  // Słownik tłumaczeń dla mecenatu rzeczowego / powrotów
-  const localizedBarter = {
-    badge:
-      locale === "pl"
-        ? "Mecenat Rzeczowy (Barter / Usługa)"
-        : "In-Kind Patronage (Barter / Service)",
-    valuationNotice:
-      locale === "pl"
-        ? "Świadczenie bezgotówkowe: Wsparcie realizowane w postaci usługi lub towaru."
-        : "Cashless contribution: Support delivered as a commercial service or goods.",
-    cashChargeLabel: locale === "pl" ? "Opłata gotówkowa:" : "Cash charge:",
-    cashChargeValue: `0,00 ${currency}`,
-    marketValueLabel:
-      locale === "pl"
-        ? "Szacowany ekwiwalent rynkowy (AVE):"
-        : "Estimated market value (AVE):",
-    submitButton:
-      locale === "pl"
-        ? "Sfinalizuj mecenat rzeczowy i wygeneruj certyfikat"
-        : "Finalize in-kind patronage & generate certificate",
-    agreementDisclaimer:
-      locale === "pl"
-        ? "Finalizacja nie obciąża Twojego konta bankowego. Rejestruje porozumienie barterowe z klubem i generuje certyfikat."
-        : "Finalization does not charge your bank account. It records the barter agreement and generates the certificate.",
-    switchFinLabel:
-      locale === "pl" ? "Wpłata finansowa (PayPal)" : "Monetary (PayPal)",
-    switchBarterLabel:
-      locale === "pl" ? "Mecenat rzeczowy (Barter)" : "In-Kind (Barter)",
-    methodSelectionLabel:
-      locale === "pl" ? "Wybierz model wsparcia:" : "Select patronage model:",
-    cancelText:
-      locale === "pl"
-        ? "Anuluj i wybierz inną kwotę"
-        : "Cancel and choose different amount",
-    mobileNoticeText:
-      locale === "pl"
-        ? "Otwarto okno płatności. Jeśli rozmyśliłeś się, kliknij poniżej:"
-        : "Payment window opened. If you changed your mind, click below:",
-    barterActiveNotice:
-      locale === "pl"
-        ? "Wybrano tryb barterowy: Koszt finansowy wynosi 0 PLN. Świadczenie polega na bezpośrednim dostarczeniu produktów lub wykonaniu usługi."
-        : "Barter mode active: Cash cost is 0.00. Support consists of direct provision of goods or professional services.",
-  };
 
   const handleLocaleChange = (newLocale: Language) => {
     setLocale(newLocale);
@@ -300,13 +303,12 @@ export default function DonationCheckout({
     setIsAwaitingReturn(false);
   };
 
-  // OBSŁUGA FINALIZACJI (ZARÓWNO DLA PAYPAL, JAK I BEZGOTÓWKOWEGO BARTERU)
+  // Obsługa finalizacji (zarówno dla PayPal, jak i bezgotówkowego barteru)
   const processAllocationCommitment = async (
     orderId: string,
     isBarter: boolean,
     detailsPayload?: any,
   ) => {
-    // Niezawodne ustalenie nazwy firmy z priorytetem wpisanego pola, propsa lub ekstrakcji z linku
     const resolvedName =
       (donorName && donorName.trim().length > 0 ? donorName.trim() : "") ||
       (initialDonorName && initialDonorName.trim().length > 0
@@ -324,7 +326,6 @@ export default function DonationCheckout({
       locale,
     );
 
-    // Gwarantujemy, że kwota nie wynosi 0
     const finalCommitmentAmount =
       currentEffectiveAmount > 0
         ? currentEffectiveAmount
@@ -358,7 +359,7 @@ export default function DonationCheckout({
     setPaymentError(null);
     setIsAwaitingReturn(false);
 
-    // 1. Trwały zapis w bazie Neon PostgreSQL z gwarantowaną nazwą firmy
+    // 1. Zapis w bazie Neon PostgreSQL
     try {
       await fetch("/api/ledger", {
         method: "POST",
@@ -376,11 +377,9 @@ export default function DonationCheckout({
           paymentMethod: isBarter ? "BARTER" : "PAYPAL",
         }),
       });
-    } catch (err) {
-      console.warn("Błąd asynchronicznego zapisu do bazy Neon:", err);
-    }
+    } catch {}
 
-    // 2. Kopia zapasowa w LocalStorage z czystą wartością kwoty i nazwą firmy
+    // 2. Kopia zapasowa w LocalStorage
     if (typeof window !== "undefined") {
       try {
         const formattedAmount = `${finalCommitmentAmount.toFixed(0)} ${finalCommitmentCurrency}`;
@@ -400,12 +399,7 @@ export default function DonationCheckout({
           "patronai_live_entries",
           JSON.stringify(updatedEntries),
         );
-      } catch (err) {
-        console.warn(
-          "Nie udało się zapisać alokacji do pamięci lokalnej:",
-          err,
-        );
-      }
+      } catch {}
     }
 
     if (onSuccessCallback) {
@@ -438,7 +432,7 @@ export default function DonationCheckout({
     setAmount(currency === "PLN" ? 100 : 25);
   };
 
-  // EKRAN SUKCESU: OFICJALNY CERTYFIKAT MECENASA
+  // Ekran sukcesu: Oficjalny certyfikat mecenasa
   if (paymentSuccess) {
     const resolvedGoal = formatGoalWithBarterPrefix(
       paymentSuccess.goal || currentGoal,
@@ -581,7 +575,7 @@ export default function DonationCheckout({
         </div>
       )}
 
-      {/* Wybór waluty i kwoty wsparcia (lub szacunkowej wyceny ekwiwalentu rynkowego barteru) */}
+      {/* Wybór waluty i kwoty wsparcia */}
       <AmountSelector
         currency={currency}
         amount={amount}
@@ -616,7 +610,7 @@ export default function DonationCheckout({
         </div>
       )}
 
-      {/* Baner pomocniczy po kliknięciu PayPala na urządzeniu mobilnym */}
+      {/* Baner pomocniczy po otwarciu okna na urządzeniu mobilnym */}
       {isAwaitingReturn && (
         <div className="mb-4 p-3 bg-muted/60 border border-border rounded-xl text-center space-y-2">
           <p className="text-xs text-muted-foreground">
@@ -632,16 +626,16 @@ export default function DonationCheckout({
         </div>
       )}
 
-      {/* STREFA ZATWIERDZENIA: BARTER (BEZGOTÓWKOWY) VS PAYPAL (PŁATNOŚĆ) */}
+      {/* Strefa zatwierdzenia: Barter (bezgotówkowy) vs PayPal (płatność) */}
       <div className="pt-4 border-t border-border">
         {isBarterMode ? (
-          /* ŚCIEŻKA BARTEROWA: ZERO PŁATNOŚCI PAYPAL */
+          /* Ścieżka barterowa */
           <div className="space-y-3.5">
             <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs space-y-2">
               <div className="flex justify-between items-center text-emerald-900 dark:text-emerald-200 font-bold">
                 <span>{localizedBarter.cashChargeLabel}</span>
                 <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
-                  {localizedBarter.cashChargeValue}
+                  {localizedBarter.zeroCashValue(currency)}
                 </span>
               </div>
               <div className="flex justify-between items-center text-muted-foreground">
@@ -665,7 +659,7 @@ export default function DonationCheckout({
             </button>
           </div>
         ) : (
-          /* ŚCIEŻKA FINANSOWA: BRAMKA PAYPAL */
+          /* Ścieżka finansowa PayPal */
           <div>
             <label className="block text-[11px] font-bold text-muted-foreground text-center mb-3">
               {t.paymentMethod}

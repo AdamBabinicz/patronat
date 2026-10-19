@@ -40,6 +40,8 @@ const translations = {
     testModeBadge: "Tryb testowy PayPal aktywny (client-id=test)",
     simulateSuccess: "⚡ Błyskawiczny test bez logowania do PayPal",
     cancelPayment: "Anuluj i wróć",
+    testPayerGivenName: "Testowy",
+    testPayerFamilyName: "Darczyńca",
   },
   en: {
     loading: "Loading secure PayPal checkout gateway...",
@@ -52,6 +54,8 @@ const translations = {
     testModeBadge: "PayPal Test Mode Active (client-id=test)",
     simulateSuccess: "⚡ Instant test without PayPal login",
     cancelPayment: "Cancel and return",
+    testPayerGivenName: "Test",
+    testPayerFamilyName: "Donor",
   },
 };
 
@@ -70,12 +74,15 @@ export default function PayPalButton({
   onError,
   onCancel,
 }: PayPalButtonProps) {
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [scriptError, setScriptError] = useState<string | null>(null);
 
   const buttonContainerRef = useRef<HTMLDivElement>(null);
   const isMountedRef = useRef<boolean>(true);
   const isRenderingRef = useRef<boolean>(false);
+  const buttonsInstanceRef = useRef<any>(null);
+  const loadedCurrencyRef = useRef<string | null>(null);
+  const currentRenderSessionIdRef = useRef<number>(0);
 
   const propsRef = useRef({
     amount,
@@ -113,7 +120,7 @@ export default function PayPalButton({
   const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "test";
   const isTestMode = clientId === "test";
 
-  // Obsługa powrotu z PayPala na telefonie (?canceled=true)
+  // Obsługa powrotu z PayPala na urządzeniach mobilnych (?canceled=true)
   useEffect(() => {
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
@@ -133,9 +140,9 @@ export default function PayPalButton({
 
   useEffect(() => {
     isMountedRef.current = true;
-    let buttonsInstance: any = null;
+    const sessionId = ++currentRenderSessionIdRef.current;
 
-    // Tłumienie nieistotnych ostrzeżeń zoid podczas zamykania okna popup
+    // Tłumienie znanych komunikatów zoid przy zamykaniu okna popup przez użytkownika
     const originalConsoleError = console.error;
     console.error = (...args: any[]) => {
       const errorString = args
@@ -170,22 +177,43 @@ export default function PayPalButton({
 
     window.addEventListener("unhandledrejection", handleUnhandledRejection);
 
-    const scriptId = "paypal-js-sdk";
-    const expectedSrc = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=${currency}&intent=capture`;
+    const cleanupActiveButtons = () => {
+      if (buttonsInstanceRef.current) {
+        try {
+          if (typeof buttonsInstanceRef.current.close === "function") {
+            buttonsInstanceRef.current.close();
+          }
+        } catch {}
+        buttonsInstanceRef.current = null;
+      }
+      if (buttonContainerRef.current) {
+        buttonContainerRef.current.innerHTML = "";
+      }
+      isRenderingRef.current = false;
+    };
 
     const renderButtons = () => {
-      if (!isMountedRef.current || !buttonContainerRef.current) return;
-      if (isRenderingRef.current) return;
-
+      if (
+        !isMountedRef.current ||
+        sessionId !== currentRenderSessionIdRef.current
+      ) {
+        return;
+      }
+      if (!buttonContainerRef.current) {
+        return;
+      }
+      if (isRenderingRef.current) {
+        return;
+      }
       if (!window.paypal || !window.paypal.Buttons) {
         return;
       }
 
       try {
         isRenderingRef.current = true;
-        buttonContainerRef.current.innerHTML = "";
+        cleanupActiveButtons();
 
-        buttonsInstance = window.paypal.Buttons({
+        const buttonsInstance = window.paypal.Buttons({
           style: {
             layout: "vertical",
             color: "gold",
@@ -197,14 +225,14 @@ export default function PayPalButton({
           createOrder: async (data: any, actions: any) => {
             const current = propsRef.current;
             const currentAmount = Math.max(1, Number(current.amount) || 10);
-            const currentCurrency = current.currency || "PLN";
+            const activeCurrency = current.currency || "PLN";
             const currentGoal =
               current.goal || current.description || t.defaultDescription;
             const currentDonor =
               current.donorName || current.patronName || t.anonymous;
             const currentNote = current.donorNote || current.note || "";
 
-            // 1. Próba utworzenia przez backend REST API
+            // 1. Utworzenie zlecenia przez backend REST API
             if (!isTestMode) {
               try {
                 const response = await fetch("/api/paypal/create-order", {
@@ -212,7 +240,7 @@ export default function PayPalButton({
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
                     amount: currentAmount,
-                    currency: currentCurrency,
+                    currency: activeCurrency,
                     goal: currentGoal,
                     patronName: currentDonor,
                     donorName: currentDonor,
@@ -227,21 +255,18 @@ export default function PayPalButton({
                   if (resData.id) return resData.id;
                 }
               } catch (e) {
-                console.warn(
-                  "create-order endpoint fallback to client SDK:",
-                  e,
-                );
+                // Bezpieczny fallback do klienta SDK
               }
             }
 
-            // 2. Niezawodny fallback przez PayPal Client SDK
+            // 2. Bezpieczny fallback przez PayPal Client SDK
             if (actions && actions.order) {
               return actions.order.create({
                 purchase_units: [
                   {
                     description: currentGoal.substring(0, 127),
                     amount: {
-                      currency_code: currentCurrency,
+                      currency_code: activeCurrency,
                       value: currentAmount.toFixed(2),
                     },
                   },
@@ -254,7 +279,7 @@ export default function PayPalButton({
             try {
               let details: any = null;
 
-              // Próba zapisu capture przez backend do bazy Neon
+              // 1. Zapis autoryzacji do bazy danych przez backend
               if (!isTestMode) {
                 try {
                   const current = propsRef.current;
@@ -278,14 +303,11 @@ export default function PayPalButton({
                     details = await response.json();
                   }
                 } catch (e) {
-                  console.warn(
-                    "capture-order API failed, falling back to client capture:",
-                    e,
-                  );
+                  // Fallback na bezpośrednie wykonanie capture przez klienta
                 }
               }
 
-              // Fallback capture przez klienta SDK, jeśli backend nie zwrócił danych
+              // 2. Fallback capture przez klienta SDK
               if (!details && actions && actions.order) {
                 details = await actions.order.capture();
               }
@@ -309,7 +331,6 @@ export default function PayPalButton({
             } catch (err: any) {
               const msg = String(err?.message || err);
               if (!msg.includes("zoid")) {
-                console.error("PayPal onApprove error:", err);
                 if (propsRef.current.onError) {
                   propsRef.current.onError(
                     err instanceof Error ? err : new Error(msg),
@@ -342,11 +363,16 @@ export default function PayPalButton({
           },
         });
 
-        if (buttonContainerRef.current) {
+        buttonsInstanceRef.current = buttonsInstance;
+
+        if (buttonContainerRef.current && isMountedRef.current) {
           buttonsInstance
             .render(buttonContainerRef.current)
             .then(() => {
-              if (isMountedRef.current) {
+              if (
+                isMountedRef.current &&
+                sessionId === currentRenderSessionIdRef.current
+              ) {
                 setIsLoading(false);
                 setScriptError(null);
                 isRenderingRef.current = false;
@@ -354,8 +380,13 @@ export default function PayPalButton({
             })
             .catch((err: any) => {
               const errMsg = String(err?.message || err);
-              if (!errMsg.includes("container element removed")) {
-                console.error("PayPal render error:", err);
+              if (
+                !errMsg.includes("container element removed") &&
+                !errMsg.includes("zoid")
+              ) {
+                if (isMountedRef.current) {
+                  setScriptError(t.renderError);
+                }
               }
               if (isMountedRef.current) {
                 setIsLoading(false);
@@ -364,7 +395,6 @@ export default function PayPalButton({
             });
         }
       } catch (err) {
-        console.error("PayPal Buttons initialization error:", err);
         if (isMountedRef.current) {
           setScriptError(t.renderError);
           setIsLoading(false);
@@ -373,70 +403,108 @@ export default function PayPalButton({
       }
     };
 
-    // Sprawdzenie wszystkich skryptów PayPala w dokumencie
-    const allScripts = document.querySelectorAll<HTMLScriptElement>(
-      "script[src*='paypal.com/sdk/js']",
-    );
-    let matchingScriptExists = false;
+    const expectedSrc = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=${currency}&intent=capture`;
 
-    allScripts.forEach((s) => {
-      // Jeśli skrypt ma dokładnie tę samą walutę i clientId, zachowaj go
+    // Czyszczenie niepasujących skryptów
+    const existingScripts = Array.from(
+      document.querySelectorAll<HTMLScriptElement>(
+        "script[src*='paypal.com/sdk/js']",
+      ),
+    );
+
+    let matchingScript: HTMLScriptElement | null = null;
+
+    for (const s of existingScripts) {
       if (
         s.src.includes(`currency=${currency}`) &&
         s.src.includes(`client-id=${clientId}`)
       ) {
-        matchingScriptExists = true;
+        matchingScript = s;
       } else {
-        // Jeśli skrypt ma inną walutę (np. stary EUR, a teraz USD), usuń go natychmiast
         s.remove();
       }
-    });
+    }
 
-    if (!matchingScriptExists) {
+    // Resetowanie rejestru Zoid w oknie przed dołączeniem nowego skryptu
+    const resetZoidRegistry = () => {
       try {
-        delete (window as any).paypal;
-        delete (window as any).__zoid__;
+        if (
+          typeof window !== "undefined" &&
+          window.__zoid__ &&
+          window.__zoid__.__components__
+        ) {
+          delete window.__zoid__.__components__["paypal-buttons"];
+          delete window.__zoid__.__components__["paypal-marks"];
+          delete window.__zoid__.__components__["paypal-messages"];
+        }
       } catch {}
+    };
 
+    if (!matchingScript || loadedCurrencyRef.current !== currency) {
+      cleanupActiveButtons();
+      resetZoidRegistry();
       setIsLoading(true);
-      const newScript = document.createElement("script");
-      newScript.id = scriptId;
-      newScript.src = expectedSrc;
-      newScript.async = true;
 
-      newScript.onload = () => {
-        if (isMountedRef.current) {
+      const script = document.createElement("script");
+      script.id = `paypal-sdk-${currency}`;
+      script.src = expectedSrc;
+      script.async = true;
+
+      script.onload = () => {
+        if (
+          isMountedRef.current &&
+          sessionId === currentRenderSessionIdRef.current
+        ) {
+          loadedCurrencyRef.current = currency;
           renderButtons();
         }
       };
 
-      newScript.onerror = () => {
-        if (isMountedRef.current) {
+      script.onerror = () => {
+        if (
+          isMountedRef.current &&
+          sessionId === currentRenderSessionIdRef.current
+        ) {
           setScriptError(t.sdkError);
           setIsLoading(false);
         }
       };
 
-      document.head.appendChild(newScript);
+      document.head.appendChild(script);
     } else if (window.paypal && window.paypal.Buttons) {
       renderButtons();
     } else {
-      const currentScript = document.getElementById(scriptId);
-      currentScript?.addEventListener("load", () => {
-        if (isMountedRef.current) renderButtons();
-      });
+      const activeScript = matchingScript;
+      if (activeScript) {
+        activeScript.addEventListener("load", () => {
+          if (
+            isMountedRef.current &&
+            sessionId === currentRenderSessionIdRef.current
+          ) {
+            loadedCurrencyRef.current = currency;
+            renderButtons();
+          }
+        });
+      }
     }
 
     return () => {
       isMountedRef.current = false;
-      isRenderingRef.current = false;
+      cleanupActiveButtons();
       console.error = originalConsoleError;
       window.removeEventListener(
         "unhandledrejection",
         handleUnhandledRejection,
       );
     };
-  }, [clientId, currency]);
+  }, [
+    clientId,
+    currency,
+    t.defaultDescription,
+    t.anonymous,
+    t.renderError,
+    t.sdkError,
+  ]);
 
   const handleSimulatedSuccess = () => {
     const current = propsRef.current;
@@ -452,8 +520,9 @@ export default function PayPalButton({
       donorNote: current.donorNote || current.note || "",
       payer: {
         name: {
-          given_name: current.donorName || current.patronName || "Test",
-          surname: "Donor",
+          given_name:
+            current.donorName || current.patronName || t.testPayerGivenName,
+          surname: t.testPayerFamilyName,
         },
         email_address: "test-donor@example.com",
       },

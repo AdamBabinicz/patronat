@@ -18,7 +18,7 @@ export interface InvoiceAuditData {
   isCustomUpload?: boolean;
 }
 
-// Ujednolicony typ: [patron, purpose, amount, certId, auditDataFromNeonDB?]
+// Ujednolicony typ wpisu: [patron, purpose, amount, certId, auditDataFromNeonDB?]
 export type LedgerEntry = [string, string, string, string, InvoiceAuditData?];
 
 interface LedgerAuditModalProps {
@@ -32,6 +32,24 @@ interface LedgerAuditModalProps {
   onShowCertificate: () => void;
   onClose: () => void;
 }
+
+const modalDictionary = {
+  pl: {
+    pilotItemName: "Wynajem urządzenia rekreacyjnego (atrakcje turniejowe)",
+    targetAllocationPrefix: "Alokacja celowa: ",
+    statutoryDelivery: "Realizacja Celu Statutowego",
+    statutoryDeliveryRegex: /Statutory Purpose Delivery/i,
+    emptyDashes: "—",
+  },
+  en: {
+    pilotItemName:
+      "Recreational equipment rental (youth tournament attractions)",
+    targetAllocationPrefix: "Target Allocation: ",
+    statutoryDelivery: "Statutory Purpose Delivery",
+    statutoryDeliveryRegex: /Realizacja Celu Statutowego/i,
+    emptyDashes: "—",
+  },
+};
 
 // Formatowanie daty – usunięcie polskiego "r." w wersji angielskiej
 function formatIssueDate(rawDate: string, lang: Language): string {
@@ -57,7 +75,7 @@ function formatQty(rawQty: string, lang: Language): string {
   return rawQty;
 }
 
-// Inteligentne dwukierunkowe tłumaczenie pozycji kosztowych faktur klubowych (PL <-> EN)
+// Tłumaczenie pozycji kosztowych faktur klubowych (PL <-> EN)
 function formatItemName(
   rawName: string,
   lang: Language,
@@ -67,16 +85,15 @@ function formatItemName(
 
   const trimmed = rawName.trim();
   const lower = trimmed.toLowerCase();
+  const dict = modalDictionary[lang] || modalDictionary.pl;
 
-  // 1. Specyficzne pozycje faktury pilotażowej Słodkolandii (recreation / wynajem)
+  // 1. Specyficzne pozycje faktury pilotażowej Słodkolandii
   if (
     lower.includes("wynajem urządzenia rekreacyjnego") ||
     lower.includes("recreational equipment rental") ||
     lower.includes("atrakcje turniejowe")
   ) {
-    return lang === "en"
-      ? "Recreational equipment rental (youth tournament attractions)"
-      : "Wynajem urządzenia rekreacyjnego (atrakcje turniejowe)";
+    return dict.pilotItemName;
   }
 
   // 2. Obsługa prefiksu "Alokacja celowa:" / "Target allocation:"
@@ -86,14 +103,12 @@ function formatItemName(
     .replace(/^(alokacja celowa:\s*|target allocation:\s*|alokacja:\s*)/i, "")
     .trim();
 
-  // 3. Pełne tłumaczenie przez centralny purposeMap w obu kierunkach
+  // 3. Tłumaczenie przez centralny purposeMap
   const localized = getLocalizedPurpose(cleanCore, lang);
   const localizedCore = localized.text;
 
   if (hasPrefix) {
-    const prefix =
-      targetPrefix ||
-      (lang === "pl" ? "Alokacja celowa: " : "Target Allocation: ");
+    const prefix = targetPrefix || dict.targetAllocationPrefix;
     return `${prefix}${localizedCore}`;
   }
 
@@ -106,7 +121,7 @@ function formatGrossAmount(rawGross: string, lang: Language): string {
 
   const trimmed = rawGross.trim();
 
-  // Sprawdź format z kodem waluty na końcu (np. "25 USD", "25.00 USD", "450 PLN")
+  // Format z kodem waluty na końcu (np. "25 USD", "1 300,00 PLN")
   const matchSuffix = trimmed.match(/^([\d\s.,]+)\s*([A-Z]{3})$/i);
   if (matchSuffix) {
     const numPart = matchSuffix[1].trim();
@@ -117,7 +132,7 @@ function formatGrossAmount(rawGross: string, lang: Language): string {
     return `${numPart} ${curPart}`;
   }
 
-  // Sprawdź format z kodem waluty na początku (np. "USD 25", "EUR 88")
+  // Format z kodem waluty na początku (np. "USD 25", "EUR 88")
   const matchPrefix = trimmed.match(/^([A-Z]{3})\s*([\d\s.,]+)$/i);
   if (matchPrefix) {
     const curPart = matchPrefix[1].toUpperCase();
@@ -143,18 +158,13 @@ export default function LedgerAuditModal({
   onClose,
 }: LedgerAuditModalProps) {
   const certId = entry[3];
+  const dict = modalDictionary[language] || modalDictionary.pl;
 
   // Dynamiczna lokalizacja emitenta faktury
-  const displaySeller =
-    language === "pl"
-      ? auditData.seller.replace(
-          /Statutory Purpose Delivery/i,
-          "Realizacja Celu Statutowego",
-        )
-      : auditData.seller.replace(
-          /Realizacja Celu Statutowego/i,
-          "Statutory Purpose Delivery",
-        );
+  const displaySeller = auditData.seller.replace(
+    dict.statutoryDeliveryRegex,
+    dict.statutoryDelivery,
+  );
 
   const displayIssueDate = formatIssueDate(auditData.issueDate, language);
 
@@ -191,7 +201,7 @@ export default function LedgerAuditModal({
 
         {/* Zawartość przewijalna */}
         <div className="overflow-y-auto p-5 sm:p-6 space-y-4 sm:space-y-5 text-card-foreground">
-          {/* Box wgrywania własnej faktury (Wersja pilotażowa dla sędziów) */}
+          {/* Box wgrywania własnej faktury (dla sędziów) */}
           <div className="p-4 rounded-2xl border border-dashed border-lime-500/40 bg-lime-500/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
               <p className="text-xs sm:text-sm font-semibold text-foreground flex items-center gap-1.5">
@@ -241,7 +251,7 @@ export default function LedgerAuditModal({
             </div>
           </div>
 
-          {/* Siatka metadanych dokumentu (Sprzedawca, NIP, Nr faktury, Data) */}
+          {/* Siatka metadanych dokumentu */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-2xl border border-border/60 bg-muted/20 text-xs">
             <div>
               <span className="text-muted-foreground block text-[11px] font-medium uppercase tracking-wider">
@@ -280,7 +290,7 @@ export default function LedgerAuditModal({
             </div>
           </div>
 
-          {/* Tabela pozycji rozliczonych z faktury */}
+          {/* Tabela pozycji rozliczonych z faktury (Zoptymalizowana pod Mobile) */}
           <div className="rounded-2xl border border-border/60 overflow-hidden">
             <div className="p-3 bg-muted/40 border-b border-border/40 flex items-center justify-between">
               <span className="text-xs font-semibold text-foreground">
@@ -293,7 +303,7 @@ export default function LedgerAuditModal({
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
+              <table className="w-full min-w-[340px] text-xs text-left">
                 <thead className="bg-muted/20 text-muted-foreground border-b border-border/30">
                   <tr>
                     <th className="py-2.5 px-3.5 font-medium">
@@ -333,7 +343,7 @@ export default function LedgerAuditModal({
                       {tAudit.tableTotalGross}
                     </td>
                     <td className="py-2.5 px-3 text-center text-muted-foreground">
-                      —
+                      {dict.emptyDashes}
                     </td>
                     <td className="py-2.5 px-3.5 text-right text-foreground font-mono">
                       {formatGrossAmount(auditData.totalGross, language)}
@@ -357,7 +367,7 @@ export default function LedgerAuditModal({
         </div>
 
         {/* Dolne przyciski akcji */}
-        <div className="p-4 sm:p-5 border-t border-border/40 bg-muted/20 flex flex-wrap items-center justify-end gap-3">
+        <div className="p-4 sm:p-5 border-t border-border/40 bg-muted/20 flex flex-wrap items-center justify-end gap-2.5 sm:gap-3">
           <button
             type="button"
             onClick={onShowCertificate}
